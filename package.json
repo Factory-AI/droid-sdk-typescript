@@ -1,0 +1,59 @@
+{
+  "name": "@factory/droid-sdk",
+  "version": "0.1.4",
+  "private": false,
+  "description": "TypeScript SDK for the Factory Droid CLI",
+  "keywords": ["factory", "droid", "cli", "ai", "agent", "sdk"],
+  "license": "Apache-2.0",
+  "type": "module",
+  "main": "./dist/index.cjs",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "import": {
+        "types": "./dist/index.d.ts",
+        "default": "./dist/index.js"
+      },
+      "require": {
+        "types": "./dist/index.d.cts",
+        "default": "./dist/index.cjs"
+      }
+    }
+  },
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
+  "scripts": {
+    "build": "tsup",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:coverage": "vitest run --coverage",
+    "lint": "eslint src/",
+    "fix": "eslint --fix src/"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Factory-AI/droid-sdk-typescript.git"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "dependencies": {
+    "uuid": "^11.1.0",
+    "zod": "^3.24.0"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.39.4",
+    "@types/node": "^22.15.0",
+    "@types/uuid": "^10.0.0",
+    "@vitest/coverage-v8": "^3.1.0",
+    "eslint": "^9.24.0",
+    "tsup": "^8.4.0",
+    "typescript": "^5.8.0",
+    "typescript-eslint": "^8.57.2",
+    "vitest": "^3.1.0"
+  }
+}

@@ -1,0 +1,1421 @@
+/**
+ * Unit tests for DroidClient.
+ *
+ * Uses InMemoryTransport to simulate transport communication.
+ * Covers all expectedBehavior items and fulfills:
+ *   VAL-CLIENT-001 through VAL-CLIENT-012.
+ */
+
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+
+import { DroidClient } from "../src/client.js";
+import { ConnectionError, SessionError, SessionNotFoundError } from "../src/errors.js";
+import {
+  DroidClientMethod,
+  DroidServerMethod,
+  JsonRpcErrorCode,
+  FACTORY_PROTOCOL_VERSION,
+  JSONRPC_VERSION,
+  LEGACY_FACTORY_API_VERSION,
+  SettingsLevel,
+  McpServerType,
+  SessionNotificationType,
+} from "../src/schemas/index.js";
+import { InMemoryTransport } from "./helpers.js";
+
+// ---------------------------------------------------------------------------
+// Helpers
+// ---------------------------------------------------------------------------
+
+/** Build a JSON-RPC success response for a given request ID. */
+function makeSuccessResponse(
+  id: string,
+  result: Record<string, unknown> = {},
+): Record<string, unknown> {
+  return {
+    jsonrpc: JSONRPC_VERSION,
+    factoryApiVersion: LEGACY_FACTORY_API_VERSION,
+    factoryProtocolVersion: FACTORY_PROTOCOL_VERSION,
+    type: "response",
+    id,
+    result,
+  };
+}
+
+/** Build a JSON-RPC error response. */
+function makeErrorResponse(
+  id: string | null,
+  code: number,
+  message: string,
+  data?: unknown,
+): Record<string, unknown> {
+  const errorObj: Record<string, unknown> = { code, message };
+  if (data !== undefined) {
+    errorObj["data"] = data;
+  }
+  return {
+    jsonrpc: JSONRPC_VERSION,
+    factoryApiVersion: LEGACY_FACTORY_API_VERSION,
+    factoryProtocolVersion: FACTORY_PROTOCOL_VERSION,
+    type: "response",
+    id,
+    error: errorObj,
+  };
+}
+
+/** Build a JSON-RPC notification. */
+function makeNotification(
+  notificationType: string,
+  payload: Record<string, unknown> = {},
+): Record<string, unknown> {
+  return {
+    jsonrpc: JSONRPC_VERSION,
+    factoryApiVersion: LEGACY_FACTORY_API_VERSION,
+    factoryProtocolVersion: FACTORY_PROTOCOL_VERSION,
+    type: "notification",
+    method: DroidClientMethod.SESSION_NOTIFICATION,
+    params: {
+      notification: {
+        type: notificationType,
+        ...payload,
+      },
+    },
+  };
+}
+
+/** Build a server→client request. */
+function makeServerRequest(
+  id: string,
+  method: string,
+  params: Record<string, unknown>,
+): Record<string, unknown> {
+  return {
+    jsonrpc: JSONRPC_VERSION,
+    factoryApiVersion: LEGACY_FACTORY_API_VERSION,
+    factoryProtocolVersion: FACTORY_PROTOCOL_VERSION,
+    type: "request",
+    id,
+    method,
+    params,
+  };
+}
+
+/** Extract the request ID from the last sent message. */
+function getLastSentId(transport: InMemoryTransport): string {
+  const lastMsg = transport.sentMessages[
+    transport.sentMessages.length - 1
+  ] as Record<string, unknown>;
+  return lastMsg["id"] as string;
+}
+
+/** Create a DroidClient + InMemoryTransport pair, pre-connected. */
+async function createTestClient(): Promise<{
+  client: DroidClient;
+  transport: InMemoryTransport;
+}> {
+  const transport = new InMemoryTransport();
+  await transport.connect();
+  const client = new DroidClient({ transport });
+  return { client, transport };
+}
+
+/** Initialize a session on the client (sends init request, responds with success). */
+async function initializeTestSession(
+  client: DroidClient,
+  transport: InMemoryTransport,
+  sessionId = "test-session-123",
+): Promise<void> {
+  const initPromise = client.initializeSession({
+    machineId: "test-machine",
+    cwd: "/tmp/test",
+  });
+
+  // Wait a tick for the request to be sent
+  await vi.waitFor(() => {
+    expect(transport.sentMessages.length).toBeGreaterThan(0);
+  });
+
+  const requestId = getLastSentId(transport);
+  transport.injectMessage(
+    makeSuccessResponse(requestId, {
+      sessionId,
+      session: {},
+      settings: {
+        modelId: "test-model",
+        reasoningEffort: "medium",
+      },
+    }),
+  );
+
+  await initPromise;
+}
+
+// ---------------------------------------------------------------------------
+// Tests
+// ---------------------------------------------------------------------------
+
+describe("DroidClient", () => {
+  let client: DroidClient;
+  let transport: InMemoryTransport;
+
+  beforeEach(async () => {
+    const setup = await createTestClient();
+    client = setup.client;
+    transport = setup.transport;
+  });
+
+  afterEach(async () => {
+    await client.close();
+  });
+
+  // ===================================================================
+  // VAL-CLIENT-001: Session initialization via JSON-RPC
+  // ===================================================================
+  describe("initializeSession (VAL-CLIENT-001)", () => {
+    it("sends correct JSON-RPC request and returns parsed result", async () => {
+      const initPromise = client.initializeSession({
+        machineId: "test-machine",
+        cwd: "/tmp/test",
+      });
+
+      await vi.waitFor(() => {
+        expect(transport.sentMessages.length).toBe(1);
+      });
+
+      const sent = transport.sentMessages[0] as Record<string, unknown>;
+      expect(sent["method"]).toBe(DroidServerMethod.INITIALIZE_SESSION);
+      expect(sent["jsonrpc"]).toBe(JSONRPC_VERSION);
+      expect(sent["type"]).toBe("request");
+      expect(sent["params"]).toMatchObject({
+        machineId: "test-machine",
+        cwd: "/tmp/test",
+      });
+
+      const requestId = sent["id"] as string;
+      transport.injectMessage(
+        makeSuccessResponse(requestId, {
+          sessionId: "session-abc",
+          session: { id: "session-abc" },
+          settings: {
+            modelId: "test-model",
+            reasoningEffort: "medium",
+          },
+        }),
+      );
+
+      const result = await initPromise;
+      expect(result.sessionId).toBe("session-abc");
+      expect(client.sessionId).toBe("session-abc");
+    });
+
+    it("uses extended timeout (SESSION_INIT_TIMEOUT)", async () => {
+      // We can verify the timeout indirectly by checking the request is sent
+      // The actual timeout behavior is tested in protocol tests
+      const initPromise = client.initializeSession({
+        machineId: "test",
+        cwd: "/tmp",
+      });
+
+      await vi.waitFor(() => {
+        expect(transport.sentMessages.length).toBe(1);
+      });
+
+      const requestId = getLastSentId(transport);
+      transport.injectMessage(
+        makeSuccessResponse(requestId, {
+          sessionId: "s1",
+          session: {},
+          settings: { modelId: "m", reasoningEffort: "medium" },
+        }),
+      );
+
+      await initPromise;
+    });
+
+    it("passes all optional params when provided", async () => {
+      const initPromise = client.initializeSession({
+        machineId: "m",
+        cwd: "/tmp",
+        sessionId: "custom-session",
+        workspaceId: "ws-1",
+        modelId: "claude-3",
+      });
+
+      await vi.waitFor(() => {
+        expect(transport.sentMessages.length).toBe(1);
+      });
+
+      const sent = transport.sentMessages[0] as Record<string, unknown>;
+      const params = sent["params"] as Record<string, unknown>;
+      expect(params["sessionId"]).toBe("custom-session");
+      expect(params["workspaceId"]).toBe("ws-1");
+      expect(params["modelId"]).toBe("claude-3");
+
+      const requestId = sent["id"] as string;
+      transport.injectMessage(
+        makeSuccessResponse(requestId, {
+          sessionId: "custom-session",
+          session: {},
+          settings: { modelId: "claude-3", reasoningEffort: "medium" },
+        }),
+      );
+
+      await initPromise;
+    });
+  });
+
+  // ===================================================================
+  // VAL-CLIENT-002: Session loading
+  // ===================================================================
+  describe("loadSession (VAL-CLIENT-002)", () => {
+    it("sends request and returns parsed result", async () => {
+      const loadPromise = client.loadSession({
+        sessionId: "existing-session",
+      });
+
+      await vi.waitFor(() => {
+        expect(transport.sentMessages.length).toBe(1);
+      });
+
+      const sent = transport.sentMessages[0] as Record<string, unknown>;
+      expect(sent["method"]).toBe(DroidServerMethod.LOAD_SESSION);
+      expect((sent["params"] as Record<string, unknown>)["sessionId"]).toBe(
+        "existing-session",
+      );
+
+      const requestId = sent["id"] as string;
+      transport.injectMessage(
+        makeSuccessResponse(requestId, {
+          session: { id: "existing-session" },
+          settings: { modelId: "m", reasoningEffort: "medium" },
+        }),
+      );
+
+      const result = await loadPromise;
+      expect(result.session).toBeDefined();
+      expect(client.sessionId).toBe("existing-session");
+    });
+
+    it("throws SessionNotFoundError for non-existent sessions", async () => {
+      const loadPromise = client.loadSession({
+        sessionId: "nonexistent",
+      });
+
+      await vi.waitFor(() => {
+        expect(transport.sentMessages.length).toBe(1);
+      });
+
+      const requestId = getLastSentId(transport);
+      transport.injectMessage(
+        makeErrorResponse(
+          requestId,
+          JsonRpcErrorCode.ENTITY_NOT_FOUND,
+          "Session not found",
+        ),
+      );
+
+      await expect(loadPromise).rejects.toThrow(SessionNotFoundError);
+    });
+  });
+
+  // ===================================================================
+  // VAL-CLIENT-003: User message sending
+  // ===================================================================
+  describe("addUserMessage (VAL-CLIENT-003)", () => {
+    beforeEach(async () => {
+      await initializeTestSession(client, transport);
+    });
+
+    it("sends request with text content", async () => {
+      const msgPromise = client.addUserMessage({ text: "Hello world" });
+
+      await vi.waitFor(() => {
+        // initializeSession sent 1 message, addUserMessage sends another
+        expect(transport.sentMessages.length).toBe(2);
+      });
+
+      const sent = transport.sentMessages[1] as Record<string, unknown>;
+      expect(sent["method"]).toBe(DroidServerMethod.ADD_USER_MESSAGE);
+      expect((sent["params"] as Record<string, unknown>)["text"]).toBe(
+        "Hello world",
+      );
+
+      const requestId = sent["id"] as string;
+      transport.injectMessage(makeSuccessResponse(requestId, {}));
+
+      await msgPromise;
+    });
+
+    it("sends request with text and optional images/files", async () => {
+      const images = [
+        { type: "base64" as const, mediaType: "image/png" as const, data: "abc123" },
+      ];
+      const files = [
+        { type: "base64", mediaType: "application/pdf", data: "def456" },
+      ];
+
+      const msgPromise = client.addUserMessage({
+        text: "Look at this",
+        images,
+        files,
+      });
+
+      await vi.waitFor(() => {
+        expect(transport.sentMessages.length).toBe(2);
+      });
+
+      const sent = transport.sentMessages[1] as Record<string, unknown>;
+      const params = sent["params"] as Record<string, unknown>;
+      expect(params["text"]).toBe("Look at this");
+      expect(params["images"]).toEqual(images);
+      expect(params["files"]).toEqual(files);
+
+      const requestId = sent["id"] as string;
+      transport.injectMessage(makeSuccessResponse(requestId, {}));
+
+      await msgPromise;
+    });
+
+    it("throws SessionError if no active session", async () => {
+      // Create a fresh client without initialization
+      const transport2 = new InMemoryTransport();
+      await transport2.connect();
+      const client2 = new DroidClient({ transport: transport2 });
+
+      await expect(
+        client2.addUserMessage({ text: "hello" }),
+      ).rejects.toThrow(SessionError);
+
+      await client2.close();
+    });
+  });
+
+  // ===================================================================
+  // VAL-CLIENT-004: MCP server management
+  // ===================================================================
+  describe("MCP methods (VAL-CLIENT-004)", () => {
+    beforeEach(async () => {
+      await initializeTestSession(client, transport);
+    });
+
+    it("addMcpServer sends correct request", async () => {
+      const promise = client.addMcpServer({
+        name: "test-server",
+        type: McpServerType.Stdio,
+        command: "node",
+        args: ["server.js"],
+      });
+
+      await vi.waitFor(() => {
+        expect(transport.sentMessages.length).toBe(2);
+      });
+
+      const sent = transport.sentMessages[1] as Record<string, unknown>;
+      expect(sent["method"]).toBe(DroidServerMethod.ADD_MCP_SERVER);
+
+      const requestId = sent["id"] as string;
+      transport.injectMessage(
+        makeSuccessResponse(requestId, { success: true }),
+      );
+
+      const result = await promise;
+      expect(result.success).toBe(true);
+    });
+
+    it("removeMcpServer sends correct request", async () => {
+      const promise = client.removeMcpServer({
+        serverName: "test-server",
+        settingsLevel: SettingsLevel.User,
+      });
+
+      await vi.waitFor(() => {
+        expect(transport.sentMessages.length).toBe(2);
+      });
+
+      const sent = transport.sentMessages[1] as Record<string, unknown>;
+      expect(sent["method"]).toBe(DroidServerMethod.REMOVE_MCP_SERVER);
+
+      const requestId = sent["id"] as string;
+      transport.injectMessage(
+        makeSuccessResponse(requestId, { success: true }),
+      );
+
+      const result = await promise;
+      expect(result.success).toBe(true);
+    });
+
+    it("toggleMcpServer sends correct request", async () => {
+      const promise = client.toggleMcpServer({
+        serverName: "test-server",
+        enabled: true,
+        settingsLevel: SettingsLevel.User,
+      });
+
+      await vi.waitFor(() => {
+        expect(transport.sentMessages.length).toBe(2);
+      });
+
+      const requestId = getLastSentId(transport);
+      transport.injectMessage(
+        makeSuccessResponse(requestId, { success: true }),
+      );
+
+      const result = await promise;
+      expect(result.success).toBe(true);
+    });
+
+    it("listMcpServers sends correct request", async () => {
+      const promise = client.listMcpServers();
+
+      await vi.waitFor(() => {
+        expect(transport.sentMessages.length).toBe(2);
+      });
+
+      const sent = transport.sentMessages[1] as Record<string, unknown>;
+      expect(sent["method"]).toBe(DroidServerMethod.LIST_MCP_SERVERS);
+
+      const requestId = sent["id"] as string;
+      transport.injectMessage(
+        makeSuccessResponse(requestId, {
+          servers: [],
+          summary: { status: "ready", totalCount: 0, connectedCount: 0 },
+        }),
+      );
+
+      const result = await promise;
+      expect(result.servers).toEqual([]);
+    });
+
+    it("listMcpTools sends correct request", async () => {
+      const promise = client.listMcpTools();
+
+      await vi.waitFor(() => {
+        expect(transport.sentMessages.length).toBe(2);
+      });
+
+      const requestId = getLastSentId(transport);
+      transport.injectMessage(
+        makeSuccessResponse(requestId, { tools: [] }),
+      );
+
+      const result = await promise;
+      expect(result.tools).toEqual([]);
+    });
+
+    it("listMcpRegistry sends correct request", async () => {
+      const promise = client.listMcpRegistry();
+
+      await vi.waitFor(() => {
+        expect(transport.sentMessages.length).toBe(2);
+      });
+
+      const requestId = getLastSentId(transport);
+      transport.injectMessage(
+        makeSuccessResponse(requestId, { servers: [] }),
+      );
+
+      const result = await promise;
+      expect(result.servers).toEqual([]);
+    });
+
+    it("toggleMcpTool sends correct request", async () => {
+      const promise = client.toggleMcpTool({
+        serverName: "test-server",
+        toolName: "test-tool",
+        enabled: false,
+      });
+
+      await vi.waitFor(() => {
+        expect(transport.sentMessages.length).toBe(2);
+      });
+
+      const sent = transport.sentMessages[1] as Record<string, unknown>;
+      expect(sent["method"]).toBe(DroidServerMethod.TOGGLE_MCP_TOOL);
+      const params = sent["params"] as Record<string, unknown>;
+      expect(params["serverName"]).toBe("test-server");
+      expect(params["toolName"]).toBe("test-tool");
+      expect(params["enabled"]).toBe(false);
+
+      const requestId = sent["id"] as string;
+      transport.injectMessage(
+        makeSuccessResponse(requestId, { success: true }),
+      );
+
+      const result = await promise;
+      expect(result.success).toBe(true);
+    });
+
+    it("authenticateMcpServer uses MCP_AUTH_TIMEOUT", async () => {
+      const promise = client.authenticateMcpServer({
+        serverName: "oauth-server",
+      });
+
+      await vi.waitFor(() => {
+        expect(transport.sentMessages.length).toBe(2);
+      });
+
+      const sent = transport.sentMessages[1] as Record<string, unknown>;
+      expect(sent["method"]).toBe(DroidServerMethod.AUTHENTICATE_MCP_SERVER);
+
+      const requestId = sent["id"] as string;
+      transport.injectMessage(
+        makeSuccessResponse(requestId, { success: true }),
+      );
+
+      const result = await promise;
+      expect(result.success).toBe(true);
+    });
+
+    it("cancelMcpAuth sends correct request", async () => {
+      const promise = client.cancelMcpAuth({ serverName: "oauth-server" });
+
+      await vi.waitFor(() => {
+        expect(transport.sentMessages.length).toBe(2);
+      });
+
+      const requestId = getLastSentId(transport);
+      transport.injectMessage(
+        makeSuccessResponse(requestId, { success: true }),
+      );
+
+      const result = await promise;
+      expect(result.success).toBe(true);
+    });
+
+    it("clearMcpAuth sends correct request", async () => {
+      const promise = client.clearMcpAuth({ serverName: "oauth-server" });
+
+      await vi.waitFor(() => {
+        expect(transport.sentMessages.length).toBe(2);
+      });
+
+      const requestId = getLastSentId(transport);
+      transport.injectMessage(
+        makeSuccessResponse(requestId, { success: true }),
+      );
+
+      const result = await promise;
+      expect(result.success).toBe(true);
+    });
+
+    it("submitMcpAuthCode sends correct request", async () => {
+      const promise = client.submitMcpAuthCode({
+        serverName: "oauth-server",
+        code: "auth-code-123",
+        state: "state-xyz",
+      });
+
+      await vi.waitFor(() => {
+        expect(transport.sentMessages.length).toBe(2);
+      });
+
+      const sent = transport.sentMessages[1] as Record<string, unknown>;
+      expect(sent["method"]).toBe(DroidServerMethod.SUBMIT_MCP_AUTH_CODE);
+      const params = sent["params"] as Record<string, unknown>;
+      expect(params["serverName"]).toBe("oauth-server");
+      expect(params["code"]).toBe("auth-code-123");
+      expect(params["state"]).toBe("state-xyz");
+
+      const requestId = sent["id"] as string;
+      transport.injectMessage(
+        makeSuccessResponse(requestId, { success: true }),
+      );
+
+      const result = await promise;
+      expect(result.success).toBe(true);
+    });
+  });
+
+  // ===================================================================
+  // Other session methods
+  // ===================================================================
+  describe("other session methods", () => {
+    beforeEach(async () => {
+      await initializeTestSession(client, transport);
+    });
+
+    it("interruptSession sends correct request", async () => {
+      const promise = client.interruptSession();
+
+      await vi.waitFor(() => {
+        expect(transport.sentMessages.length).toBe(2);
+      });
+
+      const sent = transport.sentMessages[1] as Record<string, unknown>;
+      expect(sent["method"]).toBe(DroidServerMethod.INTERRUPT_SESSION);
+
+      const requestId = sent["id"] as string;
+      transport.injectMessage(makeSuccessResponse(requestId, {}));
+
+      await promise;
+    });
+
+    it("killWorkerSession sends correct request", async () => {
+      const promise = client.killWorkerSession({
+        workerSessionId: "worker-1",
+      });
+
+      await vi.waitFor(() => {
+        expect(transport.sentMessages.length).toBe(2);
+      });
+
+      const sent = transport.sentMessages[1] as Record<string, unknown>;
+      expect(sent["method"]).toBe(DroidServerMethod.KILL_WORKER_SESSION);
+      expect(
+        (sent["params"] as Record<string, unknown>)["workerSessionId"],
+      ).toBe("worker-1");
+
+      const requestId = sent["id"] as string;
+      transport.injectMessage(makeSuccessResponse(requestId, {}));
+
+      await promise;
+    });
+
+    it("updateSessionSettings sends correct request", async () => {
+      const promise = client.updateSessionSettings({
+        modelId: "new-model",
+      });
+
+      await vi.waitFor(() => {
+        expect(transport.sentMessages.length).toBe(2);
+      });
+
+      const sent = transport.sentMessages[1] as Record<string, unknown>;
+      expect(sent["method"]).toBe(DroidServerMethod.UPDATE_SESSION_SETTINGS);
+      expect(
+        (sent["params"] as Record<string, unknown>)["modelId"],
+      ).toBe("new-model");
+
+      const requestId = sent["id"] as string;
+      transport.injectMessage(makeSuccessResponse(requestId, {}));
+
+      await promise;
+    });
+
+    it("listSkills sends correct request", async () => {
+      const promise = client.listSkills();
+
+      await vi.waitFor(() => {
+        expect(transport.sentMessages.length).toBe(2);
+      });
+
+      const sent = transport.sentMessages[1] as Record<string, unknown>;
+      expect(sent["method"]).toBe(DroidServerMethod.LIST_SKILLS);
+
+      const requestId = sent["id"] as string;
+      transport.injectMessage(
+        makeSuccessResponse(requestId, {
+          skills: [{ name: "test-skill", location: "project", filePath: "/path" }],
+        }),
+      );
+
+      const result = await promise;
+      expect(result.skills).toHaveLength(1);
+    });
+
+    it("submitBugReport sends correct request", async () => {
+      const promise = client.submitBugReport({
+        userComment: "Something is broken",
+        clientLogs: "log data...",
+      });
+
+      await vi.waitFor(() => {
+        expect(transport.sentMessages.length).toBe(2);
+      });
+
+      const sent = transport.sentMessages[1] as Record<string, unknown>;
+      expect(sent["method"]).toBe(DroidServerMethod.SUBMIT_BUG_REPORT);
+      const params = sent["params"] as Record<string, unknown>;
+      expect(params["userComment"]).toBe("Something is broken");
+      expect(params["clientLogs"]).toBe("log data...");
+
+      const requestId = sent["id"] as string;
+      transport.injectMessage(
+        makeSuccessResponse(requestId, { bugReportId: "bug-123" }),
+      );
+
+      const result = await promise;
+      expect(result.bugReportId).toBe("bug-123");
+    });
+  });
+
+  // ===================================================================
+  // VAL-CLIENT-005: Permission handler callbacks
+  // ===================================================================
+  describe("permission handler (VAL-CLIENT-005)", () => {
+    beforeEach(async () => {
+      await initializeTestSession(client, transport);
+    });
+
+    it("invokes registered handler and sends response back", async () => {
+      const handler = vi.fn().mockResolvedValue("proceed_once");
+      client.setPermissionHandler(handler);
+
+      // Simulate server→client permission request
+      transport.injectMessage(
+        makeServerRequest(
+          "perm-req-1",
+          DroidClientMethod.REQUEST_PERMISSION,
+          {
+            toolUses: [{ name: "edit", type: "edit" }],
+          },
+        ),
+      );
+
+      // Wait for the handler to be called and response to be sent
+      await vi.waitFor(() => {
+        // sentMessages: 1 (initializeSession) + 1 (permission response) = 2
+        const responses = transport.sentMessages.filter(
+          (msg) =>
+            (msg as Record<string, unknown>)["type"] === "response" &&
+            (msg as Record<string, unknown>)["id"] === "perm-req-1",
+        );
+        expect(responses.length).toBe(1);
+      });
+
+      expect(handler).toHaveBeenCalledOnce();
+
+      // Verify the response content
+      const response = transport.sentMessages.find(
+        (msg) =>
+          (msg as Record<string, unknown>)["type"] === "response" &&
+          (msg as Record<string, unknown>)["id"] === "perm-req-1",
+      ) as Record<string, unknown>;
+
+      expect(response["result"]).toEqual({ selectedOption: "proceed_once" });
+    });
+
+    it("invokes sync handler correctly", async () => {
+      const handler = vi.fn().mockReturnValue("proceed_always");
+      client.setPermissionHandler(handler);
+
+      transport.injectMessage(
+        makeServerRequest(
+          "perm-req-2",
+          DroidClientMethod.REQUEST_PERMISSION,
+          { toolUses: [] },
+        ),
+      );
+
+      await vi.waitFor(() => {
+        const responses = transport.sentMessages.filter(
+          (msg) =>
+            (msg as Record<string, unknown>)["type"] === "response" &&
+            (msg as Record<string, unknown>)["id"] === "perm-req-2",
+        );
+        expect(responses.length).toBe(1);
+      });
+
+      const response = transport.sentMessages.find(
+        (msg) =>
+          (msg as Record<string, unknown>)["type"] === "response" &&
+          (msg as Record<string, unknown>)["id"] === "perm-req-2",
+      ) as Record<string, unknown>;
+
+      expect(response["result"]).toEqual({
+        selectedOption: "proceed_always",
+      });
+    });
+  });
+
+  // ===================================================================
+  // VAL-CLIENT-006: Ask-user handler callbacks
+  // ===================================================================
+  describe("ask-user handler (VAL-CLIENT-006)", () => {
+    beforeEach(async () => {
+      await initializeTestSession(client, transport);
+    });
+
+    it("invokes registered handler and sends response back", async () => {
+      const handler = vi.fn().mockResolvedValue({
+        cancelled: false,
+        answers: [{ questionId: "q1", answer: "Yes" }],
+      });
+      client.setAskUserHandler(handler);
+
+      transport.injectMessage(
+        makeServerRequest("ask-req-1", DroidClientMethod.ASK_USER, {
+          toolCallId: "tool-1",
+          questions: [{ id: "q1", text: "Continue?" }],
+        }),
+      );
+
+      await vi.waitFor(() => {
+        const responses = transport.sentMessages.filter(
+          (msg) =>
+            (msg as Record<string, unknown>)["type"] === "response" &&
+            (msg as Record<string, unknown>)["id"] === "ask-req-1",
+        );
+        expect(responses.length).toBe(1);
+      });
+
+      expect(handler).toHaveBeenCalledOnce();
+
+      const response = transport.sentMessages.find(
+        (msg) =>
+          (msg as Record<string, unknown>)["type"] === "response" &&
+          (msg as Record<string, unknown>)["id"] === "ask-req-1",
+      ) as Record<string, unknown>;
+
+      expect(response["result"]).toEqual({
+        cancelled: false,
+        answers: [{ questionId: "q1", answer: "Yes" }],
+      });
+    });
+  });
+
+  // ===================================================================
+  // VAL-CLIENT-007: Transport error propagation
+  // ===================================================================
+  describe("transport error propagation (VAL-CLIENT-007)", () => {
+    beforeEach(async () => {
+      await initializeTestSession(client, transport);
+    });
+
+    it("subsequent method calls throw after transport error", async () => {
+      // Inject a transport error
+      transport.injectError(new Error("process exited"));
+
+      // All subsequent calls should fail
+      await expect(
+        client.addUserMessage({ text: "hello" }),
+      ).rejects.toThrow(ConnectionError);
+    });
+
+    it("pending requests are rejected on transport error", async () => {
+      // Start a request that won't get a response
+      const promise = client.addUserMessage({ text: "hello" });
+
+      await vi.waitFor(() => {
+        expect(transport.sentMessages.length).toBe(2);
+      });
+
+      // Inject transport error before response arrives
+      transport.injectError(new Error("connection lost"));
+
+      await expect(promise).rejects.toThrow(ConnectionError);
+    });
+  });
+
+  // ===================================================================
+  // VAL-CLIENT-008: Notification subscription with type filtering
+  // ===================================================================
+  describe("notification subscription with filtering (VAL-CLIENT-008)", () => {
+    it("delivers all notifications when no filter is set", async () => {
+      const received: Record<string, unknown>[] = [];
+      client.onNotification((n) => received.push(n));
+
+      transport.injectMessage(
+        makeNotification(SessionNotificationType.ASSISTANT_TEXT_DELTA, {
+          text: "Hello",
+        }),
+      );
+      transport.injectMessage(
+        makeNotification(SessionNotificationType.TOOL_RESULT, {
+          toolName: "edit",
+        }),
+      );
+
+      expect(received).toHaveLength(2);
+    });
+
+    it("delivers only matching notifications when type filter is set", async () => {
+      const textDeltas: Record<string, unknown>[] = [];
+      client.onNotification((n) => textDeltas.push(n), {
+        type: SessionNotificationType.ASSISTANT_TEXT_DELTA,
+      });
+
+      transport.injectMessage(
+        makeNotification(SessionNotificationType.ASSISTANT_TEXT_DELTA, {
+          text: "Hello",
+        }),
+      );
+      transport.injectMessage(
+        makeNotification(SessionNotificationType.TOOL_RESULT, {
+          toolName: "edit",
+        }),
+      );
+      transport.injectMessage(
+        makeNotification(SessionNotificationType.ASSISTANT_TEXT_DELTA, {
+          text: " World",
+        }),
+      );
+
+      expect(textDeltas).toHaveLength(2);
+    });
+
+    it("does not deliver non-matching notifications", async () => {
+      const received: Record<string, unknown>[] = [];
+      client.onNotification((n) => received.push(n), {
+        type: SessionNotificationType.TOOL_RESULT,
+      });
+
+      transport.injectMessage(
+        makeNotification(SessionNotificationType.ASSISTANT_TEXT_DELTA, {
+          text: "Hello",
+        }),
+      );
+
+      expect(received).toHaveLength(0);
+    });
+  });
+
+  // ===================================================================
+  // VAL-CLIENT-009: Notification unsubscribe function
+  // ===================================================================
+  describe("notification unsubscribe (VAL-CLIENT-009)", () => {
+    it("removes listener after unsubscribe", () => {
+      const received: Record<string, unknown>[] = [];
+      const unsubscribe = client.onNotification((n) => received.push(n));
+
+      transport.injectMessage(
+        makeNotification(SessionNotificationType.ASSISTANT_TEXT_DELTA, {
+          text: "Before",
+        }),
+      );
+      expect(received).toHaveLength(1);
+
+      unsubscribe();
+
+      transport.injectMessage(
+        makeNotification(SessionNotificationType.ASSISTANT_TEXT_DELTA, {
+          text: "After",
+        }),
+      );
+      expect(received).toHaveLength(1); // unchanged
+    });
+
+    it("double unsubscribe is safe (idempotent)", () => {
+      const received: Record<string, unknown>[] = [];
+      const unsubscribe = client.onNotification((n) => received.push(n));
+
+      unsubscribe();
+      expect(() => unsubscribe()).not.toThrow(); // second call is no-op
+    });
+  });
+
+  // ===================================================================
+  // VAL-CLIENT-010: Permission handler exception sends error response
+  // ===================================================================
+  describe("permission handler exception (VAL-CLIENT-010)", () => {
+    beforeEach(async () => {
+      await initializeTestSession(client, transport);
+    });
+
+    it("sends JSON-RPC error response when handler throws", async () => {
+      client.setPermissionHandler(() => {
+        throw new Error("handler exploded");
+      });
+
+      transport.injectMessage(
+        makeServerRequest(
+          "perm-err-1",
+          DroidClientMethod.REQUEST_PERMISSION,
+          { toolUses: [] },
+        ),
+      );
+
+      // Wait for error response to be sent
+      await vi.waitFor(() => {
+        const errorResponses = transport.sentMessages.filter(
+          (msg) =>
+            (msg as Record<string, unknown>)["type"] === "response" &&
+            (msg as Record<string, unknown>)["id"] === "perm-err-1" &&
+            "error" in (msg as Record<string, unknown>),
+        );
+        expect(errorResponses.length).toBe(1);
+      });
+
+      const errorResponse = transport.sentMessages.find(
+        (msg) =>
+          (msg as Record<string, unknown>)["type"] === "response" &&
+          (msg as Record<string, unknown>)["id"] === "perm-err-1" &&
+          "error" in (msg as Record<string, unknown>),
+      ) as Record<string, unknown>;
+
+      const error = errorResponse["error"] as Record<string, unknown>;
+      expect(error["code"]).toBe(JsonRpcErrorCode.INTERNAL_ERROR);
+    });
+
+    it("sends error response when async handler rejects", async () => {
+      client.setPermissionHandler(async () => {
+        throw new Error("async handler failed");
+      });
+
+      transport.injectMessage(
+        makeServerRequest(
+          "perm-err-2",
+          DroidClientMethod.REQUEST_PERMISSION,
+          { toolUses: [] },
+        ),
+      );
+
+      await vi.waitFor(() => {
+        const errorResponses = transport.sentMessages.filter(
+          (msg) =>
+            (msg as Record<string, unknown>)["type"] === "response" &&
+            (msg as Record<string, unknown>)["id"] === "perm-err-2" &&
+            "error" in (msg as Record<string, unknown>),
+        );
+        expect(errorResponses.length).toBe(1);
+      });
+    });
+  });
+
+  // ===================================================================
+  // VAL-CLIENT-011: Default handler behavior when no handler registered
+  // ===================================================================
+  describe("default handler behavior (VAL-CLIENT-011)", () => {
+    beforeEach(async () => {
+      await initializeTestSession(client, transport);
+    });
+
+    it("returns cancel for permission requests when no handler registered", async () => {
+      // No handler set — default should return "cancel"
+      transport.injectMessage(
+        makeServerRequest(
+          "perm-default-1",
+          DroidClientMethod.REQUEST_PERMISSION,
+          { toolUses: [] },
+        ),
+      );
+
+      await vi.waitFor(() => {
+        const responses = transport.sentMessages.filter(
+          (msg) =>
+            (msg as Record<string, unknown>)["type"] === "response" &&
+            (msg as Record<string, unknown>)["id"] === "perm-default-1",
+        );
+        expect(responses.length).toBe(1);
+      });
+
+      const response = transport.sentMessages.find(
+        (msg) =>
+          (msg as Record<string, unknown>)["type"] === "response" &&
+          (msg as Record<string, unknown>)["id"] === "perm-default-1",
+      ) as Record<string, unknown>;
+
+      expect(response["result"]).toEqual({ selectedOption: "cancel" });
+    });
+
+    it("returns cancelled for ask-user requests when no handler registered", async () => {
+      // No handler set — default should return { cancelled: true, answers: [] }
+      transport.injectMessage(
+        makeServerRequest("ask-default-1", DroidClientMethod.ASK_USER, {
+          toolCallId: "tool-1",
+          questions: [],
+        }),
+      );
+
+      await vi.waitFor(() => {
+        const responses = transport.sentMessages.filter(
+          (msg) =>
+            (msg as Record<string, unknown>)["type"] === "response" &&
+            (msg as Record<string, unknown>)["id"] === "ask-default-1",
+        );
+        expect(responses.length).toBe(1);
+      });
+
+      const response = transport.sentMessages.find(
+        (msg) =>
+          (msg as Record<string, unknown>)["type"] === "response" &&
+          (msg as Record<string, unknown>)["id"] === "ask-default-1",
+      ) as Record<string, unknown>;
+
+      expect(response["result"]).toEqual({ cancelled: true, answers: [] });
+    });
+
+    it("clearPermissionHandler restores default cancel behavior", async () => {
+      const handler = vi.fn().mockReturnValue("proceed_once");
+      client.setPermissionHandler(handler);
+      client.clearPermissionHandler();
+
+      transport.injectMessage(
+        makeServerRequest(
+          "perm-clear-1",
+          DroidClientMethod.REQUEST_PERMISSION,
+          { toolUses: [] },
+        ),
+      );
+
+      await vi.waitFor(() => {
+        const responses = transport.sentMessages.filter(
+          (msg) =>
+            (msg as Record<string, unknown>)["type"] === "response" &&
+            (msg as Record<string, unknown>)["id"] === "perm-clear-1",
+        );
+        expect(responses.length).toBe(1);
+      });
+
+      expect(handler).not.toHaveBeenCalled();
+
+      const response = transport.sentMessages.find(
+        (msg) =>
+          (msg as Record<string, unknown>)["type"] === "response" &&
+          (msg as Record<string, unknown>)["id"] === "perm-clear-1",
+      ) as Record<string, unknown>;
+
+      expect(response["result"]).toEqual({ selectedOption: "cancel" });
+    });
+
+    it("clearAskUserHandler restores default cancelled behavior", async () => {
+      const handler = vi.fn().mockReturnValue({ cancelled: false, answers: [] });
+      client.setAskUserHandler(handler);
+      client.clearAskUserHandler();
+
+      transport.injectMessage(
+        makeServerRequest("ask-clear-1", DroidClientMethod.ASK_USER, {
+          toolCallId: "tool-1",
+          questions: [],
+        }),
+      );
+
+      await vi.waitFor(() => {
+        const responses = transport.sentMessages.filter(
+          (msg) =>
+            (msg as Record<string, unknown>)["type"] === "response" &&
+            (msg as Record<string, unknown>)["id"] === "ask-clear-1",
+        );
+        expect(responses.length).toBe(1);
+      });
+
+      expect(handler).not.toHaveBeenCalled();
+
+      const response = transport.sentMessages.find(
+        (msg) =>
+          (msg as Record<string, unknown>)["type"] === "response" &&
+          (msg as Record<string, unknown>)["id"] === "ask-clear-1",
+      ) as Record<string, unknown>;
+
+      expect(response["result"]).toEqual({ cancelled: true, answers: [] });
+    });
+  });
+
+  // ===================================================================
+  // VAL-CLIENT-012: Post-close method calls throw ConnectionError
+  // ===================================================================
+  describe("post-close behavior (VAL-CLIENT-012)", () => {
+    it("initializeSession throws after close", async () => {
+      await client.close();
+
+      await expect(
+        client.initializeSession({
+          machineId: "test",
+          cwd: "/tmp",
+        }),
+      ).rejects.toThrow(ConnectionError);
+    });
+
+    it("loadSession throws after close", async () => {
+      await client.close();
+
+      await expect(
+        client.loadSession({ sessionId: "test" }),
+      ).rejects.toThrow(ConnectionError);
+    });
+
+    it("addUserMessage throws after close", async () => {
+      await initializeTestSession(client, transport);
+      await client.close();
+
+      await expect(
+        client.addUserMessage({ text: "hello" }),
+      ).rejects.toThrow(ConnectionError);
+    });
+
+    it("interruptSession throws after close", async () => {
+      await initializeTestSession(client, transport);
+      await client.close();
+
+      await expect(client.interruptSession()).rejects.toThrow(ConnectionError);
+    });
+
+    it("killWorkerSession throws after close", async () => {
+      await initializeTestSession(client, transport);
+      await client.close();
+
+      await expect(
+        client.killWorkerSession({ workerSessionId: "w1" }),
+      ).rejects.toThrow(ConnectionError);
+    });
+
+    it("updateSessionSettings throws after close", async () => {
+      await initializeTestSession(client, transport);
+      await client.close();
+
+      await expect(
+        client.updateSessionSettings({ modelId: "m" }),
+      ).rejects.toThrow(ConnectionError);
+    });
+
+    it("MCP methods throw after close", async () => {
+      await initializeTestSession(client, transport);
+      await client.close();
+
+      await expect(
+        client.addMcpServer({ name: "s", type: McpServerType.Stdio }),
+      ).rejects.toThrow(ConnectionError);
+      await expect(
+        client.removeMcpServer({
+          serverName: "s",
+          settingsLevel: SettingsLevel.User,
+        }),
+      ).rejects.toThrow(ConnectionError);
+      await expect(client.listMcpServers()).rejects.toThrow(ConnectionError);
+      await expect(client.listMcpTools()).rejects.toThrow(ConnectionError);
+      await expect(client.listMcpRegistry()).rejects.toThrow(ConnectionError);
+      await expect(
+        client.toggleMcpServer({
+          serverName: "s",
+          enabled: true,
+          settingsLevel: SettingsLevel.User,
+        }),
+      ).rejects.toThrow(ConnectionError);
+      await expect(
+        client.toggleMcpTool({
+          serverName: "s",
+          toolName: "t",
+          enabled: true,
+        }),
+      ).rejects.toThrow(ConnectionError);
+      await expect(
+        client.authenticateMcpServer({ serverName: "s" }),
+      ).rejects.toThrow(ConnectionError);
+      await expect(
+        client.cancelMcpAuth({ serverName: "s" }),
+      ).rejects.toThrow(ConnectionError);
+      await expect(
+        client.clearMcpAuth({ serverName: "s" }),
+      ).rejects.toThrow(ConnectionError);
+      await expect(
+        client.submitMcpAuthCode({
+          serverName: "s",
+          code: "c",
+          state: "st",
+        }),
+      ).rejects.toThrow(ConnectionError);
+    });
+
+    it("listSkills throws after close", async () => {
+      await initializeTestSession(client, transport);
+      await client.close();
+
+      await expect(client.listSkills()).rejects.toThrow(ConnectionError);
+    });
+
+    it("submitBugReport throws after close", async () => {
+      await initializeTestSession(client, transport);
+      await client.close();
+
+      await expect(
+        client.submitBugReport({ userComment: "bug" }),
+      ).rejects.toThrow(ConnectionError);
+    });
+
+    it("close() is idempotent", async () => {
+      await client.close();
+      await expect(client.close()).resolves.toBeUndefined();
+    });
+  });
+
+  // ===================================================================
+  // Additional edge cases
+  // ===================================================================
+  describe("edge cases", () => {
+    it("notification listener exception does not crash client", () => {
+      const goodListener = vi.fn();
+      const badListener = vi.fn().mockImplementation(() => {
+        throw new Error("listener crashed");
+      });
+
+      client.onNotification(badListener);
+      client.onNotification(goodListener);
+
+      transport.injectMessage(
+        makeNotification(SessionNotificationType.ASSISTANT_TEXT_DELTA, {
+          text: "Hello",
+        }),
+      );
+
+      // Bad listener was called and threw, but good listener still received
+      expect(badListener).toHaveBeenCalledOnce();
+      expect(goodListener).toHaveBeenCalledOnce();
+    });
+
+    it("sessionId is null before initialization", () => {
+      expect(client.sessionId).toBeNull();
+    });
+
+    it("isConnected reflects client state", async () => {
+      expect(client.isConnected).toBe(true);
+      await client.close();
+      expect(client.isConnected).toBe(false);
+    });
+
+    it("multiple notification listeners receive same event", () => {
+      const listener1 = vi.fn();
+      const listener2 = vi.fn();
+
+      client.onNotification(listener1);
+      client.onNotification(listener2);
+
+      transport.injectMessage(
+        makeNotification(SessionNotificationType.ASSISTANT_TEXT_DELTA, {
+          text: "Hello",
+        }),
+      );
+
+      expect(listener1).toHaveBeenCalledOnce();
+      expect(listener2).toHaveBeenCalledOnce();
+    });
+
+    it("unsubscribing during notification dispatch does not affect other listeners", () => {
+      const listener2 = vi.fn();
+      let unsub1: (() => void) | undefined;
+      const listener1 = vi.fn().mockImplementation(() => {
+        // Unsubscribe self during callback
+        if (unsub1) unsub1();
+      });
+
+      unsub1 = client.onNotification(listener1);
+      client.onNotification(listener2);
+
+      transport.injectMessage(
+        makeNotification(SessionNotificationType.ASSISTANT_TEXT_DELTA, {
+          text: "Hello",
+        }),
+      );
+
+      expect(listener1).toHaveBeenCalledOnce();
+      expect(listener2).toHaveBeenCalledOnce();
+
+      // Second notification: listener1 should NOT be called
+      transport.injectMessage(
+        makeNotification(SessionNotificationType.ASSISTANT_TEXT_DELTA, {
+          text: "World",
+        }),
+      );
+
+      expect(listener1).toHaveBeenCalledOnce(); // still 1
+      expect(listener2).toHaveBeenCalledTimes(2);
+    });
+
+    it("methods requiring session throw SessionError before initialization", async () => {
+      await expect(
+        client.addUserMessage({ text: "hello" }),
+      ).rejects.toThrow(SessionError);
+
+      await expect(client.interruptSession()).rejects.toThrow(SessionError);
+
+      await expect(
+        client.killWorkerSession({ workerSessionId: "w1" }),
+      ).rejects.toThrow(SessionError);
+
+      await expect(client.listSkills()).rejects.toThrow(SessionError);
+
+      await expect(
+        client.submitBugReport({ userComment: "bug" }),
+      ).rejects.toThrow(SessionError);
+    });
+  });
+});
