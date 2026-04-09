@@ -6,7 +6,7 @@
  * Ported from: packages/common/src/droid/schemas/client.ts
  */
 
-import { z } from "zod";
+import { z } from 'zod';
 
 import {
   AutonomyLevel,
@@ -20,21 +20,21 @@ import {
   ReasoningEffort,
   SettingsLevel,
   SkillLocation,
-} from "./enums.js";
+} from './enums.js';
 import {
   McpRegistryServerSchema,
   McpServerStatusInfoSchema,
   McpStatusSummarySchema,
   McpToolInfoSchema,
-} from "./mcp.js";
-import { Base64ImageSourceSchema, DocumentSourceSchema } from "./messages.js";
-import { MissionFeatureSchema, ProgressLogEntrySchema } from "./mission.js";
+} from './mcp.js';
+import { Base64ImageSourceSchema, DocumentSourceSchema } from './messages.js';
+import { MissionFeatureSchema, ProgressLogEntrySchema } from './mission.js';
 import {
   type JsonRpcResponseFailure,
   JsonRpcRequestSchema,
   JsonRpcResponseFailureSchema,
   JsonRpcResponseSuccessSchema,
-} from "./shared.js";
+} from './shared.js';
 
 // ---------------------------------------------------------------------------
 // Supporting types
@@ -84,7 +84,7 @@ export type HttpHeader = z.infer<typeof HttpHeaderSchema>;
 /** HTTP MCP server configuration for initialization. */
 export const HttpMcpConfigSchema = z
   .object({
-    type: z.literal("http"),
+    type: z.literal('http'),
     name: z.string(),
     url: z.string().url(),
     headers: HttpHeaderSchema.array().default([]),
@@ -96,7 +96,7 @@ export type HttpMcpConfig = z.infer<typeof HttpMcpConfigSchema>;
 /** SSE MCP server configuration for initialization. */
 export const SseMcpConfigSchema = z
   .object({
-    type: z.literal("sse"),
+    type: z.literal('sse'),
     name: z.string(),
     url: z.string().url(),
     headers: HttpHeaderSchema.array().default([]),
@@ -120,7 +120,10 @@ export const SessionSettingsSchema = z
     modelId: z.string(),
     reasoningEffort: z.nativeEnum(ReasoningEffort),
     autonomyMode: z.nativeEnum(AutonomyMode).optional(),
-    interactionMode: z.nativeEnum(DroidInteractionMode).optional().catch(undefined),
+    interactionMode: z
+      .nativeEnum(DroidInteractionMode)
+      .optional()
+      .catch(undefined),
     autonomyLevel: z.nativeEnum(AutonomyLevel).optional().catch(undefined),
     specModeModelId: z.string().optional(),
     specModeReasoningEffort: z.nativeEnum(ReasoningEffort).optional(),
@@ -191,7 +194,7 @@ export const SkillResourceSchema = z
   .object({
     name: z.string(),
     path: z.string(),
-    type: z.enum(["reference", "asset"]),
+    type: z.enum(['reference', 'asset']),
   })
   .passthrough();
 
@@ -227,7 +230,10 @@ export const InitializeSessionRequestParamsSchema = z
     sessionId: z.string().optional(),
     mcpServers: z.array(McpServerConfigSchema).optional(),
     autonomyMode: z.nativeEnum(AutonomyMode).optional(),
-    interactionMode: z.nativeEnum(DroidInteractionMode).optional().catch(undefined),
+    interactionMode: z
+      .nativeEnum(DroidInteractionMode)
+      .optional()
+      .catch(undefined),
     autonomyLevel: z.nativeEnum(AutonomyLevel).optional().catch(undefined),
     modelId: z.string().optional(),
     reasoningEffort: z.nativeEnum(ReasoningEffort).optional(),
@@ -299,10 +305,16 @@ export const UpdateSessionSettingsRequestParamsSchema = z
     modelId: z.string().optional(),
     reasoningEffort: z.nativeEnum(ReasoningEffort).optional(),
     autonomyMode: z.nativeEnum(AutonomyMode).optional(),
-    interactionMode: z.nativeEnum(DroidInteractionMode).optional().catch(undefined),
+    interactionMode: z
+      .nativeEnum(DroidInteractionMode)
+      .optional()
+      .catch(undefined),
     autonomyLevel: z.nativeEnum(AutonomyLevel).optional().catch(undefined),
     specModeModelId: z.string().nullable().optional(),
-    specModeReasoningEffort: z.nativeEnum(ReasoningEffort).nullable().optional(),
+    specModeReasoningEffort: z
+      .nativeEnum(ReasoningEffort)
+      .nullable()
+      .optional(),
   })
   .strict();
 
@@ -460,7 +472,9 @@ export const InitializeSessionRequestSchema = JsonRpcRequestSchema.extend({
   params: InitializeSessionRequestParamsSchema,
 });
 
-export type InitializeSessionRequest = z.infer<typeof InitializeSessionRequestSchema>;
+export type InitializeSessionRequest = z.infer<
+  typeof InitializeSessionRequestSchema
+>;
 
 export const LoadSessionRequestSchema = JsonRpcRequestSchema.extend({
   method: z.literal(DroidServerMethod.LOAD_SESSION),
@@ -481,35 +495,45 @@ export const InterruptSessionRequestSchema = JsonRpcRequestSchema.extend({
   params: InterruptSessionRequestParamsSchema,
 });
 
-export type InterruptSessionRequest = z.infer<typeof InterruptSessionRequestSchema>;
+export type InterruptSessionRequest = z.infer<
+  typeof InterruptSessionRequestSchema
+>;
 
 export const KillWorkerSessionRequestSchema = JsonRpcRequestSchema.extend({
   method: z.literal(DroidServerMethod.KILL_WORKER_SESSION),
   params: KillWorkerSessionRequestParamsSchema,
 });
 
-export type KillWorkerSessionRequest = z.infer<typeof KillWorkerSessionRequestSchema>;
+export type KillWorkerSessionRequest = z.infer<
+  typeof KillWorkerSessionRequestSchema
+>;
 
 export const UpdateSessionSettingsRequestSchema = JsonRpcRequestSchema.extend({
   method: z.literal(DroidServerMethod.UPDATE_SESSION_SETTINGS),
   params: UpdateSessionSettingsRequestParamsSchema,
 });
 
-export type UpdateSessionSettingsRequest = z.infer<typeof UpdateSessionSettingsRequestSchema>;
+export type UpdateSessionSettingsRequest = z.infer<
+  typeof UpdateSessionSettingsRequestSchema
+>;
 
 export const ToggleMcpServerRequestSchema = JsonRpcRequestSchema.extend({
   method: z.literal(DroidServerMethod.TOGGLE_MCP_SERVER),
   params: ToggleMcpServerRequestParamsSchema,
 });
 
-export type ToggleMcpServerRequest = z.infer<typeof ToggleMcpServerRequestSchema>;
+export type ToggleMcpServerRequest = z.infer<
+  typeof ToggleMcpServerRequestSchema
+>;
 
 export const AuthenticateMcpServerRequestSchema = JsonRpcRequestSchema.extend({
   method: z.literal(DroidServerMethod.AUTHENTICATE_MCP_SERVER),
   params: AuthenticateMcpServerRequestParamsSchema,
 });
 
-export type AuthenticateMcpServerRequest = z.infer<typeof AuthenticateMcpServerRequestSchema>;
+export type AuthenticateMcpServerRequest = z.infer<
+  typeof AuthenticateMcpServerRequestSchema
+>;
 
 export const CancelMcpAuthRequestSchema = JsonRpcRequestSchema.extend({
   method: z.literal(DroidServerMethod.CANCEL_MCP_AUTH),
@@ -530,7 +554,9 @@ export const SubmitMcpAuthCodeRequestSchema = JsonRpcRequestSchema.extend({
   params: SubmitMcpAuthCodeRequestParamsSchema,
 });
 
-export type SubmitMcpAuthCodeRequest = z.infer<typeof SubmitMcpAuthCodeRequestSchema>;
+export type SubmitMcpAuthCodeRequest = z.infer<
+  typeof SubmitMcpAuthCodeRequestSchema
+>;
 
 export const AddMcpServerRequestSchema = JsonRpcRequestSchema.extend({
   method: z.literal(DroidServerMethod.ADD_MCP_SERVER),
@@ -544,14 +570,18 @@ export const RemoveMcpServerRequestSchema = JsonRpcRequestSchema.extend({
   params: RemoveMcpServerRequestParamsSchema,
 });
 
-export type RemoveMcpServerRequest = z.infer<typeof RemoveMcpServerRequestSchema>;
+export type RemoveMcpServerRequest = z.infer<
+  typeof RemoveMcpServerRequestSchema
+>;
 
 export const ListMcpRegistryRequestSchema = JsonRpcRequestSchema.extend({
   method: z.literal(DroidServerMethod.LIST_MCP_REGISTRY),
   params: ListMcpRegistryRequestParamsSchema,
 });
 
-export type ListMcpRegistryRequest = z.infer<typeof ListMcpRegistryRequestSchema>;
+export type ListMcpRegistryRequest = z.infer<
+  typeof ListMcpRegistryRequestSchema
+>;
 
 export const ListMcpToolsRequestSchema = JsonRpcRequestSchema.extend({
   method: z.literal(DroidServerMethod.LIST_MCP_TOOLS),
@@ -586,10 +616,12 @@ export const SubmitBugReportRequestSchema = JsonRpcRequestSchema.extend({
   params: SubmitBugReportRequestParamsSchema,
 });
 
-export type SubmitBugReportRequest = z.infer<typeof SubmitBugReportRequestSchema>;
+export type SubmitBugReportRequest = z.infer<
+  typeof SubmitBugReportRequestSchema
+>;
 
 /** Discriminated union over all 19 client→server request types. */
-export const ClientRequestSchema = z.discriminatedUnion("method", [
+export const ClientRequestSchema = z.discriminatedUnion('method', [
   InitializeSessionRequestSchema,
   LoadSessionRequestSchema,
   AddUserMessageRequestSchema,
@@ -806,11 +838,15 @@ export const InitializeSessionResponseSchema = z.union([
   JsonRpcResponseFailureSchema,
 ]);
 
-export type InitializeSessionResponse = z.infer<typeof InitializeSessionResponseSchema>;
+export type InitializeSessionResponse = z.infer<
+  typeof InitializeSessionResponseSchema
+>;
 
 /** Concrete type for LoadSessionResponse (avoids TS7056 deep inference). */
 export type LoadSessionResponse =
-  | (Omit<z.infer<typeof JsonRpcResponseSuccessSchema>, "result"> & { result: LoadSessionResult })
+  | (Omit<z.infer<typeof JsonRpcResponseSuccessSchema>, 'result'> & {
+      result: LoadSessionResult;
+    })
   | JsonRpcResponseFailure;
 
 const _LoadSessionResponseSchema = z.union([
@@ -822,14 +858,20 @@ export const LoadSessionResponseSchema: z.ZodType<
   LoadSessionResponse,
   z.ZodTypeDef,
   unknown
-> = _LoadSessionResponseSchema as z.ZodType<LoadSessionResponse, z.ZodTypeDef, unknown>;
+> = _LoadSessionResponseSchema as z.ZodType<
+  LoadSessionResponse,
+  z.ZodTypeDef,
+  unknown
+>;
 
 export const AddUserMessageResponseSchema = z.union([
   JsonRpcResponseSuccessSchema.extend({ result: AddUserMessageResultSchema }),
   JsonRpcResponseFailureSchema,
 ]);
 
-export type AddUserMessageResponse = z.infer<typeof AddUserMessageResponseSchema>;
+export type AddUserMessageResponse = z.infer<
+  typeof AddUserMessageResponseSchema
+>;
 
 export const InterruptSessionResponseSchema = z.union([
   JsonRpcResponseSuccessSchema.extend({
@@ -838,7 +880,9 @@ export const InterruptSessionResponseSchema = z.union([
   JsonRpcResponseFailureSchema,
 ]);
 
-export type InterruptSessionResponse = z.infer<typeof InterruptSessionResponseSchema>;
+export type InterruptSessionResponse = z.infer<
+  typeof InterruptSessionResponseSchema
+>;
 
 export const KillWorkerSessionResponseSchema = z.union([
   JsonRpcResponseSuccessSchema.extend({
@@ -847,7 +891,9 @@ export const KillWorkerSessionResponseSchema = z.union([
   JsonRpcResponseFailureSchema,
 ]);
 
-export type KillWorkerSessionResponse = z.infer<typeof KillWorkerSessionResponseSchema>;
+export type KillWorkerSessionResponse = z.infer<
+  typeof KillWorkerSessionResponseSchema
+>;
 
 export const UpdateSessionSettingsResponseSchema = z.union([
   JsonRpcResponseSuccessSchema.extend({
@@ -856,7 +902,9 @@ export const UpdateSessionSettingsResponseSchema = z.union([
   JsonRpcResponseFailureSchema,
 ]);
 
-export type UpdateSessionSettingsResponse = z.infer<typeof UpdateSessionSettingsResponseSchema>;
+export type UpdateSessionSettingsResponse = z.infer<
+  typeof UpdateSessionSettingsResponseSchema
+>;
 
 export const ToggleMcpServerResponseSchema = z.union([
   JsonRpcResponseSuccessSchema.extend({
@@ -865,7 +913,9 @@ export const ToggleMcpServerResponseSchema = z.union([
   JsonRpcResponseFailureSchema,
 ]);
 
-export type ToggleMcpServerResponse = z.infer<typeof ToggleMcpServerResponseSchema>;
+export type ToggleMcpServerResponse = z.infer<
+  typeof ToggleMcpServerResponseSchema
+>;
 
 export const AuthenticateMcpServerResponseSchema = z.union([
   JsonRpcResponseSuccessSchema.extend({
@@ -874,7 +924,9 @@ export const AuthenticateMcpServerResponseSchema = z.union([
   JsonRpcResponseFailureSchema,
 ]);
 
-export type AuthenticateMcpServerResponse = z.infer<typeof AuthenticateMcpServerResponseSchema>;
+export type AuthenticateMcpServerResponse = z.infer<
+  typeof AuthenticateMcpServerResponseSchema
+>;
 
 export const CancelMcpAuthResponseSchema = z.union([
   JsonRpcResponseSuccessSchema.extend({ result: CancelMcpAuthResultSchema }),
@@ -897,7 +949,9 @@ export const SubmitMcpAuthCodeResponseSchema = z.union([
   JsonRpcResponseFailureSchema,
 ]);
 
-export type SubmitMcpAuthCodeResponse = z.infer<typeof SubmitMcpAuthCodeResponseSchema>;
+export type SubmitMcpAuthCodeResponse = z.infer<
+  typeof SubmitMcpAuthCodeResponseSchema
+>;
 
 export const AddMcpServerResponseSchema = z.union([
   JsonRpcResponseSuccessSchema.extend({ result: AddMcpServerResultSchema }),
@@ -911,7 +965,9 @@ export const RemoveMcpServerResponseSchema = z.union([
   JsonRpcResponseFailureSchema,
 ]);
 
-export type RemoveMcpServerResponse = z.infer<typeof RemoveMcpServerResponseSchema>;
+export type RemoveMcpServerResponse = z.infer<
+  typeof RemoveMcpServerResponseSchema
+>;
 
 export const ListMcpRegistryResponseSchema = z.union([
   JsonRpcResponseSuccessSchema.extend({
@@ -920,7 +976,9 @@ export const ListMcpRegistryResponseSchema = z.union([
   JsonRpcResponseFailureSchema,
 ]);
 
-export type ListMcpRegistryResponse = z.infer<typeof ListMcpRegistryResponseSchema>;
+export type ListMcpRegistryResponse = z.infer<
+  typeof ListMcpRegistryResponseSchema
+>;
 
 export const ListMcpToolsResponseSchema = z.union([
   JsonRpcResponseSuccessSchema.extend({ result: ListMcpToolsResultSchema }),
@@ -934,7 +992,9 @@ export const ListMcpServersResponseSchema = z.union([
   JsonRpcResponseFailureSchema,
 ]);
 
-export type ListMcpServersResponse = z.infer<typeof ListMcpServersResponseSchema>;
+export type ListMcpServersResponse = z.infer<
+  typeof ListMcpServersResponseSchema
+>;
 
 export const ToggleMcpToolResponseSchema = z.union([
   JsonRpcResponseSuccessSchema.extend({ result: ToggleMcpToolResultSchema }),
@@ -955,4 +1015,6 @@ export const SubmitBugReportResponseSchema = z.union([
   JsonRpcResponseFailureSchema,
 ]);
 
-export type SubmitBugReportResponse = z.infer<typeof SubmitBugReportResponseSchema>;
+export type SubmitBugReportResponse = z.infer<
+  typeof SubmitBugReportResponseSchema
+>;

@@ -9,17 +9,12 @@
  * implementation.
  */
 
-import { ConnectionError, SessionError } from "./errors.js";
+import { ConnectionError, SessionError } from './errors.js';
 import {
   ProtocolEngine,
   type NotificationCallback,
   type NotificationFilter,
-} from "./protocol.js";
-import { DroidServerMethod } from "./schemas/enums.js";
-import {
-  MCP_AUTH_TIMEOUT,
-  SESSION_INIT_TIMEOUT,
-} from "./schemas/constants.js";
+} from './protocol.js';
 import type {
   AddMcpServerRequestParams,
   AddMcpServerResult,
@@ -54,8 +49,10 @@ import type {
   ToggleMcpToolResult,
   UpdateSessionSettingsRequestParams,
   UpdateSessionSettingsResult,
-} from "./schemas/client.js";
-import type { DroidClientTransport } from "./types.js";
+} from './schemas/client.js';
+import { MCP_AUTH_TIMEOUT, SESSION_INIT_TIMEOUT } from './schemas/constants.js';
+import { DroidServerMethod } from './schemas/enums.js';
+import type { DroidClientTransport } from './types.js';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -66,7 +63,7 @@ import type { DroidClientTransport } from "./types.js";
  * Receives the full request params and returns a ToolConfirmationOutcome string.
  */
 export type ClientPermissionHandler = (
-  params: Record<string, unknown>,
+  params: Record<string, unknown>
 ) => string | Promise<string>;
 
 /**
@@ -74,7 +71,7 @@ export type ClientPermissionHandler = (
  * Receives the full request params and returns a result object.
  */
 export type ClientAskUserHandler = (
-  params: Record<string, unknown>,
+  params: Record<string, unknown>
 ) => Record<string, unknown> | Promise<Record<string, unknown>>;
 
 /**
@@ -147,10 +144,10 @@ export class DroidClient {
     // Wire up protocol engine's server→client request handlers
     // to client-level dispatch methods
     this._engine.setPermissionHandler((params) =>
-      this._dispatchPermissionRequest(params),
+      this._dispatchPermissionRequest(params)
     );
     this._engine.setAskUserHandler((params) =>
-      this._dispatchAskUserRequest(params),
+      this._dispatchAskUserRequest(params)
     );
   }
 
@@ -185,17 +182,17 @@ export class DroidClient {
    * stores the session ID internally and returns the typed result.
    */
   async initializeSession(
-    params: InitializeSessionRequestParams,
+    params: InitializeSessionRequestParams
   ): Promise<InitializeSessionResult> {
     this._ensureNotClosed();
 
     const response = await this._engine.sendRequest(
       DroidServerMethod.INITIALIZE_SESSION,
       params as unknown as Record<string, unknown>,
-      SESSION_INIT_TIMEOUT,
+      SESSION_INIT_TIMEOUT
     );
 
-    const result = (response as Record<string, unknown>)["result"] as
+    const result = (response as Record<string, unknown>)['result'] as
       | InitializeSessionResult
       | undefined;
     if (result) {
@@ -204,9 +201,9 @@ export class DroidClient {
     }
 
     // If the response has the result at top level (protocol engine returns full response)
-    if ("sessionId" in response) {
+    if ('sessionId' in response) {
       this._sessionId = (response as Record<string, unknown>)[
-        "sessionId"
+        'sessionId'
       ] as string;
       return response as unknown as InitializeSessionResult;
     }
@@ -221,17 +218,17 @@ export class DroidClient {
    * non-existent sessions (mapped from ENTITY_NOT_FOUND by the protocol engine).
    */
   async loadSession(
-    params: LoadSessionRequestParams,
+    params: LoadSessionRequestParams
   ): Promise<LoadSessionResult> {
     this._ensureNotClosed();
 
     const response = await this._engine.sendRequest(
       DroidServerMethod.LOAD_SESSION,
       params as unknown as Record<string, unknown>,
-      SESSION_INIT_TIMEOUT,
+      SESSION_INIT_TIMEOUT
     );
 
-    const result = (response as Record<string, unknown>)["result"] as
+    const result = (response as Record<string, unknown>)['result'] as
       | LoadSessionResult
       | undefined;
     if (result) {
@@ -249,18 +246,20 @@ export class DroidClient {
    * Sends `droid.add_user_message` with text and optional images/files.
    */
   async addUserMessage(
-    params: Pick<AddUserMessageRequestParams, "text"> &
-      Partial<Pick<AddUserMessageRequestParams, "images" | "files" | "messageId">>,
+    params: Pick<AddUserMessageRequestParams, 'text'> &
+      Partial<
+        Pick<AddUserMessageRequestParams, 'images' | 'files' | 'messageId'>
+      >
   ): Promise<AddUserMessageResult> {
     this._ensureNotClosed();
     this._ensureSession();
 
     const response = await this._engine.sendRequest(
       DroidServerMethod.ADD_USER_MESSAGE,
-      params as unknown as Record<string, unknown>,
+      params as unknown as Record<string, unknown>
     );
 
-    const result = (response as Record<string, unknown>)["result"];
+    const result = (response as Record<string, unknown>)['result'];
     return (result ?? response) as unknown as AddUserMessageResult;
   }
 
@@ -275,10 +274,10 @@ export class DroidClient {
 
     const response = await this._engine.sendRequest(
       DroidServerMethod.INTERRUPT_SESSION,
-      {},
+      {}
     );
 
-    const result = (response as Record<string, unknown>)["result"];
+    const result = (response as Record<string, unknown>)['result'];
     return (result ?? response) as unknown as InterruptSessionResult;
   }
 
@@ -288,17 +287,17 @@ export class DroidClient {
    * Sends `droid.kill_worker_session`.
    */
   async killWorkerSession(
-    params: KillWorkerSessionRequestParams,
+    params: KillWorkerSessionRequestParams
   ): Promise<KillWorkerSessionResult> {
     this._ensureNotClosed();
     this._ensureSession();
 
     const response = await this._engine.sendRequest(
       DroidServerMethod.KILL_WORKER_SESSION,
-      params as unknown as Record<string, unknown>,
+      params as unknown as Record<string, unknown>
     );
 
-    const result = (response as Record<string, unknown>)["result"];
+    const result = (response as Record<string, unknown>)['result'];
     return (result ?? response) as unknown as KillWorkerSessionResult;
   }
 
@@ -308,17 +307,17 @@ export class DroidClient {
    * Sends `droid.update_session_settings` with the provided partial settings.
    */
   async updateSessionSettings(
-    params: Partial<UpdateSessionSettingsRequestParams>,
+    params: Partial<UpdateSessionSettingsRequestParams>
   ): Promise<UpdateSessionSettingsResult> {
     this._ensureNotClosed();
     this._ensureSession();
 
     const response = await this._engine.sendRequest(
       DroidServerMethod.UPDATE_SESSION_SETTINGS,
-      params as unknown as Record<string, unknown>,
+      params as unknown as Record<string, unknown>
     );
 
-    const result = (response as Record<string, unknown>)["result"];
+    const result = (response as Record<string, unknown>)['result'];
     return (result ?? response) as unknown as UpdateSessionSettingsResult;
   }
 
@@ -330,17 +329,17 @@ export class DroidClient {
    * Toggle an MCP server on or off.
    */
   async toggleMcpServer(
-    params: ToggleMcpServerRequestParams,
+    params: ToggleMcpServerRequestParams
   ): Promise<ToggleMcpServerResult> {
     this._ensureNotClosed();
     this._ensureSession();
 
     const response = await this._engine.sendRequest(
       DroidServerMethod.TOGGLE_MCP_SERVER,
-      params as unknown as Record<string, unknown>,
+      params as unknown as Record<string, unknown>
     );
 
-    const result = (response as Record<string, unknown>)["result"];
+    const result = (response as Record<string, unknown>)['result'];
     return (result ?? response) as unknown as ToggleMcpServerResult;
   }
 
@@ -349,7 +348,7 @@ export class DroidClient {
    * Uses extended timeout (300s) since OAuth requires user interaction.
    */
   async authenticateMcpServer(
-    params: AuthenticateMcpServerRequestParams,
+    params: AuthenticateMcpServerRequestParams
   ): Promise<AuthenticateMcpServerResult> {
     this._ensureNotClosed();
     this._ensureSession();
@@ -357,10 +356,10 @@ export class DroidClient {
     const response = await this._engine.sendRequest(
       DroidServerMethod.AUTHENTICATE_MCP_SERVER,
       params as unknown as Record<string, unknown>,
-      MCP_AUTH_TIMEOUT,
+      MCP_AUTH_TIMEOUT
     );
 
-    const result = (response as Record<string, unknown>)["result"];
+    const result = (response as Record<string, unknown>)['result'];
     return (result ?? response) as unknown as AuthenticateMcpServerResult;
   }
 
@@ -368,17 +367,17 @@ export class DroidClient {
    * Cancel an in-progress MCP authentication.
    */
   async cancelMcpAuth(
-    params: CancelMcpAuthRequestParams,
+    params: CancelMcpAuthRequestParams
   ): Promise<CancelMcpAuthResult> {
     this._ensureNotClosed();
     this._ensureSession();
 
     const response = await this._engine.sendRequest(
       DroidServerMethod.CANCEL_MCP_AUTH,
-      params as unknown as Record<string, unknown>,
+      params as unknown as Record<string, unknown>
     );
 
-    const result = (response as Record<string, unknown>)["result"];
+    const result = (response as Record<string, unknown>)['result'];
     return (result ?? response) as unknown as CancelMcpAuthResult;
   }
 
@@ -386,17 +385,17 @@ export class DroidClient {
    * Clear stored MCP authentication tokens.
    */
   async clearMcpAuth(
-    params: ClearMcpAuthRequestParams,
+    params: ClearMcpAuthRequestParams
   ): Promise<ClearMcpAuthResult> {
     this._ensureNotClosed();
     this._ensureSession();
 
     const response = await this._engine.sendRequest(
       DroidServerMethod.CLEAR_MCP_AUTH,
-      params as unknown as Record<string, unknown>,
+      params as unknown as Record<string, unknown>
     );
 
-    const result = (response as Record<string, unknown>)["result"];
+    const result = (response as Record<string, unknown>)['result'];
     return (result ?? response) as unknown as ClearMcpAuthResult;
   }
 
@@ -404,17 +403,17 @@ export class DroidClient {
    * Submit an MCP authentication code (OAuth callback).
    */
   async submitMcpAuthCode(
-    params: SubmitMcpAuthCodeRequestParams,
+    params: SubmitMcpAuthCodeRequestParams
   ): Promise<SubmitMcpAuthCodeResult> {
     this._ensureNotClosed();
     this._ensureSession();
 
     const response = await this._engine.sendRequest(
       DroidServerMethod.SUBMIT_MCP_AUTH_CODE,
-      params as unknown as Record<string, unknown>,
+      params as unknown as Record<string, unknown>
     );
 
-    const result = (response as Record<string, unknown>)["result"];
+    const result = (response as Record<string, unknown>)['result'];
     return (result ?? response) as unknown as SubmitMcpAuthCodeResult;
   }
 
@@ -422,17 +421,17 @@ export class DroidClient {
    * Add an MCP server.
    */
   async addMcpServer(
-    params: AddMcpServerRequestParams,
+    params: AddMcpServerRequestParams
   ): Promise<AddMcpServerResult> {
     this._ensureNotClosed();
     this._ensureSession();
 
     const response = await this._engine.sendRequest(
       DroidServerMethod.ADD_MCP_SERVER,
-      params as unknown as Record<string, unknown>,
+      params as unknown as Record<string, unknown>
     );
 
-    const result = (response as Record<string, unknown>)["result"];
+    const result = (response as Record<string, unknown>)['result'];
     return (result ?? response) as unknown as AddMcpServerResult;
   }
 
@@ -440,17 +439,17 @@ export class DroidClient {
    * Remove an MCP server.
    */
   async removeMcpServer(
-    params: RemoveMcpServerRequestParams,
+    params: RemoveMcpServerRequestParams
   ): Promise<RemoveMcpServerResult> {
     this._ensureNotClosed();
     this._ensureSession();
 
     const response = await this._engine.sendRequest(
       DroidServerMethod.REMOVE_MCP_SERVER,
-      params as unknown as Record<string, unknown>,
+      params as unknown as Record<string, unknown>
     );
 
-    const result = (response as Record<string, unknown>)["result"];
+    const result = (response as Record<string, unknown>)['result'];
     return (result ?? response) as unknown as RemoveMcpServerResult;
   }
 
@@ -463,10 +462,10 @@ export class DroidClient {
 
     const response = await this._engine.sendRequest(
       DroidServerMethod.LIST_MCP_REGISTRY,
-      {},
+      {}
     );
 
-    const result = (response as Record<string, unknown>)["result"];
+    const result = (response as Record<string, unknown>)['result'];
     return (result ?? response) as unknown as ListMcpRegistryResult;
   }
 
@@ -479,10 +478,10 @@ export class DroidClient {
 
     const response = await this._engine.sendRequest(
       DroidServerMethod.LIST_MCP_TOOLS,
-      {},
+      {}
     );
 
-    const result = (response as Record<string, unknown>)["result"];
+    const result = (response as Record<string, unknown>)['result'];
     return (result ?? response) as unknown as ListMcpToolsResult;
   }
 
@@ -495,10 +494,10 @@ export class DroidClient {
 
     const response = await this._engine.sendRequest(
       DroidServerMethod.LIST_MCP_SERVERS,
-      {},
+      {}
     );
 
-    const result = (response as Record<string, unknown>)["result"];
+    const result = (response as Record<string, unknown>)['result'];
     return (result ?? response) as unknown as ListMcpServersResult;
   }
 
@@ -506,17 +505,17 @@ export class DroidClient {
    * Toggle an MCP tool on or off.
    */
   async toggleMcpTool(
-    params: ToggleMcpToolRequestParams,
+    params: ToggleMcpToolRequestParams
   ): Promise<ToggleMcpToolResult> {
     this._ensureNotClosed();
     this._ensureSession();
 
     const response = await this._engine.sendRequest(
       DroidServerMethod.TOGGLE_MCP_TOOL,
-      params as unknown as Record<string, unknown>,
+      params as unknown as Record<string, unknown>
     );
 
-    const result = (response as Record<string, unknown>)["result"];
+    const result = (response as Record<string, unknown>)['result'];
     return (result ?? response) as unknown as ToggleMcpToolResult;
   }
 
@@ -533,10 +532,10 @@ export class DroidClient {
 
     const response = await this._engine.sendRequest(
       DroidServerMethod.LIST_SKILLS,
-      {},
+      {}
     );
 
-    const result = (response as Record<string, unknown>)["result"];
+    const result = (response as Record<string, unknown>)['result'];
     return (result ?? response) as unknown as ListSkillsResult;
   }
 
@@ -544,17 +543,17 @@ export class DroidClient {
    * Submit a bug report.
    */
   async submitBugReport(
-    params: SubmitBugReportRequestParams,
+    params: SubmitBugReportRequestParams
   ): Promise<SubmitBugReportResult> {
     this._ensureNotClosed();
     this._ensureSession();
 
     const response = await this._engine.sendRequest(
       DroidServerMethod.SUBMIT_BUG_REPORT,
-      params as unknown as Record<string, unknown>,
+      params as unknown as Record<string, unknown>
     );
 
-    const result = (response as Record<string, unknown>)["result"];
+    const result = (response as Record<string, unknown>)['result'];
     return (result ?? response) as unknown as SubmitBugReportResult;
   }
 
@@ -577,7 +576,7 @@ export class DroidClient {
    */
   onNotification(
     callback: NotificationCallback,
-    filter?: NotificationFilter,
+    filter?: NotificationFilter
   ): () => void {
     const entry = {
       callback,
@@ -677,13 +676,13 @@ export class DroidClient {
    */
   private _dispatchNotification(notification: Record<string, unknown>): void {
     // Extract the notification type from the payload
-    const params = notification["params"] as
+    const params = notification['params'] as
       | Record<string, unknown>
       | undefined;
-    const innerNotification = params?.["notification"] as
+    const innerNotification = params?.['notification'] as
       | Record<string, unknown>
       | undefined;
-    const notificationType = innerNotification?.["type"] as string | undefined;
+    const notificationType = innerNotification?.['type'] as string | undefined;
 
     // Iterate over a copy in case listeners unsubscribe during iteration
     const listeners = [...this._notificationListeners];
@@ -711,11 +710,11 @@ export class DroidClient {
    * which sends an error response.
    */
   private _dispatchPermissionRequest(
-    params: Record<string, unknown>,
+    params: Record<string, unknown>
   ): string | Promise<string> {
     const handler = this._permissionHandler;
     if (handler == null) {
-      return "cancel";
+      return 'cancel';
     }
     return handler(params);
   }
@@ -727,7 +726,7 @@ export class DroidClient {
    * which sends an error response.
    */
   private _dispatchAskUserRequest(
-    params: Record<string, unknown>,
+    params: Record<string, unknown>
   ): Record<string, unknown> | Promise<Record<string, unknown>> {
     const handler = this._askUserHandler;
     if (handler == null) {
@@ -746,7 +745,7 @@ export class DroidClient {
   private _ensureNotClosed(): void {
     if (this._closed) {
       throw new ConnectionError(
-        "Client has been closed. Create a new DroidClient instance to reconnect.",
+        'Client has been closed. Create a new DroidClient instance to reconnect.'
       );
     }
   }
@@ -757,7 +756,7 @@ export class DroidClient {
   private _ensureSession(): void {
     if (this._sessionId == null) {
       throw new SessionError(
-        "No active session. Call initializeSession or loadSession first.",
+        'No active session. Call initializeSession or loadSession first.'
       );
     }
   }

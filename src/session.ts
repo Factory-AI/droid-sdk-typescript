@@ -26,19 +26,13 @@
  * ```
  */
 
-import { DroidClient } from "./client.js";
+import { DroidClient } from './client.js';
 import type {
   ClientAskUserHandler,
   ClientPermissionHandler,
-} from "./client.js";
-import { ConnectionError } from "./errors.js";
-import {
-  convertNotificationToStreamMessage,
-  StreamStateTracker,
-} from "./stream.js";
-import type { DroidMessage, TokenUsageUpdate } from "./stream.js";
-import { ProcessTransport } from "./transport.js";
-import type { DroidClientTransport, ProcessTransportOptions } from "./types.js";
+} from './client.js';
+import { ConnectionError } from './errors.js';
+import type { NotificationCallback, NotificationFilter } from './protocol.js';
 import type {
   AddMcpServerRequestParams,
   AddMcpServerResult,
@@ -57,13 +51,19 @@ import type {
   ToggleMcpServerResult,
   UpdateSessionSettingsRequestParams,
   UpdateSessionSettingsResult,
-} from "./schemas/client.js";
+} from './schemas/client.js';
 import type {
   AutonomyLevel,
   DroidInteractionMode,
   ReasoningEffort,
-} from "./schemas/enums.js";
-import type { NotificationCallback, NotificationFilter } from "./protocol.js";
+} from './schemas/enums.js';
+import {
+  convertNotificationToStreamMessage,
+  StreamStateTracker,
+} from './stream.js';
+import type { DroidMessage, TokenUsageUpdate } from './stream.js';
+import { ProcessTransport } from './transport.js';
+import type { DroidClientTransport, ProcessTransportOptions } from './types.js';
 
 // ---------------------------------------------------------------------------
 // DroidResult
@@ -205,7 +205,7 @@ export class DroidSession {
   constructor(
     client: DroidClient,
     sessionId: string,
-    initResult: InitializeSessionResult | LoadSessionResult,
+    initResult: InitializeSessionResult | LoadSessionResult
   ) {
     this._client = client;
     this._sessionId = sessionId;
@@ -242,7 +242,7 @@ export class DroidSession {
    */
   async *stream(
     text: string,
-    options?: MessageOptions,
+    options?: MessageOptions
   ): AsyncGenerator<DroidMessage, void, undefined> {
     this._ensureNotClosed();
 
@@ -274,15 +274,19 @@ export class DroidSession {
 
     // Subscribe to notifications for this turn
     const unsubscribe = this._client.onNotification((notification) => {
-      const params = notification["params"] as Record<string, unknown> | undefined;
-      const innerNotification = params?.["notification"] as Record<string, unknown> | undefined;
+      const params = notification['params'] as
+        | Record<string, unknown>
+        | undefined;
+      const innerNotification = params?.['notification'] as
+        | Record<string, unknown>
+        | undefined;
 
       if (!innerNotification) {
         return;
       }
 
       const converted = convertNotificationToStreamMessage(
-        innerNotification as { type: string; [key: string]: unknown },
+        innerNotification as { type: string; [key: string]: unknown }
       );
 
       if (converted === null) {
@@ -297,7 +301,7 @@ export class DroidSession {
         const additional = stateTracker.processMessage(msg);
         for (const extra of additional) {
           enqueueMessage(extra);
-          if (extra.type === "turn_complete") {
+          if (extra.type === 'turn_complete') {
             signalDone();
           }
         }
@@ -318,7 +322,7 @@ export class DroidSession {
           const msg = messageQueue.shift()!;
           yield msg;
 
-          if (msg.type === "turn_complete") {
+          if (msg.type === 'turn_complete') {
             return;
           }
         }
@@ -347,28 +351,25 @@ export class DroidSession {
    * @param options - Optional images/files to include.
    * @returns Aggregated result with text, messages, and token usage.
    */
-  async send(
-    text: string,
-    options?: MessageOptions,
-  ): Promise<DroidResult> {
+  async send(text: string, options?: MessageOptions): Promise<DroidResult> {
     this._ensureNotClosed();
 
     const messages: DroidMessage[] = [];
-    let fullText = "";
+    let fullText = '';
     let lastTokenUsage: TokenUsageUpdate | null = null;
 
     for await (const msg of this.stream(text, options)) {
       messages.push(msg);
 
-      if (msg.type === "assistant_text_delta") {
+      if (msg.type === 'assistant_text_delta') {
         fullText += msg.text;
       }
 
-      if (msg.type === "token_usage_update") {
+      if (msg.type === 'token_usage_update') {
         lastTokenUsage = msg;
       }
 
-      if (msg.type === "turn_complete" && msg.tokenUsage) {
+      if (msg.type === 'turn_complete' && msg.tokenUsage) {
         lastTokenUsage = msg.tokenUsage;
       }
     }
@@ -419,7 +420,7 @@ export class DroidSession {
    * @param params - Partial settings to update.
    */
   async updateSettings(
-    params: Partial<UpdateSessionSettingsRequestParams>,
+    params: Partial<UpdateSessionSettingsRequestParams>
   ): Promise<UpdateSessionSettingsResult> {
     this._ensureNotClosed();
     return this._client.updateSessionSettings(params);
@@ -433,7 +434,7 @@ export class DroidSession {
    * Add an MCP server to the session.
    */
   async addMcpServer(
-    params: AddMcpServerRequestParams,
+    params: AddMcpServerRequestParams
   ): Promise<AddMcpServerResult> {
     this._ensureNotClosed();
     return this._client.addMcpServer(params);
@@ -443,7 +444,7 @@ export class DroidSession {
    * Remove an MCP server from the session.
    */
   async removeMcpServer(
-    params: RemoveMcpServerRequestParams,
+    params: RemoveMcpServerRequestParams
   ): Promise<RemoveMcpServerResult> {
     this._ensureNotClosed();
     return this._client.removeMcpServer(params);
@@ -453,7 +454,7 @@ export class DroidSession {
    * Toggle an MCP server on or off.
    */
   async toggleMcpServer(
-    params: ToggleMcpServerRequestParams,
+    params: ToggleMcpServerRequestParams
   ): Promise<ToggleMcpServerResult> {
     this._ensureNotClosed();
     return this._client.toggleMcpServer(params);
@@ -479,7 +480,7 @@ export class DroidSession {
    * Authenticate an MCP server (OAuth flow).
    */
   async authenticateMcpServer(
-    params: AuthenticateMcpServerRequestParams,
+    params: AuthenticateMcpServerRequestParams
   ): Promise<AuthenticateMcpServerResult> {
     this._ensureNotClosed();
     return this._client.authenticateMcpServer(params);
@@ -510,7 +511,7 @@ export class DroidSession {
    */
   onNotification(
     callback: NotificationCallback,
-    filter?: NotificationFilter,
+    filter?: NotificationFilter
   ): () => void {
     return this._client.onNotification(callback, filter);
   }
@@ -522,7 +523,7 @@ export class DroidSession {
   private _ensureNotClosed(): void {
     if (this._closed) {
       throw new ConnectionError(
-        "Session has been closed. Create a new session to continue.",
+        'Session has been closed. Create a new session to continue.'
       );
     }
   }
@@ -550,7 +551,7 @@ export class DroidSession {
  * ```
  */
 export async function createSession(
-  options: CreateSessionOptions = {},
+  options: CreateSessionOptions = {}
 ): Promise<DroidSession> {
   // 1. Create transport
   let transport: DroidClientTransport;
@@ -581,8 +582,8 @@ export async function createSession(
 
   // 4. Initialize session
   const initParams: Record<string, unknown> = {
-    machineId: options.machineId ?? "default",
-    cwd: options.cwd ?? ".",
+    machineId: options.machineId ?? 'default',
+    cwd: options.cwd ?? '.',
   };
 
   if (options.modelId !== undefined) {
@@ -606,7 +607,7 @@ export async function createSession(
 
   try {
     const initResult = await client.initializeSession(
-      initParams as unknown as InitializeSessionRequestParams,
+      initParams as unknown as InitializeSessionRequestParams
     );
 
     return new DroidSession(client, initResult.sessionId, initResult);
@@ -642,7 +643,7 @@ export async function createSession(
  */
 export async function resumeSession(
   sessionId: string,
-  options: ResumeSessionOptions = {},
+  options: ResumeSessionOptions = {}
 ): Promise<DroidSession> {
   // 1. Create transport
   let transport: DroidClientTransport;

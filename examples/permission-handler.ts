@@ -9,7 +9,7 @@
  *   npx tsx examples/permission-handler.ts
  */
 
-import { query, ToolConfirmationOutcome } from "../src/index.js";
+import { query, ToolConfirmationOutcome } from '../src/index.js';
 
 /**
  * Custom permission handler that logs tool information and approves
@@ -37,7 +37,8 @@ function permissionHandler(params: Record<string, unknown>): string {
 
 async function main(): Promise<void> {
   const prompt =
-    process.argv[2] ?? "Create a file called hello.txt with the text 'Hello, World!'";
+    process.argv[2] ??
+    "Create a file called hello.txt with the text 'Hello, World!'";
 
   console.log(`Sending prompt: "${prompt}"\n`);
 
@@ -49,26 +50,24 @@ async function main(): Promise<void> {
 
   for await (const msg of stream) {
     switch (msg.type) {
-      case "assistant_text_delta":
+      case 'assistant_text_delta':
         process.stdout.write(msg.text);
         break;
 
-      case "tool_use":
+      case 'tool_use':
         console.log(`\n[Tool Use] ${msg.toolName}`);
         break;
 
-      case "tool_result":
-        console.log(
-          `[Tool Result] ${msg.isError ? "Error" : "Success"}`,
-        );
+      case 'tool_result':
+        console.log(`[Tool Result] ${msg.isError ? 'Error' : 'Success'}`);
         break;
 
-      case "turn_complete":
-        console.log("\n\n--- Turn complete ---");
+      case 'turn_complete':
+        console.log('\n\n--- Turn complete ---');
         if (msg.tokenUsage) {
           console.log(
             `Tokens — input: ${msg.tokenUsage.inputTokens}, ` +
-              `output: ${msg.tokenUsage.outputTokens}`,
+              `output: ${msg.tokenUsage.outputTokens}`
           );
         }
         break;
@@ -77,6 +76,6 @@ async function main(): Promise<void> {
 }
 
 main().catch((err: unknown) => {
-  console.error("Error:", err);
+  console.error('Error:', err);
   process.exit(1);
 });

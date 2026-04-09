@@ -4,9 +4,14 @@
  * Ported from: packages/common/src/droid/schemas/mcp.ts
  */
 
-import { z } from "zod";
+import { z } from 'zod';
 
-import { McpServerStatus, McpServerType, SettingsLevel, ToolConfirmationOutcome } from "./enums.js";
+import {
+  McpServerStatus,
+  McpServerType,
+  SettingsLevel,
+  ToolConfirmationOutcome,
+} from './enums.js';
 
 // ---------------------------------------------------------------------------
 // MCP server config field schemas

@@ -4,9 +4,9 @@
  * Ported from: packages/common/src/droid/schemas/cli.ts
  */
 
-import { z } from "zod";
+import { z } from 'zod';
 
-import { TokenUsageSchema } from "./client.js";
+import { TokenUsageSchema } from './client.js';
 import {
   AutonomyLevel,
   AutonomyMode,
@@ -20,20 +20,20 @@ import {
   SessionNotificationType,
   ToolConfirmationOutcome,
   ToolConfirmationType,
-} from "./enums.js";
-import { FactoryDroidMessageSchema } from "./messages.js";
+} from './enums.js';
 import {
   McpServerStatusInfoSchema,
   McpStatusSummarySchema,
   ToolConfirmationListItemSchema,
-} from "./mcp.js";
-import { MissionFeatureSchema, ProgressLogEntrySchema } from "./mission.js";
+} from './mcp.js';
+import { FactoryDroidMessageSchema } from './messages.js';
+import { MissionFeatureSchema, ProgressLogEntrySchema } from './mission.js';
 import {
   JsonRpcNotificationSchema,
   JsonRpcRequestSchema,
   JsonRpcResponseFailureSchema,
   JsonRpcResponseSuccessSchema,
-} from "./shared.js";
+} from './shared.js';
 
 // ---------------------------------------------------------------------------
 // Supporting types for notification payloads
@@ -42,7 +42,7 @@ import {
 /** Tool use block (from ToolUseSchema in sessionV2/messages). */
 export const ToolUseSchema = z
   .object({
-    type: z.literal("tool_use"),
+    type: z.literal('tool_use'),
     id: z.string(),
     input: z.record(z.unknown()),
     name: z.string(),
@@ -65,7 +65,7 @@ export type ErrorDetail = z.infer<typeof ErrorDetailSchema>;
 /** Streaming update from subagent tool calls. */
 export const ToolProgressUpdateSchema = z
   .object({
-    type: z.enum(["tool_call", "tool_result", "error", "status", "message"]),
+    type: z.enum(['tool_call', 'tool_result', 'error', 'status', 'message']),
     toolName: z.string().optional(),
     status: z.string().optional(),
     details: z.string().optional(),
@@ -84,7 +84,10 @@ export type ToolProgressUpdate = z.infer<typeof ToolProgressUpdateSchema>;
 export const SettingsUpdatedPayloadSchema = z
   .object({
     autonomyMode: z.nativeEnum(AutonomyMode).optional(),
-    interactionMode: z.nativeEnum(DroidInteractionMode).optional().catch(undefined),
+    interactionMode: z
+      .nativeEnum(DroidInteractionMode)
+      .optional()
+      .catch(undefined),
     autonomyLevel: z.nativeEnum(AutonomyLevel).optional().catch(undefined),
     modelId: z.string().optional(),
     reasoningEffort: z.nativeEnum(ReasoningEffort).optional(),
@@ -394,8 +397,8 @@ export const SessionNotificationSchemaList = [
 
 /** Discriminated union over all 20 session notification types. */
 export const SessionNotificationPayloadSchema = z.discriminatedUnion(
-  "type",
-  SessionNotificationSchemaList,
+  'type',
+  SessionNotificationSchemaList
 );
 
 export type SessionNotificationPayload = z.infer<
@@ -424,7 +427,7 @@ export const SessionNotificationSchema: z.ZodType<any> =
   });
 
 export type SessionNotification = z.output<typeof JsonRpcNotificationSchema> & {
-  method: "droid.session_notification";
+  method: 'droid.session_notification';
   params: SessionNotificationParams;
 };
 
@@ -571,7 +574,7 @@ export type McpToolConfirmationDetails = z.infer<
 >;
 
 /** Discriminated union over tool confirmation detail types. */
-export const ToolConfirmationDetailsSchema = z.discriminatedUnion("type", [
+export const ToolConfirmationDetailsSchema = z.discriminatedUnion('type', [
   EditToolConfirmationDetailsSchema,
   ExecuteToolConfirmationDetailsSchema,
   CreateToolConfirmationDetailsSchema,

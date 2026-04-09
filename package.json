@@ -3,7 +3,14 @@
   "version": "0.1.4",
   "private": false,
   "description": "TypeScript SDK for the Factory Droid CLI",
-  "keywords": ["factory", "droid", "cli", "ai", "agent", "sdk"],
+  "keywords": [
+    "factory",
+    "droid",
+    "cli",
+    "ai",
+    "agent",
+    "sdk"
+  ],
   "license": "Apache-2.0",
   "type": "module",
   "main": "./dist/index.cjs",
@@ -28,11 +35,14 @@
   ],
   "scripts": {
     "build": "tsup",
+    "prepack": "npm run build",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "test:coverage": "vitest run --coverage",
-    "lint": "eslint src/",
-    "fix": "eslint --fix src/"
+    "lint": "eslint src/ tests/",
+    "fix": "eslint --fix src/ tests/",
+    "format": "prettier --write .",
+    "format:check": "prettier --check ."
   },
   "repository": {
     "type": "git",
@@ -51,6 +61,10 @@
     "@types/uuid": "^10.0.0",
     "@vitest/coverage-v8": "^3.1.0",
     "eslint": "^9.24.0",
+    "eslint-import-resolver-typescript": "^4.4.4",
+    "eslint-plugin-import": "^2.32.0",
+    "eslint-plugin-unused-imports": "^4.4.1",
+    "prettier": "^3.8.1",
     "tsup": "^8.4.0",
     "typescript": "^5.8.0",
     "typescript-eslint": "^8.57.2",

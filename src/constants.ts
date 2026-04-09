@@ -10,4 +10,4 @@ export {
   DEFAULT_REQUEST_TIMEOUT,
   SESSION_INIT_TIMEOUT,
   MCP_AUTH_TIMEOUT,
-} from "./schemas/constants.js";
+} from './schemas/constants.js';

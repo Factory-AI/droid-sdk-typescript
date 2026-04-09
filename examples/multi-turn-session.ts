@@ -9,7 +9,7 @@
  *   npx tsx examples/multi-turn-session.ts
  */
 
-import { createSession } from "../src/index.js";
+import { createSession } from '../src/index.js';
 
 async function main(): Promise<void> {
   // Create a new session
@@ -17,56 +17,54 @@ async function main(): Promise<void> {
   console.log(`Session created: ${session.sessionId}\n`);
 
   // --- Turn 1: Streaming ---
-  console.log("=== Turn 1 (streaming) ===");
+  console.log('=== Turn 1 (streaming) ===');
   console.log('Prompt: "List the TypeScript files in this project"\n');
 
   for await (const msg of session.stream(
-    "List the TypeScript files in this project",
+    'List the TypeScript files in this project'
   )) {
-    if (msg.type === "assistant_text_delta") {
+    if (msg.type === 'assistant_text_delta') {
       process.stdout.write(msg.text);
     }
-    if (msg.type === "turn_complete") {
-      console.log("\n");
+    if (msg.type === 'turn_complete') {
+      console.log('\n');
     }
   }
 
   // --- Turn 2: Streaming ---
-  console.log("=== Turn 2 (streaming) ===");
+  console.log('=== Turn 2 (streaming) ===');
   console.log('Prompt: "How many lines of code total?"\n');
 
-  for await (const msg of session.stream(
-    "How many lines of code total?",
-  )) {
-    if (msg.type === "assistant_text_delta") {
+  for await (const msg of session.stream('How many lines of code total?')) {
+    if (msg.type === 'assistant_text_delta') {
       process.stdout.write(msg.text);
     }
-    if (msg.type === "turn_complete") {
-      console.log("\n");
+    if (msg.type === 'turn_complete') {
+      console.log('\n');
     }
   }
 
   // --- Turn 3: Non-streaming (send) ---
-  console.log("=== Turn 3 (non-streaming) ===");
+  console.log('=== Turn 3 (non-streaming) ===');
   console.log('Prompt: "Summarize the project in one sentence"\n');
 
-  const result = await session.send("Summarize the project in one sentence");
+  const result = await session.send('Summarize the project in one sentence');
 
-  console.log("Response:", result.text);
+  console.log('Response:', result.text);
   console.log(`Messages received: ${result.messages.length}`);
   if (result.tokenUsage) {
     console.log(
       `Tokens — input: ${result.tokenUsage.inputTokens}, ` +
-        `output: ${result.tokenUsage.outputTokens}`,
+        `output: ${result.tokenUsage.outputTokens}`
     );
   }
 
   // --- Cleanup ---
   await session.close();
-  console.log("\nSession closed.");
+  console.log('\nSession closed.');
 }
 
 main().catch((err: unknown) => {
-  console.error("Error:", err);
+  console.error('Error:', err);
   process.exit(1);
 });

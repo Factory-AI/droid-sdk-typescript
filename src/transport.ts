@@ -6,24 +6,24 @@
  * stdin/stdout.
  */
 
-import { type ChildProcess, spawn } from "node:child_process";
-import * as readline from "node:readline";
+import { type ChildProcess, spawn } from 'node:child_process';
+import * as readline from 'node:readline';
 
-import { ConnectionError, ProcessExitError } from "./errors.js";
+import { ConnectionError, ProcessExitError } from './errors.js';
 import type {
   DroidClientTransport,
   ErrorCallback,
   MessageCallback,
   ProcessTransportOptions,
-} from "./types.js";
+} from './types.js';
 
 /** Default arguments for `droid exec`. */
 const DEFAULT_EXEC_ARGS = [
-  "exec",
-  "--input-format",
-  "stream-jsonrpc",
-  "--output-format",
-  "stream-jsonrpc",
+  'exec',
+  '--input-format',
+  'stream-jsonrpc',
+  '--output-format',
+  'stream-jsonrpc',
 ];
 
 /** Default grace period in milliseconds before escalating SIGTERM → SIGKILL. */
@@ -66,7 +66,7 @@ export class ProcessTransport implements DroidClientTransport {
   private isClosing = false;
 
   constructor(options: ProcessTransportOptions = {}) {
-    this.execPath = options.execPath ?? "droid";
+    this.execPath = options.execPath ?? 'droid';
     this.execArgs = options.execArgs
       ? [...options.execArgs]
       : [...DEFAULT_EXEC_ARGS];
@@ -86,7 +86,7 @@ export class ProcessTransport implements DroidClientTransport {
 
   async connect(): Promise<void> {
     if (this._isConnected) {
-      throw new ConnectionError("Transport already connected", {
+      throw new ConnectionError('Transport already connected', {
         execPath: this.execPath,
       });
     }
@@ -96,13 +96,11 @@ export class ProcessTransport implements DroidClientTransport {
     this.isClosing = false;
     this.writeChain = Promise.resolve();
 
-    const mergedEnv = this.env
-      ? { ...process.env, ...this.env }
-      : undefined;
+    const mergedEnv = this.env ? { ...process.env, ...this.env } : undefined;
 
     try {
       this.childProcess = spawn(this.execPath, this.execArgs, {
-        stdio: ["pipe", "pipe", "pipe"],
+        stdio: ['pipe', 'pipe', 'pipe'],
         cwd: this.cwd,
         env: mergedEnv,
       });
@@ -110,7 +108,7 @@ export class ProcessTransport implements DroidClientTransport {
       const message =
         err instanceof Error
           ? `Failed to start droid process: ${err.message}`
-          : "Failed to start droid process";
+          : 'Failed to start droid process';
       throw new ConnectionError(message, {
         execPath: this.execPath,
         cwd: this.cwd,
@@ -125,17 +123,13 @@ export class ProcessTransport implements DroidClientTransport {
     if (this.processError) {
       throw this.processError;
     }
-    if (
-      !this._isConnected ||
-      !this.childProcess ||
-      !this.childProcess.stdin
-    ) {
-      throw new ConnectionError("Transport not connected", {
+    if (!this._isConnected || !this.childProcess || !this.childProcess.stdin) {
+      throw new ConnectionError('Transport not connected', {
         execPath: this.execPath,
       });
     }
 
-    const line = JSON.stringify(message) + "\n";
+    const line = JSON.stringify(message) + '\n';
 
     // Chain writes to prevent interleaving on concurrent calls.
     const previousChain = this.writeChain;
@@ -151,7 +145,7 @@ export class ProcessTransport implements DroidClientTransport {
         this.childProcess.killed ||
         this.isClosing
       ) {
-        throw new ConnectionError("Process disconnected before write", {
+        throw new ConnectionError('Process disconnected before write', {
           execPath: this.execPath,
         });
       }
@@ -163,19 +157,19 @@ export class ProcessTransport implements DroidClientTransport {
       await new Promise<void>((resolve, reject) => {
         if (!this.childProcess || !this.childProcess.stdin) {
           reject(
-            new ConnectionError("Process stdin unavailable", {
+            new ConnectionError('Process stdin unavailable', {
               execPath: this.execPath,
-            }),
+            })
           );
           return;
         }
 
         const stdin = this.childProcess.stdin;
-        if ("writable" in stdin && !stdin.writable) {
+        if ('writable' in stdin && !stdin.writable) {
           reject(
-            new ConnectionError("Process stdin is not writable", {
+            new ConnectionError('Process stdin is not writable', {
               execPath: this.execPath,
-            }),
+            })
           );
           return;
         }
@@ -183,18 +177,18 @@ export class ProcessTransport implements DroidClientTransport {
         stdin.write(line, (error) => {
           if (error) {
             const msg = error.message || String(error);
-            if (msg.includes("EPIPE") || msg.includes("ECONNRESET")) {
+            if (msg.includes('EPIPE') || msg.includes('ECONNRESET')) {
               reject(
-                new ConnectionError("Process stdin closed during write", {
+                new ConnectionError('Process stdin closed during write', {
                   execPath: this.execPath,
-                }),
+                })
               );
             } else {
               reject(
                 new ConnectionError(
                   `Failed to write to process stdin: ${msg}`,
-                  { execPath: this.execPath },
-                ),
+                  { execPath: this.execPath }
+                )
               );
             }
           } else {
@@ -235,14 +229,14 @@ export class ProcessTransport implements DroidClientTransport {
           // Escalate to SIGKILL
           if (proc.exitCode === null && !proc.killed) {
             try {
-              proc.kill("SIGKILL");
+              proc.kill('SIGKILL');
             } catch {
               // Process may already be gone
             }
           }
         }, this.gracePeriodMs);
 
-        proc.once("exit", () => {
+        proc.once('exit', () => {
           clearTimeout(timeout);
           resolve();
         });
@@ -257,7 +251,7 @@ export class ProcessTransport implements DroidClientTransport {
         }
 
         try {
-          proc.kill("SIGTERM");
+          proc.kill('SIGTERM');
         } catch {
           // Process may already be gone — resolve immediately
           clearTimeout(timeout);
@@ -285,17 +279,21 @@ export class ProcessTransport implements DroidClientTransport {
       crlfDelay: Infinity,
     });
 
-    this.readlineInterface.on("line", (line) => {
+    this.readlineInterface.on('line', (line) => {
       const trimmed = line.trim();
       if (!trimmed) {
         return;
       }
 
       // Only attempt to parse lines that look like JSON objects / arrays
-      if (trimmed.startsWith("{") || trimmed.startsWith("[")) {
+      if (trimmed.startsWith('{') || trimmed.startsWith('[')) {
         try {
           const parsed: unknown = JSON.parse(trimmed);
-          if (this.messageHandler && typeof parsed === "object" && parsed !== null) {
+          if (
+            this.messageHandler &&
+            typeof parsed === 'object' &&
+            parsed !== null
+          ) {
             this.messageHandler(parsed as object);
           }
         } catch {
@@ -306,13 +304,13 @@ export class ProcessTransport implements DroidClientTransport {
     });
 
     // Handle spawn errors (ENOENT etc.)
-    proc.on("error", (error) => {
+    proc.on('error', (error) => {
       this.processError = new ConnectionError(
         `Failed to start droid process: ${error.message}`,
         {
           execPath: this.execPath,
           cwd: this.cwd,
-        },
+        }
       );
       this._isConnected = false;
       if (!this.isClosing && this.errorHandler) {
@@ -321,7 +319,7 @@ export class ProcessTransport implements DroidClientTransport {
     });
 
     // Handle process exit
-    proc.on("exit", (code, signal) => {
+    proc.on('exit', (code, signal) => {
       if (this.readlineInterface) {
         this.readlineInterface.close();
         this.readlineInterface = null;
@@ -339,9 +337,9 @@ export class ProcessTransport implements DroidClientTransport {
         } else if (exitCode !== null && exitCode !== 0) {
           message = `Droid process exited unexpectedly (exit code ${exitCode})`;
         } else if (exitCode === 0) {
-          message = "Droid process exited normally";
+          message = 'Droid process exited normally';
         } else {
-          message = "Droid process exited unexpectedly";
+          message = 'Droid process exited unexpectedly';
         }
 
         this.processError = new ProcessExitError(message, {

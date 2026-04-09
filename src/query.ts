@@ -19,23 +19,24 @@
  * ```
  */
 
-import { DroidClient } from "./client.js";
-import type { ClientPermissionHandler, ClientAskUserHandler } from "./client.js";
-import {
-  convertNotificationToStreamMessage,
-  StreamStateTracker,
-} from "./stream.js";
-import type { DroidMessage } from "./stream.js";
-import { ProcessTransport } from "./transport.js";
-import type { DroidClientTransport, ProcessTransportOptions } from "./types.js";
+import { DroidClient } from './client.js';
 import type {
-  InitializeSessionRequestParams,
-} from "./schemas/client.js";
+  ClientPermissionHandler,
+  ClientAskUserHandler,
+} from './client.js';
+import type { InitializeSessionRequestParams } from './schemas/client.js';
 import type {
   AutonomyLevel,
   DroidInteractionMode,
   ReasoningEffort,
-} from "./schemas/enums.js";
+} from './schemas/enums.js';
+import {
+  convertNotificationToStreamMessage,
+  StreamStateTracker,
+} from './stream.js';
+import type { DroidMessage } from './stream.js';
+import { ProcessTransport } from './transport.js';
+import type { DroidClientTransport, ProcessTransportOptions } from './types.js';
 
 // ---------------------------------------------------------------------------
 // QueryOptions
@@ -111,7 +112,11 @@ export interface QueryOptions {
  * - `abort()` — forcefully closes the transport/kills the subprocess
  * - `sessionId` — the session ID assigned during initialization
  */
-export interface DroidQuery extends AsyncGenerator<DroidMessage, void, undefined> {
+export interface DroidQuery extends AsyncGenerator<
+  DroidMessage,
+  void,
+  undefined
+> {
   /** Send an interrupt_session request. The stream continues until the agent stops. */
   interrupt(): Promise<void>;
 
@@ -196,7 +201,11 @@ export function query(options: QueryOptions): DroidQuery {
   /**
    * The core async generator that drives the query lifecycle.
    */
-  async function* generateMessages(): AsyncGenerator<DroidMessage, void, undefined> {
+  async function* generateMessages(): AsyncGenerator<
+    DroidMessage,
+    void,
+    undefined
+  > {
     // 1. Create transport
     if (options.transport) {
       transport = options.transport;
@@ -228,15 +237,19 @@ export function query(options: QueryOptions): DroidQuery {
 
     client.onNotification((notification) => {
       // Extract the inner notification payload
-      const params = notification["params"] as Record<string, unknown> | undefined;
-      const innerNotification = params?.["notification"] as Record<string, unknown> | undefined;
+      const params = notification['params'] as
+        | Record<string, unknown>
+        | undefined;
+      const innerNotification = params?.['notification'] as
+        | Record<string, unknown>
+        | undefined;
 
       if (!innerNotification) {
         return;
       }
 
       const converted = convertNotificationToStreamMessage(
-        innerNotification as { type: string; [key: string]: unknown },
+        innerNotification as { type: string; [key: string]: unknown }
       );
 
       if (converted === null) {
@@ -252,7 +265,7 @@ export function query(options: QueryOptions): DroidQuery {
         const additional = stateTracker.processMessage(msg);
         for (const extra of additional) {
           enqueueMessage(extra);
-          if (extra.type === "turn_complete") {
+          if (extra.type === 'turn_complete') {
             signalDone();
           }
         }
@@ -261,8 +274,8 @@ export function query(options: QueryOptions): DroidQuery {
 
     // 5. Initialize session
     const initParams: Record<string, unknown> = {
-      machineId: options.machineId ?? "default",
-      cwd: options.cwd ?? ".",
+      machineId: options.machineId ?? 'default',
+      cwd: options.cwd ?? '.',
     };
 
     if (options.modelId !== undefined) {
@@ -285,7 +298,7 @@ export function query(options: QueryOptions): DroidQuery {
     }
 
     const initResult = await client.initializeSession(
-      initParams as unknown as InitializeSessionRequestParams,
+      initParams as unknown as InitializeSessionRequestParams
     );
     sessionId = initResult.sessionId;
 
@@ -305,7 +318,7 @@ export function query(options: QueryOptions): DroidQuery {
           const msg = messageQueue.shift()!;
           yield msg;
 
-          if (msg.type === "turn_complete") {
+          if (msg.type === 'turn_complete') {
             return;
           }
         }
@@ -329,7 +342,11 @@ export function query(options: QueryOptions): DroidQuery {
   const generator = generateMessages();
 
   // Wrap it with cleanup in finally
-  async function* wrappedGenerator(): AsyncGenerator<DroidMessage, void, undefined> {
+  async function* wrappedGenerator(): AsyncGenerator<
+    DroidMessage,
+    void,
+    undefined
+  > {
     try {
       yield* generator;
     } finally {

@@ -10,7 +10,7 @@ import type {
   DroidClientTransport,
   ErrorCallback,
   MessageCallback,
-} from "../src/types.js";
+} from '../src/types.js';
 
 /**
  * In-memory transport mock for testing.
@@ -46,7 +46,7 @@ export class InMemoryTransport implements DroidClientTransport {
 
   send(message: object): void {
     if (!this._isConnected) {
-      throw new Error("InMemoryTransport is not connected");
+      throw new Error('InMemoryTransport is not connected');
     }
     this.sentMessages.push(message);
   }
