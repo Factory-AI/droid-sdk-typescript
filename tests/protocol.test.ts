@@ -743,6 +743,76 @@ describe('ProtocolEngine', () => {
   });
 
   // =======================================================================
+  // #19 — Unknown server→client method ignored
+  // =======================================================================
+  describe('unknown server→client request method', () => {
+    it('unknown method is silently ignored without sending a response', () => {
+      const sentBefore = transport.sentMessages.length;
+
+      // Inject a server request with an unknown method
+      transport.injectMessage(
+        makeServerRequest('unknown-req-1', 'droid.unknown_method', {
+          foo: 'bar',
+        })
+      );
+
+      // No response should have been sent
+      expect(transport.sentMessages.length).toBe(sentBefore);
+    });
+
+    it('does not throw or affect subsequent requests', async () => {
+      // Inject unknown method
+      transport.injectMessage(
+        makeServerRequest('unknown-req-2', 'droid.nonexistent', {})
+      );
+
+      // Engine should still work for normal requests
+      const promise = engine.sendRequest('droid.method', {});
+      const id = (transport.sentMessages[0] as Record<string, unknown>)[
+        'id'
+      ] as string;
+      transport.injectMessage(makeSuccessResponse(id, { ok: true }));
+
+      const result = await promise;
+      expect(result).toEqual({ ok: true });
+    });
+  });
+
+  // =======================================================================
+  // #20 — _sendResponse failure silently caught
+  // =======================================================================
+  describe('_sendResponse failure is silently caught', () => {
+    it('does not throw when transport.send() fails during permission response', async () => {
+      const transport2 = new InMemoryTransport();
+      await transport2.connect();
+      const engine2 = new ProtocolEngine({ transport: transport2 });
+
+      engine2.setPermissionHandler(() => 'proceed_once');
+
+      // Override send to throw
+      transport2.send = () => {
+        throw new Error('EPIPE: broken pipe');
+      };
+
+      // Inject a permission request — should not crash the engine
+      transport2.injectMessage(
+        makeServerRequest('perm-fail-1', DroidClientMethod.REQUEST_PERMISSION, {
+          toolUses: [],
+        })
+      );
+
+      // Wait for handler to run
+      await new Promise((resolve) => setTimeout(resolve, 10));
+
+      // Engine should still be healthy (not crashed)
+      // Verify by checking no unhandled error propagated
+      // (if it threw, the test would have failed)
+
+      await engine2.close();
+    });
+  });
+
+  // =======================================================================
   // Additional edge cases
   // =======================================================================
   describe('edge cases', () => {

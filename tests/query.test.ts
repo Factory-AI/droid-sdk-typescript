@@ -57,6 +57,22 @@ function makeNotification(
   };
 }
 
+function makeServerRequest(
+  id: string,
+  method: string,
+  params: Record<string, unknown> = {}
+): Record<string, unknown> {
+  return {
+    jsonrpc: JSONRPC_VERSION,
+    factoryApiVersion: LEGACY_FACTORY_API_VERSION,
+    factoryProtocolVersion: FACTORY_PROTOCOL_VERSION,
+    type: 'request',
+    id,
+    method,
+    params,
+  };
+}
+
 /**
  * Simulate a full query lifecycle on the transport:
  * 1. Respond to initializeSession request
@@ -510,6 +526,158 @@ describe('query()', () => {
     });
   });
 
+  // =========================================================================
+  // #13 — query().abort() before initialization
+  // =========================================================================
+  describe('abort before initialization', () => {
+    it('abort() during init terminates generator without hanging', async () => {
+      const transport = new InMemoryTransport();
+      await transport.connect();
+
+      // Transport that never responds to init (simulates slow startup)
+      const originalSend = transport.send.bind(transport);
+      transport.send = (message: object) => {
+        originalSend(message);
+        // Never respond — init hangs
+      };
+
+      const q = query({ prompt: 'Test', transport });
+
+      // Abort after a short delay (init is pending)
+      setTimeout(() => q.abort(), 50);
+
+      const messages: DroidMessage[] = [];
+      // The for-await should terminate because abort() kills the transport
+      // which rejects the pending init request
+      try {
+        for await (const msg of q) {
+          messages.push(msg);
+        }
+      } catch {
+        // Expected — abort during init causes a ConnectionError
+      }
+
+      // Transport should be closed
+      expect(transport.isConnected).toBe(false);
+    });
+  });
+
+  // =========================================================================
+  // #21 — query() with askUserHandler
+  // =========================================================================
+  describe('query() with askUserHandler', () => {
+    it('invokes askUserHandler when server sends ASK_USER request', async () => {
+      const transport = new InMemoryTransport();
+      await transport.connect();
+
+      let askHandlerCalled = false;
+      let receivedParams: Record<string, unknown> | null = null;
+
+      const originalSend = transport.send.bind(transport);
+      transport.send = (message: object) => {
+        originalSend(message);
+        const msg = message as Record<string, unknown>;
+        const method = msg['method'] as string;
+        const id = msg['id'] as string;
+
+        if (method === DroidServerMethod.INITIALIZE_SESSION) {
+          queueMicrotask(() => {
+            transport.injectMessage(
+              makeSuccessResponse(id, {
+                sessionId: 'sess-ask-query',
+                session: {},
+                settings: { modelId: 'test', reasoningEffort: 'medium' },
+              })
+            );
+          });
+        } else if (method === DroidServerMethod.ADD_USER_MESSAGE) {
+          queueMicrotask(() => {
+            transport.injectMessage(makeSuccessResponse(id, {}));
+
+            transport.injectMessage(
+              makeNotification(
+                SessionNotificationType.DROID_WORKING_STATE_CHANGED,
+                { newState: DroidWorkingState.StreamingAssistantMessage }
+              )
+            );
+
+            // Server sends ASK_USER request
+            transport.injectMessage(
+              makeServerRequest('ask-q-1', DroidClientMethod.ASK_USER, {
+                questions: [
+                  {
+                    index: 0,
+                    topic: 'Lang',
+                    question: 'Which language?',
+                    options: ['TypeScript', 'Python'],
+                  },
+                ],
+              })
+            );
+
+            // After handler responds, continue
+            setTimeout(() => {
+              transport.injectMessage(
+                makeNotification(SessionNotificationType.ASSISTANT_TEXT_DELTA, {
+                  messageId: 'msg-1',
+                  blockIndex: 0,
+                  textDelta: 'Using TypeScript.',
+                })
+              );
+
+              transport.injectMessage(
+                makeNotification(
+                  SessionNotificationType.DROID_WORKING_STATE_CHANGED,
+                  { newState: DroidWorkingState.Idle }
+                )
+              );
+            }, 30);
+          });
+        }
+      };
+
+      const q = query({
+        prompt: 'Set up project',
+        transport,
+        askUserHandler: (params) => {
+          askHandlerCalled = true;
+          receivedParams = params;
+          return {
+            cancelled: false,
+            answers: [
+              { index: 0, question: 'Which language?', answer: 'TypeScript' },
+            ],
+          };
+        },
+      });
+
+      const messages: DroidMessage[] = [];
+      for await (const msg of q) {
+        messages.push(msg);
+      }
+
+      expect(askHandlerCalled).toBe(true);
+      expect(receivedParams).not.toBeNull();
+      expect(
+        (receivedParams as unknown as Record<string, unknown>)['questions']
+      ).toBeDefined();
+
+      // Verify response was sent back
+      const askResponse = transport.sentMessages.find(
+        (m) =>
+          (m as Record<string, unknown>)['type'] === 'response' &&
+          (m as Record<string, unknown>)['id'] === 'ask-q-1'
+      ) as Record<string, unknown>;
+      expect(askResponse).toBeDefined();
+      expect(
+        (askResponse['result'] as Record<string, unknown>)['cancelled']
+      ).toBe(false);
+
+      // Stream should have completed
+      expect(messages[messages.length - 1].type).toBe('turn_complete');
+    });
+  });
+
   describe('permission and ask-user handlers', () => {
     it('invokes permissionHandler when set', async () => {
       const transport = new InMemoryTransport();
@@ -539,15 +707,13 @@ describe('query()', () => {
             transport.injectMessage(makeSuccessResponse(id, {}));
 
             // Send a permission request from the server
-            transport.injectMessage({
-              jsonrpc: JSONRPC_VERSION,
-              factoryApiVersion: LEGACY_FACTORY_API_VERSION,
-              factoryProtocolVersion: FACTORY_PROTOCOL_VERSION,
-              type: 'request',
-              id: 'perm-req-1',
-              method: DroidClientMethod.REQUEST_PERMISSION,
-              params: { toolName: 'execute', command: 'rm -rf /' },
-            });
+            transport.injectMessage(
+              makeServerRequest(
+                'perm-req-1',
+                DroidClientMethod.REQUEST_PERMISSION,
+                { toolName: 'execute', command: 'rm -rf /' }
+              )
+            );
 
             // After response, continue streaming
             setTimeout(() => {
