@@ -304,10 +304,9 @@ export function query(options: QueryOptions): DroidQuery {
       const messages = Array.isArray(converted) ? converted : [converted];
 
       for (const msg of messages) {
-        enqueueMessage(msg);
+        const { message, additional } = stateTracker.processMessage(msg);
+        enqueueMessage(message);
 
-        // Check for TurnComplete via state tracker
-        const additional = stateTracker.processMessage(msg);
         for (const extra of additional) {
           enqueueMessage(extra);
           if (extra.type === 'turn_complete') {

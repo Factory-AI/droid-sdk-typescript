@@ -37,6 +37,7 @@
     "build": "tsup",
     "prepack": "npm run build",
     "typecheck": "tsc --noEmit",
+    "typecheck:examples": "tsc --noEmit -p tsconfig.examples.json",
     "test": "vitest run",
     "test:coverage": "vitest run --coverage",
     "lint": "eslint src/ tests/",
