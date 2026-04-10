@@ -1317,9 +1317,196 @@ describe('DroidClient', () => {
       ).rejects.toThrow(ConnectionError);
     });
 
+    it('rewind/compact/fork methods throw after close', async () => {
+      await initializeTestSession(client, transport);
+      await client.close();
+
+      await expect(
+        client.getRewindInfo({ messageId: 'msg-1' })
+      ).rejects.toThrow(ConnectionError);
+      await expect(
+        client.executeRewind({
+          messageId: 'msg-1',
+          filesToRestore: [],
+          filesToDelete: [],
+          forkTitle: 'test',
+        })
+      ).rejects.toThrow(ConnectionError);
+      await expect(client.compactSession({})).rejects.toThrow(ConnectionError);
+      await expect(client.forkSession()).rejects.toThrow(ConnectionError);
+    });
+
     it('close() is idempotent', async () => {
       await client.close();
       await expect(client.close()).resolves.toBeUndefined();
+    });
+  });
+
+  // ===================================================================
+  // Rewind / Compact / Fork methods
+  // ===================================================================
+  describe('getRewindInfo', () => {
+    beforeEach(async () => {
+      await initializeTestSession(client, transport);
+    });
+
+    it('sends correct request and returns parsed result', async () => {
+      const promise = client.getRewindInfo({ messageId: 'msg-abc' });
+
+      await vi.waitFor(() => {
+        expect(transport.sentMessages.length).toBe(2);
+      });
+
+      const sent = transport.sentMessages[1] as Record<string, unknown>;
+      expect(sent['method']).toBe(DroidServerMethod.GET_REWIND_INFO);
+      expect((sent['params'] as Record<string, unknown>)['messageId']).toBe(
+        'msg-abc'
+      );
+
+      const requestId = sent['id'] as string;
+      transport.injectMessage(
+        makeSuccessResponse(requestId, {
+          availableFiles: [
+            { filePath: '/src/main.ts', contentHash: 'abc123', size: 1024 },
+          ],
+          createdFiles: [{ filePath: '/src/new.ts' }],
+          evictedFiles: [{ filePath: '/src/old.ts', reason: 'too large' }],
+        })
+      );
+
+      const result = await promise;
+      expect(result.availableFiles).toHaveLength(1);
+      expect(result.availableFiles[0].filePath).toBe('/src/main.ts');
+      expect(result.createdFiles).toHaveLength(1);
+      expect(result.evictedFiles).toHaveLength(1);
+    });
+  });
+
+  describe('executeRewind', () => {
+    beforeEach(async () => {
+      await initializeTestSession(client, transport);
+    });
+
+    it('sends correct request and returns parsed result', async () => {
+      const promise = client.executeRewind({
+        messageId: 'msg-abc',
+        filesToRestore: [
+          { filePath: '/src/main.ts', contentHash: 'abc123', size: 1024 },
+        ],
+        filesToDelete: [{ filePath: '/src/new.ts' }],
+        forkTitle: 'Rewind to before refactor',
+      });
+
+      await vi.waitFor(() => {
+        expect(transport.sentMessages.length).toBe(2);
+      });
+
+      const sent = transport.sentMessages[1] as Record<string, unknown>;
+      expect(sent['method']).toBe(DroidServerMethod.EXECUTE_REWIND);
+      const params = sent['params'] as Record<string, unknown>;
+      expect(params['messageId']).toBe('msg-abc');
+      expect(params['forkTitle']).toBe('Rewind to before refactor');
+
+      const requestId = sent['id'] as string;
+      transport.injectMessage(
+        makeSuccessResponse(requestId, {
+          newSessionId: 'new-session-123',
+          restoredCount: 1,
+          deletedCount: 1,
+          failedRestoreCount: 0,
+          failedDeleteCount: 0,
+        })
+      );
+
+      const result = await promise;
+      expect(result.newSessionId).toBe('new-session-123');
+      expect(result.restoredCount).toBe(1);
+      expect(result.deletedCount).toBe(1);
+      expect(result.failedRestoreCount).toBe(0);
+      expect(result.failedDeleteCount).toBe(0);
+    });
+  });
+
+  describe('compactSession', () => {
+    beforeEach(async () => {
+      await initializeTestSession(client, transport);
+    });
+
+    it('sends correct request and returns parsed result', async () => {
+      const promise = client.compactSession({
+        customInstructions: 'Keep code context',
+      });
+
+      await vi.waitFor(() => {
+        expect(transport.sentMessages.length).toBe(2);
+      });
+
+      const sent = transport.sentMessages[1] as Record<string, unknown>;
+      expect(sent['method']).toBe(DroidServerMethod.COMPACT_SESSION);
+      expect(
+        (sent['params'] as Record<string, unknown>)['customInstructions']
+      ).toBe('Keep code context');
+
+      const requestId = sent['id'] as string;
+      transport.injectMessage(
+        makeSuccessResponse(requestId, {
+          newSessionId: 'compact-session-456',
+          removedCount: 42,
+        })
+      );
+
+      const result = await promise;
+      expect(result.newSessionId).toBe('compact-session-456');
+      expect(result.removedCount).toBe(42);
+    });
+
+    it('sends request with empty params when no custom instructions', async () => {
+      const promise = client.compactSession({});
+
+      await vi.waitFor(() => {
+        expect(transport.sentMessages.length).toBe(2);
+      });
+
+      const sent = transport.sentMessages[1] as Record<string, unknown>;
+      expect(sent['method']).toBe(DroidServerMethod.COMPACT_SESSION);
+
+      const requestId = sent['id'] as string;
+      transport.injectMessage(
+        makeSuccessResponse(requestId, {
+          newSessionId: 'compact-session-789',
+          removedCount: 10,
+        })
+      );
+
+      const result = await promise;
+      expect(result.newSessionId).toBe('compact-session-789');
+    });
+  });
+
+  describe('forkSession', () => {
+    beforeEach(async () => {
+      await initializeTestSession(client, transport);
+    });
+
+    it('sends correct request and returns parsed result', async () => {
+      const promise = client.forkSession();
+
+      await vi.waitFor(() => {
+        expect(transport.sentMessages.length).toBe(2);
+      });
+
+      const sent = transport.sentMessages[1] as Record<string, unknown>;
+      expect(sent['method']).toBe(DroidServerMethod.FORK_SESSION);
+
+      const requestId = sent['id'] as string;
+      transport.injectMessage(
+        makeSuccessResponse(requestId, {
+          newSessionId: 'forked-session-001',
+        })
+      );
+
+      const result = await promise;
+      expect(result.newSessionId).toBe('forked-session-001');
     });
   });
 
@@ -1421,6 +1608,23 @@ describe('DroidClient', () => {
       await expect(
         client.submitBugReport({ userComment: 'bug' })
       ).rejects.toThrow(SessionError);
+
+      await expect(
+        client.getRewindInfo({ messageId: 'msg-1' })
+      ).rejects.toThrow(SessionError);
+
+      await expect(
+        client.executeRewind({
+          messageId: 'msg-1',
+          filesToRestore: [],
+          filesToDelete: [],
+          forkTitle: 'test',
+        })
+      ).rejects.toThrow(SessionError);
+
+      await expect(client.compactSession({})).rejects.toThrow(SessionError);
+
+      await expect(client.forkSession()).rejects.toThrow(SessionError);
     });
   });
 });
