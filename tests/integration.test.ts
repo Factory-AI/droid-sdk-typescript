@@ -848,6 +848,214 @@ describe('Permission handler integration (VAL-CROSS-003)', () => {
     }
   });
 
+  it('handles two permission requests in a single turn', async () => {
+    const transport = new InMemoryTransport();
+    await transport.connect();
+
+    const handlerCalls: Record<string, unknown>[] = [];
+
+    wireTransport(transport, 'sess-multi-perm', {
+      [DroidServerMethod.ADD_USER_MESSAGE]: (id) => {
+        queueMicrotask(() => {
+          transport.injectMessage(makeSuccessResponse(id, {}));
+
+          transport.injectMessage(
+            makeNotification(
+              SessionNotificationType.DROID_WORKING_STATE_CHANGED,
+              { newState: DroidWorkingState.StreamingAssistantMessage }
+            )
+          );
+
+          transport.injectMessage(
+            makeNotification(SessionNotificationType.ASSISTANT_TEXT_DELTA, {
+              messageId: 'msg-1',
+              blockIndex: 0,
+              textDelta: 'Need two permissions.',
+            })
+          );
+
+          // First permission request
+          transport.injectMessage(
+            makeServerRequest(
+              'perm-multi-1',
+              DroidClientMethod.REQUEST_PERMISSION,
+              {
+                toolName: 'execute',
+                command: 'npm test',
+                confirmationType: 'exec',
+                toolUseIds: ['tu-1'],
+              }
+            )
+          );
+
+          // After first permission handled, send tool result + second permission
+          setTimeout(() => {
+            transport.injectMessage(
+              makeNotification(SessionNotificationType.TOOL_RESULT, {
+                messageId: 'msg-tr-1',
+                toolUseId: 'tu-1',
+                content: 'test output',
+                isError: false,
+              })
+            );
+
+            // Second permission request
+            transport.injectMessage(
+              makeServerRequest(
+                'perm-multi-2',
+                DroidClientMethod.REQUEST_PERMISSION,
+                {
+                  toolName: 'edit',
+                  path: '/tmp/file.ts',
+                  confirmationType: 'edit',
+                  toolUseIds: ['tu-2'],
+                }
+              )
+            );
+
+            // After second permission handled, finish
+            setTimeout(() => {
+              transport.injectMessage(
+                makeNotification(SessionNotificationType.TOOL_RESULT, {
+                  messageId: 'msg-tr-2',
+                  toolUseId: 'tu-2',
+                  content: 'edited',
+                  isError: false,
+                })
+              );
+
+              transport.injectMessage(
+                makeNotification(
+                  SessionNotificationType.DROID_WORKING_STATE_CHANGED,
+                  { newState: DroidWorkingState.Idle }
+                )
+              );
+            }, 20);
+          }, 20);
+        });
+      },
+    });
+
+    const messages: DroidMessage[] = [];
+    const q = query({
+      prompt: 'Do two things',
+      transport,
+      permissionHandler: (params) => {
+        handlerCalls.push(params);
+        return ToolConfirmationOutcome.ProceedOnce;
+      },
+    });
+
+    for await (const msg of q) {
+      messages.push(msg);
+    }
+
+    // Permission handler called exactly 2 times
+    expect(handlerCalls.length).toBe(2);
+    expect(handlerCalls[0]['toolName']).toBe('execute');
+    expect(handlerCalls[1]['toolName']).toBe('edit');
+
+    // Both permission responses sent
+    const permResponses = transport.sentMessages.filter(
+      (m) =>
+        (m as Record<string, unknown>)['type'] === 'response' &&
+        ((m as Record<string, unknown>)['id'] === 'perm-multi-1' ||
+          (m as Record<string, unknown>)['id'] === 'perm-multi-2')
+    );
+    expect(permResponses.length).toBe(2);
+
+    // Stream completed with turn_complete
+    const types = messages.map((m) => m.type);
+    expect(types[types.length - 1]).toBe('turn_complete');
+  });
+
+  it('permission handler returning Cancel prevents tool execution and stream completes', async () => {
+    const transport = new InMemoryTransport();
+    await transport.connect();
+
+    wireTransport(transport, 'sess-cancel-perm', {
+      [DroidServerMethod.ADD_USER_MESSAGE]: (id) => {
+        queueMicrotask(() => {
+          transport.injectMessage(makeSuccessResponse(id, {}));
+
+          transport.injectMessage(
+            makeNotification(
+              SessionNotificationType.DROID_WORKING_STATE_CHANGED,
+              { newState: DroidWorkingState.StreamingAssistantMessage }
+            )
+          );
+
+          transport.injectMessage(
+            makeNotification(SessionNotificationType.ASSISTANT_TEXT_DELTA, {
+              messageId: 'msg-1',
+              blockIndex: 0,
+              textDelta: 'Need permission.',
+            })
+          );
+
+          // Server sends permission request
+          transport.injectMessage(
+            makeServerRequest(
+              'perm-cancel-1',
+              DroidClientMethod.REQUEST_PERMISSION,
+              {
+                toolName: 'execute',
+                command: 'rm -rf /',
+                confirmationType: 'exec',
+              }
+            )
+          );
+
+          // After handler cancels, agent goes idle
+          setTimeout(() => {
+            transport.injectMessage(
+              makeNotification(
+                SessionNotificationType.DROID_WORKING_STATE_CHANGED,
+                { newState: DroidWorkingState.Idle }
+              )
+            );
+          }, 20);
+        });
+      },
+    });
+
+    let handlerCalled = false;
+
+    const session = await createSession({
+      cwd: '/tmp',
+      transport,
+      permissionHandler: () => {
+        handlerCalled = true;
+        return ToolConfirmationOutcome.Cancel;
+      },
+    });
+
+    const messages: DroidMessage[] = [];
+    for await (const msg of session.stream('dangerous command')) {
+      messages.push(msg);
+    }
+
+    expect(handlerCalled).toBe(true);
+
+    // Verify Cancel was sent back
+    const permResponse = transport.sentMessages.find(
+      (m) =>
+        (m as Record<string, unknown>)['type'] === 'response' &&
+        (m as Record<string, unknown>)['id'] === 'perm-cancel-1'
+    ) as Record<string, unknown>;
+    expect(permResponse).toBeDefined();
+    expect(
+      (permResponse['result'] as Record<string, unknown>)['selectedOption']
+    ).toBe(ToolConfirmationOutcome.Cancel);
+
+    // Stream completed
+    expect(messages[messages.length - 1].type).toBe('turn_complete');
+
+    // Session still usable after cancel
+    await session.close();
+    expect(transport.isConnected).toBe(false);
+  });
+
   it('permission handler works through session API as well', async () => {
     const transport = new InMemoryTransport();
     await transport.connect();
@@ -1098,7 +1306,187 @@ describe('Ask-user handler integration (VAL-CROSS-004)', () => {
 // 5. Interrupt during streaming (VAL-CROSS-005)
 // ===========================================================================
 
-describe('Interrupt during streaming (VAL-CROSS-005)', () => {
+describe('Interrupt during active streaming (VAL-CROSS-005)', () => {
+  it('interrupt during ExecutingTool state emits TurnComplete', async () => {
+    const transport = new InMemoryTransport();
+    await transport.connect();
+
+    let interruptRequestSent = false;
+
+    wireTransport(transport, 'sess-int-exec-tool', {
+      [DroidServerMethod.ADD_USER_MESSAGE]: (id) => {
+        queueMicrotask(() => {
+          transport.injectMessage(makeSuccessResponse(id, {}));
+
+          transport.injectMessage(
+            makeNotification(
+              SessionNotificationType.DROID_WORKING_STATE_CHANGED,
+              { newState: DroidWorkingState.StreamingAssistantMessage }
+            )
+          );
+
+          transport.injectMessage(
+            makeNotification(SessionNotificationType.ASSISTANT_TEXT_DELTA, {
+              messageId: 'msg-1',
+              blockIndex: 0,
+              textDelta: 'Running tool...',
+            })
+          );
+
+          // Transition to ExecutingTool
+          transport.injectMessage(
+            makeNotification(
+              SessionNotificationType.DROID_WORKING_STATE_CHANGED,
+              { newState: DroidWorkingState.ExecutingTool }
+            )
+          );
+
+          // Pause here — interrupt will be called by the test
+        });
+      },
+      [DroidServerMethod.INTERRUPT_SESSION]: (id) => {
+        interruptRequestSent = true;
+        queueMicrotask(() => {
+          transport.injectMessage(makeSuccessResponse(id, {}));
+
+          // After interrupt, agent goes idle
+          transport.injectMessage(
+            makeNotification(
+              SessionNotificationType.DROID_WORKING_STATE_CHANGED,
+              { newState: DroidWorkingState.Idle }
+            )
+          );
+        });
+      },
+    });
+
+    const session = await createSession({ cwd: '/tmp', transport });
+
+    const messages: DroidMessage[] = [];
+    let didInterrupt = false;
+
+    for await (const msg of session.stream('test')) {
+      messages.push(msg);
+
+      // Interrupt once we see ExecutingTool state
+      if (
+        msg.type === 'working_state_changed' &&
+        msg.state === DroidWorkingState.ExecutingTool &&
+        !didInterrupt
+      ) {
+        didInterrupt = true;
+        await session.interrupt();
+      }
+    }
+
+    expect(interruptRequestSent).toBe(true);
+    expect(didInterrupt).toBe(true);
+
+    const types = messages.map((m) => m.type);
+    expect(types[types.length - 1]).toBe('turn_complete');
+
+    await session.close();
+  });
+
+  it('session is usable after interrupt — second turn works', async () => {
+    const transport = new InMemoryTransport();
+    await transport.connect();
+
+    let addUserMessageCount = 0;
+
+    wireTransport(transport, 'sess-reuse-after-int', {
+      [DroidServerMethod.ADD_USER_MESSAGE]: (id) => {
+        addUserMessageCount++;
+        const callIndex = addUserMessageCount;
+
+        if (callIndex === 1) {
+          // First turn: partial stream, will be interrupted
+          queueMicrotask(() => {
+            transport.injectMessage(makeSuccessResponse(id, {}));
+
+            transport.injectMessage(
+              makeNotification(
+                SessionNotificationType.DROID_WORKING_STATE_CHANGED,
+                { newState: DroidWorkingState.StreamingAssistantMessage }
+              )
+            );
+
+            transport.injectMessage(
+              makeNotification(SessionNotificationType.ASSISTANT_TEXT_DELTA, {
+                messageId: 'msg-1',
+                blockIndex: 0,
+                textDelta: 'Partial response',
+              })
+            );
+
+            // Stream stays open — interrupt will trigger idle
+          });
+        } else {
+          // Second turn: full stream
+          queueMicrotask(() => {
+            transport.injectMessage(makeSuccessResponse(id, {}));
+
+            transport.injectMessage(
+              makeNotification(
+                SessionNotificationType.DROID_WORKING_STATE_CHANGED,
+                { newState: DroidWorkingState.StreamingAssistantMessage }
+              )
+            );
+
+            transport.injectMessage(
+              makeNotification(SessionNotificationType.ASSISTANT_TEXT_DELTA, {
+                messageId: 'msg-2',
+                blockIndex: 0,
+                textDelta: 'Full second response',
+              })
+            );
+
+            transport.injectMessage(
+              makeNotification(
+                SessionNotificationType.DROID_WORKING_STATE_CHANGED,
+                { newState: DroidWorkingState.Idle }
+              )
+            );
+          });
+        }
+      },
+      [DroidServerMethod.INTERRUPT_SESSION]: (id) => {
+        queueMicrotask(() => {
+          transport.injectMessage(makeSuccessResponse(id, {}));
+
+          transport.injectMessage(
+            makeNotification(
+              SessionNotificationType.DROID_WORKING_STATE_CHANGED,
+              { newState: DroidWorkingState.Idle }
+            )
+          );
+        });
+      },
+    });
+
+    const session = await createSession({ cwd: '/tmp', transport });
+
+    // First turn: interrupt after first delta
+    const msgs1: DroidMessage[] = [];
+    for await (const msg of session.stream('first')) {
+      msgs1.push(msg);
+      if (msg.type === 'assistant_text_delta') {
+        await session.interrupt();
+      }
+    }
+    expect(msgs1[msgs1.length - 1].type).toBe('turn_complete');
+
+    // Second turn: full response
+    const result = await session.send('second');
+    expect(result.text).toBe('Full second response');
+    expect(result.messages.length).toBeGreaterThan(0);
+
+    // Two addUserMessage requests sent
+    expect(addUserMessageCount).toBe(2);
+
+    await session.close();
+  });
+
   it('session.stream() active → interrupt() called → remaining messages yielded → TurnComplete', async () => {
     const transport = new InMemoryTransport();
     await transport.connect();
