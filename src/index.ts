@@ -4,6 +4,9 @@
 // --- Schemas (enums, constants, Zod schemas, types) ---
 export * from './schemas/index.js';
 
+// --- SDK metadata ---
+export { SDK_TAG, SDK_VERSION } from './constants.js';
+
 // --- Errors ---
 export * from './errors.js';
 

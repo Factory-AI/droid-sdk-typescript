@@ -24,9 +24,11 @@ import type {
   ClientPermissionHandler,
   ClientAskUserHandler,
 } from './client.js';
+import { SDK_TAG } from './constants.js';
 import type {
   InitializeSessionRequestParams,
   McpServerConfig,
+  SessionTag,
 } from './schemas/client.js';
 import type {
   AutonomyLevel,
@@ -75,6 +77,9 @@ export interface QueryOptions {
 
   /** Additional tool IDs to enable. */
   enabledToolIds?: string[];
+
+  /** Session tags for tracking and filtering. The SDK tag is always appended automatically. */
+  tags?: SessionTag[];
 
   /** Path to the `droid` executable. Defaults to `"droid"`. */
   execPath?: string;
@@ -336,6 +341,7 @@ export function query(options: QueryOptions): DroidQuery {
       ...(options.enabledToolIds !== undefined && {
         enabledToolIds: options.enabledToolIds,
       }),
+      tags: [...(options.tags ?? []), SDK_TAG],
     };
 
     const initResult = await client.initializeSession(initParams);

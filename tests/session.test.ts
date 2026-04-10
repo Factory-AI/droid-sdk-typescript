@@ -8,6 +8,7 @@
 
 import { describe, expect, it } from 'vitest';
 
+import { SDK_TAG } from '../src/constants.js';
 import { ConnectionError, SessionNotFoundError } from '../src/errors.js';
 import {
   AutonomyLevel,
@@ -1602,14 +1603,11 @@ describe('DroidSession', () => {
               );
 
               transport.injectMessage(
-                makeNotification(
-                  SessionNotificationType.ASSISTANT_TEXT_DELTA,
-                  {
-                    messageId: 'msg-2',
-                    blockIndex: 0,
-                    textDelta: 'Recovered',
-                  }
-                )
+                makeNotification(SessionNotificationType.ASSISTANT_TEXT_DELTA, {
+                  messageId: 'msg-2',
+                  blockIndex: 0,
+                  textDelta: 'Recovered',
+                })
               );
 
               transport.injectMessage(
@@ -1654,9 +1652,7 @@ describe('DroidSession', () => {
       const session = await createSession({ transport });
 
       for await (const _msg of session.stream('Look at this', {
-        images: [
-          { type: 'base64', data: 'abc123', mediaType: 'image/png' },
-        ],
+        images: [{ type: 'base64', data: 'abc123', mediaType: 'image/png' }],
       })) {
         // consume
       }
@@ -1736,6 +1732,58 @@ describe('DroidSession', () => {
   });
 
   // =========================================================================
+  // SDK_TAG auto-injection
+  // =========================================================================
+  describe('SDK_TAG auto-injection', () => {
+    it('injects SDK_TAG when no user tags are provided', async () => {
+      const transport = new InMemoryTransport();
+      await transport.connect();
+
+      setupInitResponder(transport, 'sess-sdk-tag-default');
+
+      const session = await createSession({ transport, cwd: '/tmp' });
+
+      const initMsg = transport.sentMessages.find(
+        (m) =>
+          (m as Record<string, unknown>)['method'] ===
+          DroidServerMethod.INITIALIZE_SESSION
+      ) as Record<string, unknown>;
+
+      const params = initMsg['params'] as Record<string, unknown>;
+      expect(params['tags']).toEqual([SDK_TAG]);
+
+      await session.close();
+    });
+
+    it('merges user tags with SDK_TAG', async () => {
+      const transport = new InMemoryTransport();
+      await transport.connect();
+
+      setupInitResponder(transport, 'sess-sdk-tag-merge');
+
+      const session = await createSession({
+        transport,
+        cwd: '/tmp',
+        tags: [{ name: 'custom', metadata: { env: 'test' } }],
+      });
+
+      const initMsg = transport.sentMessages.find(
+        (m) =>
+          (m as Record<string, unknown>)['method'] ===
+          DroidServerMethod.INITIALIZE_SESSION
+      ) as Record<string, unknown>;
+
+      const params = initMsg['params'] as Record<string, unknown>;
+      expect(params['tags']).toEqual([
+        { name: 'custom', metadata: { env: 'test' } },
+        SDK_TAG,
+      ]);
+
+      await session.close();
+    });
+  });
+
+  // =========================================================================
   // #25 — Concurrent send() + updateSessionSettings()
   // =========================================================================
   describe('concurrent send() + updateSettings()', () => {
@@ -1760,9 +1808,7 @@ describe('DroidSession', () => {
         (m) => (m as Record<string, unknown>)['method']
       );
       expect(sentMethods).toContain(DroidServerMethod.ADD_USER_MESSAGE);
-      expect(sentMethods).toContain(
-        DroidServerMethod.UPDATE_SESSION_SETTINGS
-      );
+      expect(sentMethods).toContain(DroidServerMethod.UPDATE_SESSION_SETTINGS);
 
       await session.close();
     });
