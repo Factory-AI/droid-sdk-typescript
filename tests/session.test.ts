@@ -1784,6 +1784,102 @@ describe('DroidSession', () => {
   });
 
   // =========================================================================
+  // abortSignal support
+  // =========================================================================
+  describe('abortSignal', () => {
+    it('closes session when signal fires', async () => {
+      const transport = new InMemoryTransport();
+      await transport.connect();
+
+      setupInitResponder(transport, 'sess-abort-signal');
+
+      const controller = new AbortController();
+
+      const session = await createSession({
+        transport,
+        abortSignal: controller.signal,
+      });
+
+      expect(session.sessionId).toBe('sess-abort-signal');
+
+      controller.abort();
+
+      // Give the abort listener a tick to run
+      await new Promise((resolve) => setTimeout(resolve, 10));
+
+      // Session should be closed
+      expect(transport.isConnected).toBe(false);
+      await expect(session.send('test')).rejects.toThrow(ConnectionError);
+    });
+
+    it('closes session immediately when signal is already aborted', async () => {
+      const transport = new InMemoryTransport();
+      await transport.connect();
+
+      setupInitResponder(transport, 'sess-pre-aborted');
+
+      const controller = new AbortController();
+      controller.abort(); // Already aborted
+
+      const session = await createSession({
+        transport,
+        abortSignal: controller.signal,
+      });
+
+      // Give the close a tick to run (void session.close() is async)
+      await new Promise((resolve) => setTimeout(resolve, 10));
+
+      expect(transport.isConnected).toBe(false);
+      await expect(session.send('test')).rejects.toThrow(ConnectionError);
+    });
+  });
+
+  describe('resumeSession abortSignal', () => {
+    it('closes resumed session when signal fires', async () => {
+      const transport = new InMemoryTransport();
+      await transport.connect();
+
+      setupLoadResponder(transport, 'sess-resume-abort');
+
+      const controller = new AbortController();
+
+      const session = await resumeSession('sess-resume-abort', {
+        transport,
+        abortSignal: controller.signal,
+      });
+
+      expect(session.sessionId).toBe('sess-resume-abort');
+
+      controller.abort();
+
+      await new Promise((resolve) => setTimeout(resolve, 10));
+
+      expect(transport.isConnected).toBe(false);
+      await expect(session.send('test')).rejects.toThrow(ConnectionError);
+    });
+
+    it('closes resumed session immediately when signal is already aborted', async () => {
+      const transport = new InMemoryTransport();
+      await transport.connect();
+
+      setupLoadResponder(transport, 'sess-resume-pre-aborted');
+
+      const controller = new AbortController();
+      controller.abort();
+
+      const session = await resumeSession('sess-resume-pre-aborted', {
+        transport,
+        abortSignal: controller.signal,
+      });
+
+      await new Promise((resolve) => setTimeout(resolve, 10));
+
+      expect(transport.isConnected).toBe(false);
+      await expect(session.send('test')).rejects.toThrow(ConnectionError);
+    });
+  });
+
+  // =========================================================================
   // #25 — Concurrent send() + updateSessionSettings()
   // =========================================================================
   describe('concurrent send() + updateSettings()', () => {

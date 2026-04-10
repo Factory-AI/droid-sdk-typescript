@@ -267,6 +267,9 @@ export function query(options: QueryOptions): DroidQuery {
     void,
     undefined
   > {
+    // Early exit if already aborted before generator starts
+    if (aborted) return;
+
     // 1. Create transport
     if (options.transport) {
       transport = options.transport;
@@ -414,7 +417,7 @@ export function query(options: QueryOptions): DroidQuery {
     }
   }
 
-  return new DroidQueryImpl(
+  const droidQuery = new DroidQueryImpl(
     wrappedGenerator(),
     () => sessionId,
     async () => {
@@ -434,11 +437,31 @@ export function query(options: QueryOptions): DroidQuery {
       transport = null;
     }
   );
+
+  wireAbortSignal(options.abortSignal, () => droidQuery.abort());
+
+  return droidQuery;
 }
 
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
+
+/**
+ * Wire an AbortSignal to invoke a callback on abort.
+ * Handles both already-aborted signals and future aborts.
+ */
+function wireAbortSignal(
+  signal: AbortSignal | undefined,
+  onAbort: () => void
+): void {
+  if (!signal) return;
+  if (signal.aborted) {
+    onAbort();
+  } else {
+    signal.addEventListener('abort', () => onAbort(), { once: true });
+  }
+}
 
 /**
  * Extract the inner notification payload from a JSON-RPC notification.
