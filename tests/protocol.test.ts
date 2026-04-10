@@ -796,11 +796,9 @@ describe('ProtocolEngine', () => {
 
       // Inject a permission request — should not crash the engine
       transport2.injectMessage(
-        makeServerRequest(
-          'perm-fail-1',
-          DroidClientMethod.REQUEST_PERMISSION,
-          { toolUses: [] }
-        )
+        makeServerRequest('perm-fail-1', DroidClientMethod.REQUEST_PERMISSION, {
+          toolUses: [],
+        })
       );
 
       // Wait for handler to run
