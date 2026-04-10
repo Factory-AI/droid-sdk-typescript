@@ -2009,6 +2009,184 @@ describe('Settings update notification flow (VAL-CROSS-007)', () => {
     await session.close();
   });
 
+  // =========================================================================
+  // #11 — ToolConfirmationDetails variants through handler
+  // =========================================================================
+  it('permission handler receives full edit confirmation details', async () => {
+    const transport = new InMemoryTransport();
+    await transport.connect();
+
+    let receivedDetails: Record<string, unknown> | null = null;
+
+    wireTransport(transport, 'sess-perm-details', {
+      [DroidServerMethod.ADD_USER_MESSAGE]: (id) => {
+        queueMicrotask(() => {
+          transport.injectMessage(makeSuccessResponse(id, {}));
+
+          transport.injectMessage(
+            makeNotification(
+              SessionNotificationType.DROID_WORKING_STATE_CHANGED,
+              { newState: DroidWorkingState.StreamingAssistantMessage }
+            )
+          );
+
+          // Send a permission request with edit confirmation details
+          transport.injectMessage(
+            makeServerRequest(
+              'perm-detail-1',
+              DroidClientMethod.REQUEST_PERMISSION,
+              {
+                toolName: 'edit',
+                confirmationType: 'edit',
+                toolUses: [
+                  {
+                    toolUse: { name: 'edit', input: {} },
+                    confirmationType: 'edit',
+                    details: {
+                      type: 'edit',
+                      filePath: '/src/main.ts',
+                      fileName: 'main.ts',
+                      oldContent: 'const x = 1;',
+                      newContent: 'const x = 2;',
+                    },
+                  },
+                ],
+              }
+            )
+          );
+
+          setTimeout(() => {
+            transport.injectMessage(
+              makeNotification(
+                SessionNotificationType.DROID_WORKING_STATE_CHANGED,
+                { newState: DroidWorkingState.Idle }
+              )
+            );
+          }, 20);
+        });
+      },
+    });
+
+    const messages: DroidMessage[] = [];
+    const q = query({
+      prompt: 'Edit the file',
+      transport,
+      permissionHandler: (params) => {
+        receivedDetails = params;
+        return ToolConfirmationOutcome.ProceedOnce;
+      },
+    });
+
+    for await (const msg of q) {
+      messages.push(msg);
+    }
+
+    expect(receivedDetails).not.toBeNull();
+    // Verify the full details object was passed through
+    expect(receivedDetails).toMatchObject({
+      toolUses: [
+        {
+          confirmationType: 'edit',
+          details: {
+            filePath: '/src/main.ts',
+            fileName: 'main.ts',
+            oldContent: 'const x = 1;',
+            newContent: 'const x = 2;',
+          },
+        },
+      ],
+    });
+
+    expect(messages[messages.length - 1].type).toBe('turn_complete');
+  });
+
+  // =========================================================================
+  // #12 — Ask-user cancelled response flow
+  // =========================================================================
+  it('ask-user handler returning cancelled: true sends cancelled response and stream continues', async () => {
+    const transport = new InMemoryTransport();
+    await transport.connect();
+
+    let handlerCalled = false;
+
+    wireTransport(transport, 'sess-ask-cancel', {
+      [DroidServerMethod.ADD_USER_MESSAGE]: (id) => {
+        queueMicrotask(() => {
+          transport.injectMessage(makeSuccessResponse(id, {}));
+
+          transport.injectMessage(
+            makeNotification(
+              SessionNotificationType.DROID_WORKING_STATE_CHANGED,
+              { newState: DroidWorkingState.StreamingAssistantMessage }
+            )
+          );
+
+          // Server sends ask_user request
+          transport.injectMessage(
+            makeServerRequest('ask-cancel-1', DroidClientMethod.ASK_USER, {
+              questions: [
+                {
+                  index: 0,
+                  topic: 'DB',
+                  question: 'Which database?',
+                  options: ['PostgreSQL', 'MySQL'],
+                },
+              ],
+            })
+          );
+
+          // After handler responds with cancelled, agent continues
+          setTimeout(() => {
+            transport.injectMessage(
+              makeNotification(SessionNotificationType.ASSISTANT_TEXT_DELTA, {
+                messageId: 'msg-1',
+                blockIndex: 0,
+                textDelta: 'Understood, skipping.',
+              })
+            );
+
+            transport.injectMessage(
+              makeNotification(
+                SessionNotificationType.DROID_WORKING_STATE_CHANGED,
+                { newState: DroidWorkingState.Idle }
+              )
+            );
+          }, 20);
+        });
+      },
+    });
+
+    const messages: DroidMessage[] = [];
+    const q = query({
+      prompt: 'Set up DB',
+      transport,
+      askUserHandler: () => {
+        handlerCalled = true;
+        return { cancelled: true, answers: [] };
+      },
+    });
+
+    for await (const msg of q) {
+      messages.push(msg);
+    }
+
+    expect(handlerCalled).toBe(true);
+
+    // Verify the cancelled response was sent back
+    const askResponse = transport.sentMessages.find(
+      (m) =>
+        (m as Record<string, unknown>)['type'] === 'response' &&
+        (m as Record<string, unknown>)['id'] === 'ask-cancel-1'
+    ) as Record<string, unknown>;
+    expect(askResponse).toBeDefined();
+    const result = askResponse['result'] as Record<string, unknown>;
+    expect(result['cancelled']).toBe(true);
+    expect(result['answers']).toEqual([]);
+
+    // Stream should have continued to turn_complete
+    expect(messages[messages.length - 1].type).toBe('turn_complete');
+  });
+
   it('settings_updated notification appears in query() stream', async () => {
     const transport = new InMemoryTransport();
     await transport.connect();

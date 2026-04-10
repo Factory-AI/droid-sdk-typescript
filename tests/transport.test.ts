@@ -483,6 +483,84 @@ describe('ProcessTransport', () => {
   });
 
   // -----------------------------------------------------------------------
+  // #22 — Transport send() EPIPE/ECONNRESET
+  // -----------------------------------------------------------------------
+
+  describe('send() after stdin closes (EPIPE)', () => {
+    it('fires error or throws when writing to a closed stdin', async () => {
+      // Node script that reads one line then closes stdin immediately
+      const script = `
+        const readline = require('readline');
+        const rl = readline.createInterface({ input: process.stdin });
+        rl.on('line', () => {
+          rl.close();
+          process.stdin.destroy();
+          // Keep process alive briefly
+          setTimeout(() => process.exit(0), 2000);
+        });
+      `;
+
+      const transport = createNodeTransport(script);
+      const errorPromise = waitForError(transport);
+      await transport.connect!();
+
+      // First send succeeds — stdin is still open
+      transport.send({ first: true });
+
+      // Give the child time to close stdin
+      await new Promise((resolve) => setTimeout(resolve, 200));
+
+      // Second send should fail — either synchronously or via async error event
+      try {
+        transport.send({ second: true });
+        // If send() didn't throw, the error must fire asynchronously
+        const asyncError = await errorPromise;
+        expect(asyncError).toBeDefined();
+      } catch {
+        // send() threw synchronously — acceptable behavior
+      }
+
+      await transport.close();
+    }, 10_000);
+  });
+
+  // -----------------------------------------------------------------------
+  // #23 — Transport send() when isClosing
+  // -----------------------------------------------------------------------
+
+  describe('send() during close()', () => {
+    it('send() after close() starts throws or fires error', async () => {
+      // Process that ignores SIGTERM (long grace period to simulate closing state)
+      const script = `
+        process.on('SIGTERM', () => { /* ignore */ });
+        setTimeout(() => {}, 60000);
+      `;
+
+      const transport = createNodeTransport(script, { gracePeriod: 0.5 });
+      await transport.connect!();
+      expect(transport.isConnected).toBe(true);
+
+      // Start close (will send SIGTERM, then wait gracePeriod before SIGKILL)
+      const closePromise = transport.close();
+
+      // Immediately try to send while close is in progress
+      try {
+        transport.send({ duringClose: true });
+      } catch {
+        // send() may throw if the transport detects it's closing
+      }
+
+      // Wait for close to complete
+      await closePromise;
+
+      // Either send() threw, or close completed and the message was silently dropped
+      // After close, subsequent sends should definitely fail
+      expect(transport.isConnected).toBe(false);
+      expect(() => transport.send({ afterClose: true })).toThrow();
+    }, 15_000);
+  });
+
+  // -----------------------------------------------------------------------
   // Edge cases
   // -----------------------------------------------------------------------
 

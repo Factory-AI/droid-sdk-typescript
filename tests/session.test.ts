@@ -10,7 +10,9 @@ import { describe, expect, it } from 'vitest';
 
 import { ConnectionError, SessionNotFoundError } from '../src/errors.js';
 import {
+  AutonomyLevel,
   DroidClientMethod,
+  DroidInteractionMode,
   DroidServerMethod,
   DroidWorkingState,
   FACTORY_PROTOCOL_VERSION,
@@ -18,6 +20,7 @@ import {
   JSONRPC_VERSION,
   LEGACY_FACTORY_API_VERSION,
   McpServerType,
+  ReasoningEffort,
   SessionNotificationType,
   SettingsLevel,
 } from '../src/schemas/index.js';
@@ -1496,6 +1499,265 @@ describe('DroidSession', () => {
       ).rejects.toThrow(ConnectionError);
       await expect(session.compactSession()).rejects.toThrow(ConnectionError);
       await expect(session.forkSession()).rejects.toThrow(ConnectionError);
+    });
+  });
+
+  // =========================================================================
+  // #14 — Double interrupt is idempotent
+  // =========================================================================
+  describe('double interrupt', () => {
+    it('calling interrupt() twice in rapid succession is safe', async () => {
+      const transport = new InMemoryTransport();
+      await transport.connect();
+
+      setupFullResponder(transport, 'sess-double-int');
+
+      const session = await createSession({ transport });
+
+      // Start a stream so the agent is in a non-idle state
+      let streamComplete = false;
+      const streamPromise = (async () => {
+        for await (const msg of session.stream('test')) {
+          if (msg.type === 'assistant_text_delta') {
+            // Fire two interrupts in rapid succession
+            await Promise.all([session.interrupt(), session.interrupt()]);
+          }
+        }
+        streamComplete = true;
+      })();
+
+      await streamPromise;
+      expect(streamComplete).toBe(true);
+
+      await session.close();
+    });
+  });
+
+  // =========================================================================
+  // #15 — session.send() while session.stream() active
+  // =========================================================================
+  describe('concurrent send() and stream()', () => {
+    it('concurrent stream() and send() both complete without error', async () => {
+      const transport = new InMemoryTransport();
+      await transport.connect();
+
+      setupFullResponder(transport, 'sess-concurrent-send');
+
+      const session = await createSession({ transport });
+
+      const msgsA: DroidMessage[] = [];
+
+      const [, resultB] = await Promise.all([
+        (async () => {
+          for await (const msg of session.stream('A')) {
+            msgsA.push(msg);
+          }
+        })(),
+        session.send('B'),
+      ]);
+
+      // stream() completed with turn_complete
+      expect(msgsA[msgsA.length - 1].type).toBe('turn_complete');
+
+      // send() completed with text
+      expect(resultB.text.length).toBeGreaterThan(0);
+      expect(resultB.messages[resultB.messages.length - 1].type).toBe(
+        'turn_complete'
+      );
+
+      await session.close();
+    });
+  });
+
+  // =========================================================================
+  // #16 — Error recovery between turns
+  // =========================================================================
+  describe('error recovery between turns', () => {
+    it('session recovers after a protocol error on the first turn', async () => {
+      const transport = new InMemoryTransport();
+      await transport.connect();
+
+      let addUserMessageCount = 0;
+
+      setupFullResponder(transport, 'sess-recovery', {
+        [DroidServerMethod.ADD_USER_MESSAGE]: (id) => {
+          addUserMessageCount++;
+          if (addUserMessageCount === 1) {
+            // First call: respond with a protocol error
+            queueMicrotask(() => {
+              transport.injectMessage(
+                makeErrorResponse(id, -32603, 'Internal server error')
+              );
+            });
+          } else {
+            // Second call: respond normally with streaming
+            queueMicrotask(() => {
+              transport.injectMessage(makeSuccessResponse(id, {}));
+
+              transport.injectMessage(
+                makeNotification(
+                  SessionNotificationType.DROID_WORKING_STATE_CHANGED,
+                  { newState: DroidWorkingState.StreamingAssistantMessage }
+                )
+              );
+
+              transport.injectMessage(
+                makeNotification(SessionNotificationType.ASSISTANT_TEXT_DELTA, {
+                  messageId: 'msg-2',
+                  blockIndex: 0,
+                  textDelta: 'Recovered',
+                })
+              );
+
+              transport.injectMessage(
+                makeNotification(
+                  SessionNotificationType.DROID_WORKING_STATE_CHANGED,
+                  { newState: DroidWorkingState.Idle }
+                )
+              );
+            });
+          }
+        },
+      });
+
+      const session = await createSession({ transport });
+
+      // First send: protocol error
+      await expect(async () => {
+        for await (const _msg of session.stream('first')) {
+          // should throw
+        }
+      }).rejects.toThrow();
+
+      // Second send: should succeed — session recovered
+      const result = await session.send('second');
+      expect(result.text).toBe('Recovered');
+      expect(result.messages.length).toBeGreaterThan(0);
+
+      await session.close();
+    });
+  });
+
+  // =========================================================================
+  // #17 — stream() with images/files
+  // =========================================================================
+  describe('stream() with images/files', () => {
+    it('passes images array in addUserMessage RPC params', async () => {
+      const transport = new InMemoryTransport();
+      await transport.connect();
+
+      setupFullResponder(transport, 'sess-images');
+
+      const session = await createSession({ transport });
+
+      for await (const _msg of session.stream('Look at this', {
+        images: [{ type: 'base64', data: 'abc123', mediaType: 'image/png' }],
+      })) {
+        // consume
+      }
+
+      // Find the addUserMessage request
+      const addMsg = transport.sentMessages.find(
+        (m) =>
+          (m as Record<string, unknown>)['method'] ===
+          DroidServerMethod.ADD_USER_MESSAGE
+      ) as Record<string, unknown>;
+      expect(addMsg).toBeDefined();
+
+      const params = addMsg['params'] as Record<string, unknown>;
+      expect(params['images']).toEqual([
+        { type: 'base64', data: 'abc123', mediaType: 'image/png' },
+      ]);
+
+      await session.close();
+    });
+  });
+
+  // =========================================================================
+  // #18 — createSession() with all options
+  // =========================================================================
+  describe('createSession() with all options', () => {
+    it('passes all session options to initializeSession RPC params', async () => {
+      const transport = new InMemoryTransport();
+      await transport.connect();
+
+      setupInitResponder(transport, 'sess-all-opts');
+
+      const session = await createSession({
+        transport,
+        cwd: '/my/project',
+        machineId: 'custom-machine',
+        modelId: 'claude-test-model',
+        reasoningEffort: ReasoningEffort.High,
+        autonomyLevel: AutonomyLevel.High,
+        interactionMode: DroidInteractionMode.Auto,
+        mcpServers: [
+          {
+            name: 'test-mcp',
+            type: McpServerType.Http,
+            url: 'https://mcp.example.com',
+            headers: [],
+          },
+        ],
+        enabledToolIds: ['tool-x', 'tool-y'],
+      });
+
+      const initMsg = transport.sentMessages.find(
+        (m) =>
+          (m as Record<string, unknown>)['method'] ===
+          DroidServerMethod.INITIALIZE_SESSION
+      ) as Record<string, unknown>;
+      expect(initMsg).toBeDefined();
+
+      const params = initMsg['params'] as Record<string, unknown>;
+      expect(params['cwd']).toBe('/my/project');
+      expect(params['machineId']).toBe('custom-machine');
+      expect(params['modelId']).toBe('claude-test-model');
+      expect(params['reasoningEffort']).toBe(ReasoningEffort.High);
+      expect(params['autonomyLevel']).toBe(AutonomyLevel.High);
+      expect(params['interactionMode']).toBe(DroidInteractionMode.Auto);
+      expect(params['mcpServers']).toEqual([
+        {
+          name: 'test-mcp',
+          type: McpServerType.Http,
+          url: 'https://mcp.example.com',
+          headers: [],
+        },
+      ]);
+      expect(params['enabledToolIds']).toEqual(['tool-x', 'tool-y']);
+
+      await session.close();
+    });
+  });
+
+  // =========================================================================
+  // #25 — Concurrent send() + updateSessionSettings()
+  // =========================================================================
+  describe('concurrent send() + updateSettings()', () => {
+    it('both resolve without error when called concurrently', async () => {
+      const transport = new InMemoryTransport();
+      await transport.connect();
+
+      setupFullResponder(transport, 'sess-concurrent-settings');
+
+      const session = await createSession({ transport });
+
+      const [sendResult, settingsResult] = await Promise.all([
+        session.send('test'),
+        session.updateSettings({ modelId: 'new-model' }),
+      ]);
+
+      expect(sendResult.text).toBe('Hello world');
+      expect(settingsResult).toBeDefined();
+
+      // Verify both methods were called
+      const sentMethods = transport.sentMessages.map(
+        (m) => (m as Record<string, unknown>)['method']
+      );
+      expect(sentMethods).toContain(DroidServerMethod.ADD_USER_MESSAGE);
+      expect(sentMethods).toContain(DroidServerMethod.UPDATE_SESSION_SETTINGS);
+
+      await session.close();
     });
   });
 });
