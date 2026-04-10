@@ -618,11 +618,14 @@ describe('query()', () => {
             // After handler responds, continue
             setTimeout(() => {
               transport.injectMessage(
-                makeNotification(SessionNotificationType.ASSISTANT_TEXT_DELTA, {
-                  messageId: 'msg-1',
-                  blockIndex: 0,
-                  textDelta: 'Using TypeScript.',
-                })
+                makeNotification(
+                  SessionNotificationType.ASSISTANT_TEXT_DELTA,
+                  {
+                    messageId: 'msg-1',
+                    blockIndex: 0,
+                    textDelta: 'Using TypeScript.',
+                  }
+                )
               );
 
               transport.injectMessage(
