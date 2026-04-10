@@ -24,7 +24,10 @@ import type {
   ClientPermissionHandler,
   ClientAskUserHandler,
 } from './client.js';
-import type { InitializeSessionRequestParams } from './schemas/client.js';
+import type {
+  InitializeSessionRequestParams,
+  McpServerConfig,
+} from './schemas/client.js';
 import type {
   AutonomyLevel,
   DroidInteractionMode,
@@ -68,7 +71,7 @@ export interface QueryOptions {
   reasoningEffort?: ReasoningEffort;
 
   /** MCP server configurations for the session. */
-  mcpServers?: Array<Record<string, unknown>>;
+  mcpServers?: McpServerConfig[];
 
   /** Additional tool IDs to enable. */
   enabledToolIds?: string[];
@@ -128,6 +131,59 @@ export interface DroidQuery extends AsyncGenerator<
    * Returns `null` if the session hasn't been initialized yet.
    */
   readonly sessionId: string | null;
+}
+
+// ---------------------------------------------------------------------------
+// DroidQueryImpl
+// ---------------------------------------------------------------------------
+
+class DroidQueryImpl implements DroidQuery {
+  private _generator: AsyncGenerator<DroidMessage, void, undefined>;
+  private _getSessionId: () => string | null;
+  private _interruptFn: () => Promise<void>;
+  private _abortFn: () => void;
+
+  constructor(
+    generator: AsyncGenerator<DroidMessage, void, undefined>,
+    getSessionId: () => string | null,
+    interruptFn: () => Promise<void>,
+    abortFn: () => void
+  ) {
+    this._generator = generator;
+    this._getSessionId = getSessionId;
+    this._interruptFn = interruptFn;
+    this._abortFn = abortFn;
+  }
+
+  get sessionId(): string | null {
+    return this._getSessionId();
+  }
+
+  async interrupt(): Promise<void> {
+    return this._interruptFn();
+  }
+
+  abort(): void {
+    this._abortFn();
+  }
+
+  next(...args: [] | [undefined]): Promise<IteratorResult<DroidMessage, void>> {
+    return this._generator.next(...args);
+  }
+
+  return(
+    value: void | PromiseLike<void>
+  ): Promise<IteratorResult<DroidMessage, void>> {
+    return this._generator.return(value);
+  }
+
+  throw(e: unknown): Promise<IteratorResult<DroidMessage, void>> {
+    return this._generator.throw(e);
+  }
+
+  [Symbol.asyncIterator](): DroidQueryImpl {
+    return this;
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -236,21 +292,10 @@ export function query(options: QueryOptions): DroidQuery {
     const stateTracker = new StreamStateTracker();
 
     client.onNotification((notification) => {
-      // Extract the inner notification payload
-      const params = notification['params'] as
-        | Record<string, unknown>
-        | undefined;
-      const innerNotification = params?.['notification'] as
-        | Record<string, unknown>
-        | undefined;
+      const innerNotification = extractInnerNotification(notification);
+      if (!innerNotification) return;
 
-      if (!innerNotification) {
-        return;
-      }
-
-      const converted = convertNotificationToStreamMessage(
-        innerNotification as { type: string; [key: string]: unknown }
-      );
+      const converted = convertNotificationToStreamMessage(innerNotification);
 
       if (converted === null) {
         return;
@@ -273,33 +318,28 @@ export function query(options: QueryOptions): DroidQuery {
     });
 
     // 5. Initialize session
-    const initParams: Record<string, unknown> = {
+    const initParams: InitializeSessionRequestParams = {
       machineId: options.machineId ?? 'default',
       cwd: options.cwd ?? '.',
+      ...(options.modelId !== undefined && { modelId: options.modelId }),
+      ...(options.autonomyLevel !== undefined && {
+        autonomyLevel: options.autonomyLevel,
+      }),
+      ...(options.interactionMode !== undefined && {
+        interactionMode: options.interactionMode,
+      }),
+      ...(options.reasoningEffort !== undefined && {
+        reasoningEffort: options.reasoningEffort,
+      }),
+      ...(options.mcpServers !== undefined && {
+        mcpServers: options.mcpServers,
+      }),
+      ...(options.enabledToolIds !== undefined && {
+        enabledToolIds: options.enabledToolIds,
+      }),
     };
 
-    if (options.modelId !== undefined) {
-      initParams.modelId = options.modelId;
-    }
-    if (options.autonomyLevel !== undefined) {
-      initParams.autonomyLevel = options.autonomyLevel;
-    }
-    if (options.interactionMode !== undefined) {
-      initParams.interactionMode = options.interactionMode;
-    }
-    if (options.reasoningEffort !== undefined) {
-      initParams.reasoningEffort = options.reasoningEffort;
-    }
-    if (options.mcpServers !== undefined) {
-      initParams.mcpServers = options.mcpServers;
-    }
-    if (options.enabledToolIds !== undefined) {
-      initParams.enabledToolIds = options.enabledToolIds;
-    }
-
-    const initResult = await client.initializeSession(
-      initParams as unknown as InitializeSessionRequestParams
-    );
+    const initResult = await client.initializeSession(initParams);
     sessionId = initResult.sessionId;
 
     // 6. Send the user message
@@ -369,46 +409,45 @@ export function query(options: QueryOptions): DroidQuery {
     }
   }
 
-  const wrapped = wrappedGenerator();
-
-  // Create the DroidQuery interface by adding control methods to the generator.
-  // Use Object.defineProperties so that `sessionId` is a live getter
-  // (Object.assign would snapshot the value at assignment time).
-  const droidQuery = wrapped as DroidQuery;
-
-  Object.defineProperties(droidQuery, {
-    interrupt: {
-      value: async function interrupt(): Promise<void> {
-        if (client && !aborted) {
-          await client.interruptSession();
-        }
-      },
-      writable: false,
-      enumerable: true,
+  return new DroidQueryImpl(
+    wrappedGenerator(),
+    () => sessionId,
+    async () => {
+      if (client && !aborted) {
+        await client.interruptSession();
+      }
     },
-    abort: {
-      value: function abort(): void {
-        aborted = true;
-        signalDone();
-        if (client) {
-          // Fire-and-forget close
-          void client.close().catch(() => {});
-          client = null;
-        } else if (transport) {
-          void transport.close().catch(() => {});
-        }
-        transport = null;
-      },
-      writable: false,
-      enumerable: true,
-    },
-    sessionId: {
-      get(): string | null {
-        return sessionId;
-      },
-      enumerable: true,
-    },
-  });
+    () => {
+      aborted = true;
+      signalDone();
+      if (client) {
+        void client.close().catch(() => {});
+        client = null;
+      } else if (transport) {
+        void transport.close().catch(() => {});
+      }
+      transport = null;
+    }
+  );
+}
 
-  return droidQuery;
+// ---------------------------------------------------------------------------
+// Helpers
+// ---------------------------------------------------------------------------
+
+/**
+ * Extract the inner notification payload from a JSON-RPC notification.
+ * Returns null if the structure is not a valid session notification.
+ */
+function extractInnerNotification(
+  notification: Record<string, unknown>
+): Record<string, unknown> | null {
+  const params = notification['params'];
+  if (typeof params !== 'object' || params === null) return null;
+  // eslint-disable-next-line @typescript-eslint/consistent-type-assertions -- runtime-guarded narrowing
+  const paramsRecord = params as Record<string, unknown>;
+  const inner = paramsRecord['notification'];
+  if (typeof inner !== 'object' || inner === null) return null;
+  // eslint-disable-next-line @typescript-eslint/consistent-type-assertions -- runtime-guarded narrowing
+  return inner as Record<string, unknown>;
 }

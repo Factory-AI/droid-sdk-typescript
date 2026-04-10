@@ -198,6 +198,7 @@ function setupFullResponder(
           makeNotification(
             SessionNotificationType.SESSION_TOKEN_USAGE_CHANGED,
             {
+              sessionId,
               tokenUsage: {
                 inputTokens: 100,
                 outputTokens: 50,
@@ -239,9 +240,10 @@ function setupFullResponder(
             makeSuccessResponse(id, {
               servers: [],
               summary: {
-                status: 'ready',
-                totalServers: 0,
-                connectedServers: 0,
+                total: 0,
+                connected: 0,
+                connecting: 0,
+                failed: 0,
               },
             })
           );

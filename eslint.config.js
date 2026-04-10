@@ -31,7 +31,7 @@ export default tseslint.config(
       ],
       '@typescript-eslint/no-explicit-any': 'error',
       '@typescript-eslint/consistent-type-assertions': [
-        'warn',
+        'error',
         { assertionStyle: 'never' },
       ],
       '@typescript-eslint/no-floating-promises': 'error',

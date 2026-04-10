@@ -30,7 +30,22 @@ import {
   LEGACY_FACTORY_API_VERSION,
 } from './schemas/constants.js';
 import { DroidClientMethod, JsonRpcErrorCode } from './schemas/enums.js';
+import { SessionNotificationParamsSchema } from './schemas/server.js';
+import { JsonRpcMessageSchema, type JsonRpcError } from './schemas/shared.js';
 import type { DroidClientTransport } from './types.js';
+
+// ---------------------------------------------------------------------------
+// Helpers
+// ---------------------------------------------------------------------------
+
+/** Safely coerce an unknown value to a Record, defaulting to empty. */
+function toRecord(value: unknown): Record<string, unknown> {
+  if (typeof value === 'object' && value !== null && !Array.isArray(value)) {
+    // eslint-disable-next-line @typescript-eslint/consistent-type-assertions -- runtime-guarded narrowing
+    return value as Record<string, unknown>;
+  }
+  return {};
+}
 
 // ---------------------------------------------------------------------------
 // Types
@@ -73,8 +88,8 @@ export interface NotificationFilter {
 interface PendingRequest {
   readonly method: string;
   readonly requestId: string;
-  readonly params: Record<string, unknown>;
-  readonly resolve: (value: Record<string, unknown>) => void;
+  readonly params: object;
+  readonly resolve: (value: unknown) => void;
   readonly reject: (reason: Error) => void;
   readonly timer: ReturnType<typeof setTimeout>;
 }
@@ -142,7 +157,7 @@ export class ProtocolEngine {
 
     // Wire up transport callbacks
     this._transport.onMessage((message: object) => {
-      this._handleMessage(message as Record<string, unknown>);
+      this._handleMessage(message);
     });
     this._transport.onError((error: Error) => {
       this._handleTransportError(error);
@@ -157,12 +172,12 @@ export class ProtocolEngine {
    * Send a JSON-RPC request and wait for the response.
    *
    * Constructs the full envelope, registers a pending promise, sends
-   * via transport, and returns the parsed response `result` field.
+   * via transport, and returns the unwrapped `result` field.
    *
    * @param method - The RPC method name (e.g. `"droid.list_skills"`).
    * @param params - Method parameters object.
    * @param timeout - Timeout in ms. Defaults to `defaultTimeout`.
-   * @returns The `result` field from the JSON-RPC success response.
+   * @returns The unwrapped `result` from the JSON-RPC success response.
    * @throws {ConnectionError} If the engine is closed.
    * @throws {ConnectionError} If the transport has a sticky error.
    * @throws {TimeoutError} If no response arrives within the timeout.
@@ -171,9 +186,9 @@ export class ProtocolEngine {
    */
   async sendRequest(
     method: string,
-    params: Record<string, unknown>,
+    params: object,
     timeout?: number
-  ): Promise<Record<string, unknown>> {
+  ): Promise<unknown> {
     // Check closed state
     if (this._closed) {
       throw new ConnectionError('Protocol engine is closed');
@@ -190,18 +205,18 @@ export class ProtocolEngine {
     const requestId = uuidv4();
 
     // Build envelope
-    const envelope: Record<string, unknown> = {
+    const envelope = {
       jsonrpc: JSONRPC_VERSION,
       factoryApiVersion: LEGACY_FACTORY_API_VERSION,
       factoryProtocolVersion: FACTORY_PROTOCOL_VERSION,
-      type: 'request',
+      type: 'request' as const,
       id: requestId,
       method,
       params,
     };
 
     // Create a promise that will be resolved when we get a matching response
-    return new Promise<Record<string, unknown>>((resolve, reject) => {
+    return new Promise<unknown>((resolve, reject) => {
       // Set up timeout
       const timer = setTimeout(() => {
         this._pendingRequests.delete(requestId);
@@ -362,29 +377,27 @@ export class ProtocolEngine {
 
   /**
    * Handle an incoming parsed message from the transport.
-   * Dispatches to response handler, notification handler, or
-   * server→client request handler based on message type.
+   * Parses through JsonRpcMessageSchema and dispatches to the appropriate handler.
    */
-  private _handleMessage(parsed: Record<string, unknown>): void {
-    const msgType = parsed['type'];
+  private _handleMessage(raw: object): void {
+    const parsed = JsonRpcMessageSchema.safeParse(raw);
 
-    if (msgType === 'response') {
-      this._handleResponse(parsed);
-    } else if (msgType === 'notification') {
-      this._handleNotification(parsed);
-    } else if (msgType === 'request') {
-      // Server→client request — handle asynchronously
-      void this._handleServerRequest(parsed);
-    } else {
-      // Fallback detection by content
-      if ('result' in parsed || 'error' in parsed) {
-        this._handleResponse(parsed);
-      } else if ('method' in parsed && !('id' in parsed)) {
-        this._handleNotification(parsed);
-      } else if ('method' in parsed && 'id' in parsed) {
-        void this._handleServerRequest(parsed);
-      }
-      // else: unknown format — silently ignore
+    if (!parsed.success) {
+      // Malformed message — silently ignore
+      return;
+    }
+
+    const msg = parsed.data;
+    switch (msg.type) {
+      case 'response':
+        this._handleResponse(msg.id, msg.result, msg.error);
+        break;
+      case 'notification':
+        this._handleNotification(msg);
+        break;
+      case 'request':
+        void this._handleServerRequest(msg.method, msg.id, msg.params);
+        break;
     }
   }
 
@@ -392,9 +405,11 @@ export class ProtocolEngine {
    * Handle an incoming response message.
    * Matches by ID to resolve the correct pending Promise.
    */
-  private _handleResponse(response: Record<string, unknown>): void {
-    const responseId = response['id'] as string | null | undefined;
-
+  private _handleResponse(
+    responseId: string | null,
+    result: unknown,
+    error: JsonRpcError | undefined
+  ): void {
     // Null-id error response — log but don't crash
     if (responseId == null) {
       return;
@@ -412,28 +427,24 @@ export class ProtocolEngine {
     clearTimeout(pending.timer);
 
     // Check for error response and map to exceptions
-    const errorObj = response['error'];
-    if (errorObj != null && typeof errorObj === 'object') {
-      const error = errorObj as Record<string, unknown>;
-      const code = error['code'] as number | undefined;
-      const message = (error['message'] as string) ?? 'Unknown error';
-      const data = error['data'];
-
-      if (code === JsonRpcErrorCode.ENTITY_NOT_FOUND) {
-        // Extract sessionId from the original request params
+    if (error != null) {
+      if (error.code === JsonRpcErrorCode.ENTITY_NOT_FOUND) {
+        const paramsRecord = toRecord(pending.params);
         const sessionId = String(
-          pending.params['sessionId'] ?? pending.requestId
+          paramsRecord['sessionId'] ?? pending.requestId
         );
         pending.reject(new SessionNotFoundError(sessionId));
         return;
       }
 
-      pending.reject(new ProtocolError(message, { code, data }));
+      pending.reject(
+        new ProtocolError(error.message, { code: error.code, data: error.data })
+      );
       return;
     }
 
-    // Resolve with the full response
-    pending.resolve(response as Record<string, unknown>);
+    // Resolve with the unwrapped result
+    pending.resolve(result);
   }
 
   /**
@@ -441,14 +452,14 @@ export class ProtocolEngine {
    * Dispatches to all registered notification listeners that match.
    */
   private _handleNotification(notification: Record<string, unknown>): void {
-    // Extract the notification type for filtering
-    const params = notification['params'] as
-      | Record<string, unknown>
-      | undefined;
-    const innerNotification = params?.['notification'] as
-      | Record<string, unknown>
-      | undefined;
-    const notificationType = innerNotification?.['type'] as string | undefined;
+    // Extract the notification type for filtering via Zod parse
+    let notificationType: string | undefined;
+    const parsed = SessionNotificationParamsSchema.safeParse(
+      notification['params']
+    );
+    if (parsed.success) {
+      notificationType = parsed.data.notification.type;
+    }
 
     for (const listener of this._notificationListeners) {
       // Apply type filter if present
@@ -472,16 +483,16 @@ export class ProtocolEngine {
    * Dispatches to the appropriate handler based on the method field.
    */
   private async _handleServerRequest(
-    request: Record<string, unknown>
+    method: string,
+    requestId: string,
+    params: unknown
   ): Promise<void> {
-    const method = request['method'] as string;
-    const requestId = request['id'] as string;
-    const params = (request['params'] as Record<string, unknown>) ?? {};
+    const paramsObj = toRecord(params);
 
     if (method === DroidClientMethod.REQUEST_PERMISSION) {
-      await this._handlePermissionRequest(requestId, params);
+      await this._handlePermissionRequest(requestId, paramsObj);
     } else if (method === DroidClientMethod.ASK_USER) {
-      await this._handleAskUserRequest(requestId, params);
+      await this._handleAskUserRequest(requestId, paramsObj);
     }
     // Unknown server→client methods are silently ignored
   }

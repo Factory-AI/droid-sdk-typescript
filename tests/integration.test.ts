@@ -209,6 +209,7 @@ function sendDefaultStreamSequence(transport: InMemoryTransport): void {
 
   transport.injectMessage(
     makeNotification(SessionNotificationType.SESSION_TOKEN_USAGE_CHANGED, {
+      sessionId: 'default',
       tokenUsage: {
         inputTokens: 100,
         outputTokens: 50,
@@ -264,6 +265,8 @@ describe('Full query lifecycle (VAL-CROSS-001)', () => {
               message: {
                 id: 'msg-2',
                 role: 'assistant',
+                createdAt: 1000,
+                updatedAt: 1000,
                 content: [
                   {
                     type: 'tool_use',
@@ -287,6 +290,7 @@ describe('Full query lifecycle (VAL-CROSS-001)', () => {
           // 5. tool_result
           transport.injectMessage(
             makeNotification(SessionNotificationType.TOOL_RESULT, {
+              messageId: 'msg-2',
               toolUseId: 'tu-1',
               content: 'file contents here',
               isError: false,
@@ -315,6 +319,7 @@ describe('Full query lifecycle (VAL-CROSS-001)', () => {
             makeNotification(
               SessionNotificationType.SESSION_TOKEN_USAGE_CHANGED,
               {
+                sessionId: 'sess-all-msg',
                 tokenUsage: {
                   inputTokens: 200,
                   outputTokens: 100,
@@ -470,6 +475,7 @@ describe('Full session lifecycle (VAL-CROSS-002)', () => {
             makeNotification(
               SessionNotificationType.SESSION_TOKEN_USAGE_CHANGED,
               {
+                sessionId: 'sess-multi',
                 tokenUsage: {
                   inputTokens: turnIndex * 100,
                   outputTokens: turnIndex * 50,
@@ -749,6 +755,7 @@ describe('Permission handler integration (VAL-CROSS-003)', () => {
 
             transport.injectMessage(
               makeNotification(SessionNotificationType.TOOL_RESULT, {
+                messageId: 'msg-perm',
                 toolUseId: 'tu-exec-1',
                 content: 'All tests passed',
                 isError: false,
@@ -1148,6 +1155,7 @@ describe('Interrupt during streaming (VAL-CROSS-005)', () => {
             makeNotification(
               SessionNotificationType.SESSION_TOKEN_USAGE_CHANGED,
               {
+                sessionId: 'sess-interrupt',
                 tokenUsage: {
                   inputTokens: 50,
                   outputTokens: 30,

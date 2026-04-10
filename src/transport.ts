@@ -17,6 +17,10 @@ import type {
   ProcessTransportOptions,
 } from './types.js';
 
+function isObject(value: unknown): value is object {
+  return typeof value === 'object' && value !== null;
+}
+
 /** Default arguments for `droid exec`. */
 const DEFAULT_EXEC_ARGS = [
   'exec',
@@ -289,12 +293,8 @@ export class ProcessTransport implements DroidClientTransport {
       if (trimmed.startsWith('{') || trimmed.startsWith('[')) {
         try {
           const parsed: unknown = JSON.parse(trimmed);
-          if (
-            this.messageHandler &&
-            typeof parsed === 'object' &&
-            parsed !== null
-          ) {
-            this.messageHandler(parsed as object);
+          if (this.messageHandler && isObject(parsed)) {
+            this.messageHandler(parsed);
           }
         } catch {
           // Malformed JSON — skip silently

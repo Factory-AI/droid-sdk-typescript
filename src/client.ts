@@ -9,6 +9,8 @@
  * implementation.
  */
 
+import type { z } from 'zod';
+
 import { ConnectionError, SessionError } from './errors.js';
 import {
   ProtocolEngine,
@@ -50,8 +52,30 @@ import type {
   UpdateSessionSettingsRequestParams,
   UpdateSessionSettingsResult,
 } from './schemas/client.js';
+import {
+  AddMcpServerResultSchema,
+  AddUserMessageResultSchema,
+  AuthenticateMcpServerResultSchema,
+  CancelMcpAuthResultSchema,
+  ClearMcpAuthResultSchema,
+  InitializeSessionResultSchema,
+  InterruptSessionResultSchema,
+  KillWorkerSessionResultSchema,
+  ListMcpRegistryResultSchema,
+  ListMcpServersResultSchema,
+  ListMcpToolsResultSchema,
+  ListSkillsResultSchema,
+  LoadSessionResultSchema,
+  RemoveMcpServerResultSchema,
+  SubmitBugReportResultSchema,
+  SubmitMcpAuthCodeResultSchema,
+  ToggleMcpServerResultSchema,
+  ToggleMcpToolResultSchema,
+  UpdateSessionSettingsResultSchema,
+} from './schemas/client.js';
 import { MCP_AUTH_TIMEOUT, SESSION_INIT_TIMEOUT } from './schemas/constants.js';
 import { DroidServerMethod } from './schemas/enums.js';
+import { SessionNotificationParamsSchema } from './schemas/server.js';
 import type { DroidClientTransport } from './types.js';
 
 // ---------------------------------------------------------------------------
@@ -152,6 +176,24 @@ export class DroidClient {
   }
 
   // ------------------------------------------------------------------
+  // Internal: RPC helper
+  // ------------------------------------------------------------------
+
+  /**
+   * Send a typed RPC request and validate the response with a Zod schema.
+   * Centralizes the sendRequest + parse pattern used by all 19 methods.
+   */
+  private async _rpc<T extends z.ZodTypeAny>(
+    method: string,
+    params: object,
+    schema: T,
+    timeout?: number
+  ): Promise<z.output<T>> {
+    const raw = await this._engine.sendRequest(method, params, timeout);
+    return schema.parse(raw);
+  }
+
+  // ------------------------------------------------------------------
   // Properties
   // ------------------------------------------------------------------
 
@@ -186,29 +228,14 @@ export class DroidClient {
   ): Promise<InitializeSessionResult> {
     this._ensureNotClosed();
 
-    const response = await this._engine.sendRequest(
+    const result = await this._rpc(
       DroidServerMethod.INITIALIZE_SESSION,
-      params as unknown as Record<string, unknown>,
+      params,
+      InitializeSessionResultSchema,
       SESSION_INIT_TIMEOUT
     );
-
-    const result = (response as Record<string, unknown>)['result'] as
-      | InitializeSessionResult
-      | undefined;
-    if (result) {
-      this._sessionId = result.sessionId;
-      return result;
-    }
-
-    // If the response has the result at top level (protocol engine returns full response)
-    if ('sessionId' in response) {
-      this._sessionId = (response as Record<string, unknown>)[
-        'sessionId'
-      ] as string;
-      return response as unknown as InitializeSessionResult;
-    }
-
-    return response as unknown as InitializeSessionResult;
+    this._sessionId = result.sessionId;
+    return result;
   }
 
   /**
@@ -222,22 +249,14 @@ export class DroidClient {
   ): Promise<LoadSessionResult> {
     this._ensureNotClosed();
 
-    const response = await this._engine.sendRequest(
+    const result = await this._rpc(
       DroidServerMethod.LOAD_SESSION,
-      params as unknown as Record<string, unknown>,
+      params,
+      LoadSessionResultSchema,
       SESSION_INIT_TIMEOUT
     );
-
-    const result = (response as Record<string, unknown>)['result'] as
-      | LoadSessionResult
-      | undefined;
-    if (result) {
-      this._sessionId = params.sessionId;
-      return result;
-    }
-
     this._sessionId = params.sessionId;
-    return response as unknown as LoadSessionResult;
+    return result;
   }
 
   /**
@@ -254,13 +273,11 @@ export class DroidClient {
     this._ensureNotClosed();
     this._ensureSession();
 
-    const response = await this._engine.sendRequest(
+    return this._rpc(
       DroidServerMethod.ADD_USER_MESSAGE,
-      params as unknown as Record<string, unknown>
+      params,
+      AddUserMessageResultSchema
     );
-
-    const result = (response as Record<string, unknown>)['result'];
-    return (result ?? response) as unknown as AddUserMessageResult;
   }
 
   /**
@@ -272,13 +289,11 @@ export class DroidClient {
     this._ensureNotClosed();
     this._ensureSession();
 
-    const response = await this._engine.sendRequest(
+    return this._rpc(
       DroidServerMethod.INTERRUPT_SESSION,
-      {}
+      {},
+      InterruptSessionResultSchema
     );
-
-    const result = (response as Record<string, unknown>)['result'];
-    return (result ?? response) as unknown as InterruptSessionResult;
   }
 
   /**
@@ -292,13 +307,11 @@ export class DroidClient {
     this._ensureNotClosed();
     this._ensureSession();
 
-    const response = await this._engine.sendRequest(
+    return this._rpc(
       DroidServerMethod.KILL_WORKER_SESSION,
-      params as unknown as Record<string, unknown>
+      params,
+      KillWorkerSessionResultSchema
     );
-
-    const result = (response as Record<string, unknown>)['result'];
-    return (result ?? response) as unknown as KillWorkerSessionResult;
   }
 
   /**
@@ -312,13 +325,11 @@ export class DroidClient {
     this._ensureNotClosed();
     this._ensureSession();
 
-    const response = await this._engine.sendRequest(
+    return this._rpc(
       DroidServerMethod.UPDATE_SESSION_SETTINGS,
-      params as unknown as Record<string, unknown>
+      params,
+      UpdateSessionSettingsResultSchema
     );
-
-    const result = (response as Record<string, unknown>)['result'];
-    return (result ?? response) as unknown as UpdateSessionSettingsResult;
   }
 
   // ------------------------------------------------------------------
@@ -334,13 +345,11 @@ export class DroidClient {
     this._ensureNotClosed();
     this._ensureSession();
 
-    const response = await this._engine.sendRequest(
+    return this._rpc(
       DroidServerMethod.TOGGLE_MCP_SERVER,
-      params as unknown as Record<string, unknown>
+      params,
+      ToggleMcpServerResultSchema
     );
-
-    const result = (response as Record<string, unknown>)['result'];
-    return (result ?? response) as unknown as ToggleMcpServerResult;
   }
 
   /**
@@ -353,14 +362,12 @@ export class DroidClient {
     this._ensureNotClosed();
     this._ensureSession();
 
-    const response = await this._engine.sendRequest(
+    return this._rpc(
       DroidServerMethod.AUTHENTICATE_MCP_SERVER,
-      params as unknown as Record<string, unknown>,
+      params,
+      AuthenticateMcpServerResultSchema,
       MCP_AUTH_TIMEOUT
     );
-
-    const result = (response as Record<string, unknown>)['result'];
-    return (result ?? response) as unknown as AuthenticateMcpServerResult;
   }
 
   /**
@@ -372,13 +379,11 @@ export class DroidClient {
     this._ensureNotClosed();
     this._ensureSession();
 
-    const response = await this._engine.sendRequest(
+    return this._rpc(
       DroidServerMethod.CANCEL_MCP_AUTH,
-      params as unknown as Record<string, unknown>
+      params,
+      CancelMcpAuthResultSchema
     );
-
-    const result = (response as Record<string, unknown>)['result'];
-    return (result ?? response) as unknown as CancelMcpAuthResult;
   }
 
   /**
@@ -390,13 +395,11 @@ export class DroidClient {
     this._ensureNotClosed();
     this._ensureSession();
 
-    const response = await this._engine.sendRequest(
+    return this._rpc(
       DroidServerMethod.CLEAR_MCP_AUTH,
-      params as unknown as Record<string, unknown>
+      params,
+      ClearMcpAuthResultSchema
     );
-
-    const result = (response as Record<string, unknown>)['result'];
-    return (result ?? response) as unknown as ClearMcpAuthResult;
   }
 
   /**
@@ -408,13 +411,11 @@ export class DroidClient {
     this._ensureNotClosed();
     this._ensureSession();
 
-    const response = await this._engine.sendRequest(
+    return this._rpc(
       DroidServerMethod.SUBMIT_MCP_AUTH_CODE,
-      params as unknown as Record<string, unknown>
+      params,
+      SubmitMcpAuthCodeResultSchema
     );
-
-    const result = (response as Record<string, unknown>)['result'];
-    return (result ?? response) as unknown as SubmitMcpAuthCodeResult;
   }
 
   /**
@@ -426,13 +427,11 @@ export class DroidClient {
     this._ensureNotClosed();
     this._ensureSession();
 
-    const response = await this._engine.sendRequest(
+    return this._rpc(
       DroidServerMethod.ADD_MCP_SERVER,
-      params as unknown as Record<string, unknown>
+      params,
+      AddMcpServerResultSchema
     );
-
-    const result = (response as Record<string, unknown>)['result'];
-    return (result ?? response) as unknown as AddMcpServerResult;
   }
 
   /**
@@ -444,13 +443,11 @@ export class DroidClient {
     this._ensureNotClosed();
     this._ensureSession();
 
-    const response = await this._engine.sendRequest(
+    return this._rpc(
       DroidServerMethod.REMOVE_MCP_SERVER,
-      params as unknown as Record<string, unknown>
+      params,
+      RemoveMcpServerResultSchema
     );
-
-    const result = (response as Record<string, unknown>)['result'];
-    return (result ?? response) as unknown as RemoveMcpServerResult;
   }
 
   /**
@@ -460,13 +457,11 @@ export class DroidClient {
     this._ensureNotClosed();
     this._ensureSession();
 
-    const response = await this._engine.sendRequest(
+    return this._rpc(
       DroidServerMethod.LIST_MCP_REGISTRY,
-      {}
+      {},
+      ListMcpRegistryResultSchema
     );
-
-    const result = (response as Record<string, unknown>)['result'];
-    return (result ?? response) as unknown as ListMcpRegistryResult;
   }
 
   /**
@@ -476,13 +471,11 @@ export class DroidClient {
     this._ensureNotClosed();
     this._ensureSession();
 
-    const response = await this._engine.sendRequest(
+    return this._rpc(
       DroidServerMethod.LIST_MCP_TOOLS,
-      {}
+      {},
+      ListMcpToolsResultSchema
     );
-
-    const result = (response as Record<string, unknown>)['result'];
-    return (result ?? response) as unknown as ListMcpToolsResult;
   }
 
   /**
@@ -492,13 +485,11 @@ export class DroidClient {
     this._ensureNotClosed();
     this._ensureSession();
 
-    const response = await this._engine.sendRequest(
+    return this._rpc(
       DroidServerMethod.LIST_MCP_SERVERS,
-      {}
+      {},
+      ListMcpServersResultSchema
     );
-
-    const result = (response as Record<string, unknown>)['result'];
-    return (result ?? response) as unknown as ListMcpServersResult;
   }
 
   /**
@@ -510,13 +501,11 @@ export class DroidClient {
     this._ensureNotClosed();
     this._ensureSession();
 
-    const response = await this._engine.sendRequest(
+    return this._rpc(
       DroidServerMethod.TOGGLE_MCP_TOOL,
-      params as unknown as Record<string, unknown>
+      params,
+      ToggleMcpToolResultSchema
     );
-
-    const result = (response as Record<string, unknown>)['result'];
-    return (result ?? response) as unknown as ToggleMcpToolResult;
   }
 
   // ------------------------------------------------------------------
@@ -530,13 +519,7 @@ export class DroidClient {
     this._ensureNotClosed();
     this._ensureSession();
 
-    const response = await this._engine.sendRequest(
-      DroidServerMethod.LIST_SKILLS,
-      {}
-    );
-
-    const result = (response as Record<string, unknown>)['result'];
-    return (result ?? response) as unknown as ListSkillsResult;
+    return this._rpc(DroidServerMethod.LIST_SKILLS, {}, ListSkillsResultSchema);
   }
 
   /**
@@ -548,13 +531,11 @@ export class DroidClient {
     this._ensureNotClosed();
     this._ensureSession();
 
-    const response = await this._engine.sendRequest(
+    return this._rpc(
       DroidServerMethod.SUBMIT_BUG_REPORT,
-      params as unknown as Record<string, unknown>
+      params,
+      SubmitBugReportResultSchema
     );
-
-    const result = (response as Record<string, unknown>)['result'];
-    return (result ?? response) as unknown as SubmitBugReportResult;
   }
 
   // ------------------------------------------------------------------
@@ -675,14 +656,14 @@ export class DroidClient {
    * Exception in one listener does not affect others.
    */
   private _dispatchNotification(notification: Record<string, unknown>): void {
-    // Extract the notification type from the payload
-    const params = notification['params'] as
-      | Record<string, unknown>
-      | undefined;
-    const innerNotification = params?.['notification'] as
-      | Record<string, unknown>
-      | undefined;
-    const notificationType = innerNotification?.['type'] as string | undefined;
+    // Extract the notification type for filtering via Zod parse
+    let notificationType: string | undefined;
+    const parsed = SessionNotificationParamsSchema.safeParse(
+      notification['params']
+    );
+    if (parsed.success) {
+      notificationType = parsed.data.notification.type;
+    }
 
     // Iterate over a copy in case listeners unsubscribe during iteration
     const listeners = [...this._notificationListeners];

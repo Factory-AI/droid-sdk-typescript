@@ -486,7 +486,7 @@ describe('DroidClient', () => {
       transport.injectMessage(
         makeSuccessResponse(requestId, {
           servers: [],
-          summary: { status: 'ready', totalCount: 0, connectedCount: 0 },
+          summary: { total: 0, connected: 0, connecting: 0, failed: 0 },
         })
       );
 
@@ -927,17 +927,24 @@ describe('DroidClient', () => {
 
       transport.injectMessage(
         makeNotification(SessionNotificationType.ASSISTANT_TEXT_DELTA, {
-          text: 'Hello',
+          messageId: 'msg-1',
+          blockIndex: 0,
+          textDelta: 'Hello',
         })
       );
       transport.injectMessage(
         makeNotification(SessionNotificationType.TOOL_RESULT, {
-          toolName: 'edit',
+          messageId: 'msg-1',
+          toolUseId: 'tu-1',
+          content: 'done',
+          isError: false,
         })
       );
       transport.injectMessage(
         makeNotification(SessionNotificationType.ASSISTANT_TEXT_DELTA, {
-          text: ' World',
+          messageId: 'msg-1',
+          blockIndex: 0,
+          textDelta: ' World',
         })
       );
 

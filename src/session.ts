@@ -45,6 +45,7 @@ import type {
   ListSkillsResult,
   LoadSessionRequestParams,
   LoadSessionResult,
+  McpServerConfig,
   RemoveMcpServerRequestParams,
   RemoveMcpServerResult,
   ToggleMcpServerRequestParams,
@@ -57,6 +58,7 @@ import type {
   DroidInteractionMode,
   ReasoningEffort,
 } from './schemas/enums.js';
+import type { Base64ImageSource, DocumentSource } from './schemas/messages.js';
 import {
   convertNotificationToStreamMessage,
   StreamStateTracker,
@@ -113,7 +115,7 @@ export interface CreateSessionOptions {
   reasoningEffort?: ReasoningEffort;
 
   /** MCP server configurations for the session. */
-  mcpServers?: Array<Record<string, unknown>>;
+  mcpServers?: McpServerConfig[];
 
   /** Additional tool IDs to enable. */
   enabledToolIds?: string[];
@@ -157,7 +159,7 @@ export interface ResumeSessionOptions {
   env?: Record<string, string>;
 
   /** MCP server configurations. */
-  mcpServers?: Array<Record<string, unknown>>;
+  mcpServers?: McpServerConfig[];
 
   /** Permission handler for tool confirmations. */
   permissionHandler?: ClientPermissionHandler;
@@ -176,10 +178,10 @@ export interface ResumeSessionOptions {
  */
 export interface MessageOptions {
   /** Optional images to include with the message. */
-  images?: Array<Record<string, unknown>>;
+  images?: Base64ImageSource[];
 
   /** Optional files to include with the message. */
-  files?: Array<Record<string, unknown>>;
+  files?: DocumentSource[];
 }
 
 // ---------------------------------------------------------------------------
@@ -274,20 +276,10 @@ export class DroidSession {
 
     // Subscribe to notifications for this turn
     const unsubscribe = this._client.onNotification((notification) => {
-      const params = notification['params'] as
-        | Record<string, unknown>
-        | undefined;
-      const innerNotification = params?.['notification'] as
-        | Record<string, unknown>
-        | undefined;
+      const innerNotification = extractInnerNotification(notification);
+      if (!innerNotification) return;
 
-      if (!innerNotification) {
-        return;
-      }
-
-      const converted = convertNotificationToStreamMessage(
-        innerNotification as { type: string; [key: string]: unknown }
-      );
+      const converted = convertNotificationToStreamMessage(innerNotification);
 
       if (converted === null) {
         return;
@@ -312,8 +304,8 @@ export class DroidSession {
       // Send the user message
       await this._client.addUserMessage({
         text,
-        images: options?.images as never,
-        files: options?.files as never,
+        images: options?.images,
+        files: options?.files,
       });
 
       // Yield messages until TurnComplete
@@ -581,34 +573,29 @@ export async function createSession(
   }
 
   // 4. Initialize session
-  const initParams: Record<string, unknown> = {
+  const initParams: InitializeSessionRequestParams = {
     machineId: options.machineId ?? 'default',
     cwd: options.cwd ?? '.',
+    ...(options.modelId !== undefined && { modelId: options.modelId }),
+    ...(options.autonomyLevel !== undefined && {
+      autonomyLevel: options.autonomyLevel,
+    }),
+    ...(options.interactionMode !== undefined && {
+      interactionMode: options.interactionMode,
+    }),
+    ...(options.reasoningEffort !== undefined && {
+      reasoningEffort: options.reasoningEffort,
+    }),
+    ...(options.mcpServers !== undefined && {
+      mcpServers: options.mcpServers,
+    }),
+    ...(options.enabledToolIds !== undefined && {
+      enabledToolIds: options.enabledToolIds,
+    }),
   };
 
-  if (options.modelId !== undefined) {
-    initParams.modelId = options.modelId;
-  }
-  if (options.autonomyLevel !== undefined) {
-    initParams.autonomyLevel = options.autonomyLevel;
-  }
-  if (options.interactionMode !== undefined) {
-    initParams.interactionMode = options.interactionMode;
-  }
-  if (options.reasoningEffort !== undefined) {
-    initParams.reasoningEffort = options.reasoningEffort;
-  }
-  if (options.mcpServers !== undefined) {
-    initParams.mcpServers = options.mcpServers;
-  }
-  if (options.enabledToolIds !== undefined) {
-    initParams.enabledToolIds = options.enabledToolIds;
-  }
-
   try {
-    const initResult = await client.initializeSession(
-      initParams as unknown as InitializeSessionRequestParams
-    );
+    const initResult = await client.initializeSession(initParams);
 
     return new DroidSession(client, initResult.sessionId, initResult);
   } catch (error) {
@@ -675,7 +662,7 @@ export async function resumeSession(
   // 4. Load session
   const loadParams: LoadSessionRequestParams = {
     sessionId,
-    mcpServers: options.mcpServers as never,
+    mcpServers: options.mcpServers,
   };
 
   try {
@@ -690,4 +677,25 @@ export async function resumeSession(
     }
     throw error;
   }
+}
+
+// ---------------------------------------------------------------------------
+// Helpers
+// ---------------------------------------------------------------------------
+
+/**
+ * Extract the inner notification payload from a JSON-RPC notification.
+ * Returns null if the structure is not a valid session notification.
+ */
+function extractInnerNotification(
+  notification: Record<string, unknown>
+): Record<string, unknown> | null {
+  const params = notification['params'];
+  if (typeof params !== 'object' || params === null) return null;
+  // eslint-disable-next-line @typescript-eslint/consistent-type-assertions -- runtime-guarded narrowing
+  const paramsRecord = params as Record<string, unknown>;
+  const inner = paramsRecord['notification'];
+  if (typeof inner !== 'object' || inner === null) return null;
+  // eslint-disable-next-line @typescript-eslint/consistent-type-assertions -- runtime-guarded narrowing
+  return inner as Record<string, unknown>;
 }
