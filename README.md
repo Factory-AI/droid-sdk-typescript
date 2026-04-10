@@ -18,19 +18,19 @@ npm install @factory/droid-sdk
 Send a one-shot prompt and stream the response:
 
 ```ts
-import { query } from "@factory/droid-sdk";
+import { query } from '@factory/droid-sdk';
 
 const stream = query({
-  prompt: "What files are in the current directory?",
-  cwd: "/my/project",
+  prompt: 'What files are in the current directory?',
+  cwd: '/my/project',
 });
 
 for await (const msg of stream) {
-  if (msg.type === "assistant_text_delta") {
+  if (msg.type === 'assistant_text_delta') {
     process.stdout.write(msg.text);
   }
-  if (msg.type === "turn_complete") {
-    console.log("\nDone!");
+  if (msg.type === 'turn_complete') {
+    console.log('\nDone!');
   }
 }
 ```
@@ -40,19 +40,19 @@ for await (const msg of stream) {
 Use `createSession()` for persistent conversations with multiple turns:
 
 ```ts
-import { createSession } from "@factory/droid-sdk";
+import { createSession } from '@factory/droid-sdk';
 
-const session = await createSession({ cwd: "/my/project" });
+const session = await createSession({ cwd: '/my/project' });
 
 // Streaming turn
-for await (const msg of session.stream("List all TypeScript files")) {
-  if (msg.type === "assistant_text_delta") {
+for await (const msg of session.stream('List all TypeScript files')) {
+  if (msg.type === 'assistant_text_delta') {
     process.stdout.write(msg.text);
   }
 }
 
 // Non-streaming turn
-const result = await session.send("Summarize the project");
+const result = await session.send('Summarize the project');
 console.log(result.text);
 
 await session.close();
@@ -61,10 +61,10 @@ await session.close();
 Resume an existing session by ID:
 
 ```ts
-import { resumeSession } from "@factory/droid-sdk";
+import { resumeSession } from '@factory/droid-sdk';
 
-const session = await resumeSession("session-id-here");
-const result = await session.send("Continue where we left off");
+const session = await resumeSession('session-id-here');
+const result = await session.send('Continue where we left off');
 console.log(result.text);
 await session.close();
 ```
@@ -74,19 +74,19 @@ await session.close();
 Handle tool confirmation requests with a custom permission handler:
 
 ```ts
-import { query, ToolConfirmationOutcome } from "@factory/droid-sdk";
+import { query, ToolConfirmationOutcome } from '@factory/droid-sdk';
 
 const stream = query({
-  prompt: "Create a hello.txt file",
-  cwd: "/my/project",
+  prompt: 'Create a hello.txt file',
+  cwd: '/my/project',
   permissionHandler(params) {
-    console.log("Tool permission requested:", params);
+    console.log('Tool permission requested:', params);
     return ToolConfirmationOutcome.ProceedOnce;
   },
 });
 
 for await (const msg of stream) {
-  if (msg.type === "assistant_text_delta") {
+  if (msg.type === 'assistant_text_delta') {
     process.stdout.write(msg.text);
   }
 }
@@ -96,11 +96,11 @@ for await (const msg of stream) {
 
 ### Top-Level Functions
 
-| Function | Description |
-|---|---|
-| `query(options)` | One-shot prompt → async generator of `DroidMessage` events |
-| `createSession(options?)` | Create a new multi-turn session → `DroidSession` |
-| `resumeSession(id, options?)` | Resume an existing session → `DroidSession` |
+| Function                      | Description                                                |
+| ----------------------------- | ---------------------------------------------------------- |
+| `query(options)`              | One-shot prompt → async generator of `DroidMessage` events |
+| `createSession(options?)`     | Create a new multi-turn session → `DroidSession`           |
+| `resumeSession(id, options?)` | Resume an existing session → `DroidSession`                |
 
 ### `query(options): DroidQuery`
 
@@ -134,18 +134,18 @@ Returned by `session.send()`:
 
 All messages have a discriminated `type` field:
 
-| Type | Description |
-|---|---|
-| `assistant_text_delta` | Streaming text token from the assistant |
-| `thinking_text_delta` | Streaming reasoning/thinking token |
-| `tool_use` | Tool invocation by the assistant |
-| `tool_result` | Result from a tool execution |
-| `tool_progress` | Progress update during tool execution |
-| `working_state_changed` | Agent working state transition |
-| `token_usage_update` | Updated token usage counters |
-| `create_message` | Full assistant message created |
-| `turn_complete` | Sentinel: agent turn finished |
-| `error` | Error event from the process |
+| Type                    | Description                             |
+| ----------------------- | --------------------------------------- |
+| `assistant_text_delta`  | Streaming text token from the assistant |
+| `thinking_text_delta`   | Streaming reasoning/thinking token      |
+| `tool_use`              | Tool invocation by the assistant        |
+| `tool_result`           | Result from a tool execution            |
+| `tool_progress`         | Progress update during tool execution   |
+| `working_state_changed` | Agent working state transition          |
+| `token_usage_update`    | Updated token usage counters            |
+| `create_message`        | Full assistant message created          |
+| `turn_complete`         | Sentinel: agent turn finished           |
+| `error`                 | Error event from the process            |
 
 ### Options
 
@@ -167,14 +167,14 @@ Low-level JSON-RPC client for advanced use. Provides typed methods for all 19 pr
 
 ### Error Types
 
-| Error | Description |
-|---|---|
-| `ConnectionError` | Failed to connect to the droid process |
-| `ProtocolError` | JSON-RPC protocol error |
-| `SessionError` | Base session error |
-| `SessionNotFoundError` | Session ID not found |
-| `TimeoutError` | Request timed out |
-| `ProcessExitError` | Droid subprocess exited unexpectedly |
+| Error                  | Description                            |
+| ---------------------- | -------------------------------------- |
+| `ConnectionError`      | Failed to connect to the droid process |
+| `ProtocolError`        | JSON-RPC protocol error                |
+| `SessionError`         | Base session error                     |
+| `SessionNotFoundError` | Session ID not found                   |
+| `TimeoutError`         | Request timed out                      |
+| `ProcessExitError`     | Droid subprocess exited unexpectedly   |
 
 ## Examples
 

@@ -4,10 +4,10 @@
  * Ported from: packages/common/src/shared/schemas.ts
  */
 
-import { z } from "zod";
+import { z } from 'zod';
 
-import { JSONRPC_VERSION, LEGACY_FACTORY_API_VERSION } from "./constants.js";
-import { JsonRpcErrorCode } from "./enums.js";
+import { JSONRPC_VERSION, LEGACY_FACTORY_API_VERSION } from './constants.js';
+import { JsonRpcErrorCode } from './enums.js';
 
 // ---------------------------------------------------------------------------
 // Trace context metadata
@@ -54,7 +54,7 @@ export type JsonRpcError = z.infer<typeof JsonRpcErrorSchema>;
 
 /** Base JSON-RPC request. */
 export const BaseRequestSchema = z.object({
-  type: z.literal("request"),
+  type: z.literal('request'),
   id: z.string(),
   method: z.string(),
   params: z.unknown().optional(),
@@ -64,7 +64,7 @@ export type BaseRequest = z.infer<typeof BaseRequestSchema>;
 
 /** Base JSON-RPC success response. */
 export const BaseResponseSuccessSchema = z.object({
-  type: z.literal("response"),
+  type: z.literal('response'),
   id: z.string(),
   result: z.unknown(),
 });
@@ -73,7 +73,7 @@ export type BaseResponseSuccess = z.infer<typeof BaseResponseSuccessSchema>;
 
 /** Base JSON-RPC failure response. */
 export const BaseResponseFailureSchema = z.object({
-  type: z.literal("response"),
+  type: z.literal('response'),
   id: z.string().nullable(),
   error: JsonRpcErrorSchema,
 });
@@ -82,7 +82,7 @@ export type BaseResponseFailure = z.infer<typeof BaseResponseFailureSchema>;
 
 /** Base JSON-RPC notification. */
 export const BaseNotificationSchema = z.object({
-  type: z.literal("notification"),
+  type: z.literal('notification'),
   method: z.string(),
   params: z.unknown().optional(),
 });
@@ -95,14 +95,14 @@ export type BaseNotification = z.infer<typeof BaseNotificationSchema>;
 
 /** Full JSON-RPC request with envelope fields. */
 export const JsonRpcRequestSchema = JsonRpcEnvelopeSchema.extend(
-  BaseRequestSchema.shape,
+  BaseRequestSchema.shape
 );
 
 export type JsonRpcRequest = z.infer<typeof JsonRpcRequestSchema>;
 
 /** Full JSON-RPC success response with envelope fields. */
 export const JsonRpcResponseSuccessSchema = JsonRpcEnvelopeSchema.extend(
-  BaseResponseSuccessSchema.shape,
+  BaseResponseSuccessSchema.shape
 );
 
 export type JsonRpcResponseSuccess = z.infer<
@@ -111,7 +111,7 @@ export type JsonRpcResponseSuccess = z.infer<
 
 /** Full JSON-RPC failure response with envelope fields. */
 export const JsonRpcResponseFailureSchema = JsonRpcEnvelopeSchema.extend(
-  BaseResponseFailureSchema.shape,
+  BaseResponseFailureSchema.shape
 );
 
 export type JsonRpcResponseFailure = z.infer<
@@ -120,7 +120,7 @@ export type JsonRpcResponseFailure = z.infer<
 
 /** Full JSON-RPC notification with envelope fields. */
 export const JsonRpcNotificationSchema = JsonRpcEnvelopeSchema.extend(
-  BaseNotificationSchema.shape,
+  BaseNotificationSchema.shape
 );
 
 export type JsonRpcNotification = z.infer<typeof JsonRpcNotificationSchema>;
@@ -134,10 +134,10 @@ export const JsonRpcResponseSchema = z.union([
 export type JsonRpcResponse = z.infer<typeof JsonRpcResponseSchema>;
 
 /** Discriminated union for initial message type routing. */
-export const JsonRpcMessageSchema = z.discriminatedUnion("type", [
+export const JsonRpcMessageSchema = z.discriminatedUnion('type', [
   JsonRpcRequestSchema,
   JsonRpcEnvelopeSchema.extend({
-    type: z.literal("response"),
+    type: z.literal('response'),
     id: z.string().nullable(),
     result: z.unknown().optional(),
     error: JsonRpcErrorSchema.optional(),

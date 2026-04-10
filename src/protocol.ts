@@ -15,25 +15,22 @@
  *   malformed responses, null-id error responses
  */
 
-import { v4 as uuidv4 } from "uuid";
+import { v4 as uuidv4 } from 'uuid';
 
 import {
   ConnectionError,
   ProtocolError,
   SessionNotFoundError,
   TimeoutError,
-} from "./errors.js";
+} from './errors.js';
 import {
   DEFAULT_REQUEST_TIMEOUT,
   FACTORY_PROTOCOL_VERSION,
   JSONRPC_VERSION,
   LEGACY_FACTORY_API_VERSION,
-} from "./schemas/constants.js";
-import {
-  DroidClientMethod,
-  JsonRpcErrorCode,
-} from "./schemas/enums.js";
-import type { DroidClientTransport } from "./types.js";
+} from './schemas/constants.js';
+import { DroidClientMethod, JsonRpcErrorCode } from './schemas/enums.js';
+import type { DroidClientTransport } from './types.js';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -44,7 +41,7 @@ import type { DroidClientTransport } from "./types.js";
  * Receives request params and returns the selected ToolConfirmationOutcome string.
  */
 export type PermissionHandler = (
-  params: Record<string, unknown>,
+  params: Record<string, unknown>
 ) => string | Promise<string>;
 
 /**
@@ -52,13 +49,15 @@ export type PermissionHandler = (
  * Receives request params and returns a result with cancelled flag and answers.
  */
 export type AskUserHandler = (
-  params: Record<string, unknown>,
+  params: Record<string, unknown>
 ) => Record<string, unknown> | Promise<Record<string, unknown>>;
 
 /**
  * Callback for incoming notification messages.
  */
-export type NotificationCallback = (notification: Record<string, unknown>) => void;
+export type NotificationCallback = (
+  notification: Record<string, unknown>
+) => void;
 
 /**
  * Optional filter for notification listeners.
@@ -173,17 +172,17 @@ export class ProtocolEngine {
   async sendRequest(
     method: string,
     params: Record<string, unknown>,
-    timeout?: number,
+    timeout?: number
   ): Promise<Record<string, unknown>> {
     // Check closed state
     if (this._closed) {
-      throw new ConnectionError("Protocol engine is closed");
+      throw new ConnectionError('Protocol engine is closed');
     }
 
     // Check sticky transport error
     if (this._transportError !== null) {
       throw new ConnectionError(
-        `Transport error: ${this._transportError.message}`,
+        `Transport error: ${this._transportError.message}`
       );
     }
 
@@ -195,7 +194,7 @@ export class ProtocolEngine {
       jsonrpc: JSONRPC_VERSION,
       factoryApiVersion: LEGACY_FACTORY_API_VERSION,
       factoryProtocolVersion: FACTORY_PROTOCOL_VERSION,
-      type: "request",
+      type: 'request',
       id: requestId,
       method,
       params,
@@ -208,8 +207,8 @@ export class ProtocolEngine {
         this._pendingRequests.delete(requestId);
         reject(
           new TimeoutError(
-            `Request ${method} timed out after ${effectiveTimeout}ms`,
-          ),
+            `Request ${method} timed out after ${effectiveTimeout}ms`
+          )
         );
       }, effectiveTimeout);
 
@@ -233,10 +232,10 @@ export class ProtocolEngine {
         this._pendingRequests.delete(requestId);
         if (sendError instanceof Error) {
           reject(
-            new ConnectionError(`Failed to send request: ${sendError.message}`),
+            new ConnectionError(`Failed to send request: ${sendError.message}`)
           );
         } else {
-          reject(new ConnectionError("Failed to send request"));
+          reject(new ConnectionError('Failed to send request'));
         }
       }
     });
@@ -258,7 +257,7 @@ export class ProtocolEngine {
    */
   onNotification(
     callback: NotificationCallback,
-    filter?: NotificationFilter,
+    filter?: NotificationFilter
   ): () => void {
     const listener: NotificationListener = { callback, filter };
     this._notificationListeners.add(listener);
@@ -344,7 +343,7 @@ export class ProtocolEngine {
 
     // Reject all pending
     const error = new ConnectionError(
-      "Protocol engine closed: pending requests cancelled",
+      'Protocol engine closed: pending requests cancelled'
     );
     this._rejectAllPending(error);
 
@@ -367,22 +366,22 @@ export class ProtocolEngine {
    * server→client request handler based on message type.
    */
   private _handleMessage(parsed: Record<string, unknown>): void {
-    const msgType = parsed["type"];
+    const msgType = parsed['type'];
 
-    if (msgType === "response") {
+    if (msgType === 'response') {
       this._handleResponse(parsed);
-    } else if (msgType === "notification") {
+    } else if (msgType === 'notification') {
       this._handleNotification(parsed);
-    } else if (msgType === "request") {
+    } else if (msgType === 'request') {
       // Server→client request — handle asynchronously
       void this._handleServerRequest(parsed);
     } else {
       // Fallback detection by content
-      if ("result" in parsed || "error" in parsed) {
+      if ('result' in parsed || 'error' in parsed) {
         this._handleResponse(parsed);
-      } else if ("method" in parsed && !("id" in parsed)) {
+      } else if ('method' in parsed && !('id' in parsed)) {
         this._handleNotification(parsed);
-      } else if ("method" in parsed && "id" in parsed) {
+      } else if ('method' in parsed && 'id' in parsed) {
         void this._handleServerRequest(parsed);
       }
       // else: unknown format — silently ignore
@@ -394,7 +393,7 @@ export class ProtocolEngine {
    * Matches by ID to resolve the correct pending Promise.
    */
   private _handleResponse(response: Record<string, unknown>): void {
-    const responseId = response["id"] as string | null | undefined;
+    const responseId = response['id'] as string | null | undefined;
 
     // Null-id error response — log but don't crash
     if (responseId == null) {
@@ -413,17 +412,17 @@ export class ProtocolEngine {
     clearTimeout(pending.timer);
 
     // Check for error response and map to exceptions
-    const errorObj = response["error"];
-    if (errorObj != null && typeof errorObj === "object") {
+    const errorObj = response['error'];
+    if (errorObj != null && typeof errorObj === 'object') {
       const error = errorObj as Record<string, unknown>;
-      const code = error["code"] as number | undefined;
-      const message = (error["message"] as string) ?? "Unknown error";
-      const data = error["data"];
+      const code = error['code'] as number | undefined;
+      const message = (error['message'] as string) ?? 'Unknown error';
+      const data = error['data'];
 
       if (code === JsonRpcErrorCode.ENTITY_NOT_FOUND) {
         // Extract sessionId from the original request params
         const sessionId = String(
-          pending.params["sessionId"] ?? pending.requestId,
+          pending.params['sessionId'] ?? pending.requestId
         );
         pending.reject(new SessionNotFoundError(sessionId));
         return;
@@ -443,11 +442,13 @@ export class ProtocolEngine {
    */
   private _handleNotification(notification: Record<string, unknown>): void {
     // Extract the notification type for filtering
-    const params = notification["params"] as Record<string, unknown> | undefined;
-    const innerNotification = params?.["notification"] as
+    const params = notification['params'] as
       | Record<string, unknown>
       | undefined;
-    const notificationType = innerNotification?.["type"] as string | undefined;
+    const innerNotification = params?.['notification'] as
+      | Record<string, unknown>
+      | undefined;
+    const notificationType = innerNotification?.['type'] as string | undefined;
 
     for (const listener of this._notificationListeners) {
       // Apply type filter if present
@@ -471,11 +472,11 @@ export class ProtocolEngine {
    * Dispatches to the appropriate handler based on the method field.
    */
   private async _handleServerRequest(
-    request: Record<string, unknown>,
+    request: Record<string, unknown>
   ): Promise<void> {
-    const method = request["method"] as string;
-    const requestId = request["id"] as string;
-    const params = (request["params"] as Record<string, unknown>) ?? {};
+    const method = request['method'] as string;
+    const requestId = request['id'] as string;
+    const params = (request['params'] as Record<string, unknown>) ?? {};
 
     if (method === DroidClientMethod.REQUEST_PERMISSION) {
       await this._handlePermissionRequest(requestId, params);
@@ -490,13 +491,13 @@ export class ProtocolEngine {
    */
   private async _handlePermissionRequest(
     requestId: string,
-    params: Record<string, unknown>,
+    params: Record<string, unknown>
   ): Promise<void> {
     const handler = this._permissionHandler;
 
     if (handler == null) {
       // Default: Cancel
-      this._sendResponse(requestId, { selectedOption: "cancel" });
+      this._sendResponse(requestId, { selectedOption: 'cancel' });
       return;
     }
 
@@ -504,13 +505,12 @@ export class ProtocolEngine {
       const selectedOption = await Promise.resolve(handler(params));
       this._sendResponse(requestId, { selectedOption });
     } catch (exc) {
-      const errorMessage =
-        exc instanceof Error ? exc.message : String(exc);
+      const errorMessage = exc instanceof Error ? exc.message : String(exc);
       this._sendErrorResponse(
         requestId,
         JsonRpcErrorCode.INTERNAL_ERROR,
-        "Failed to handle permission request",
-        errorMessage,
+        'Failed to handle permission request',
+        errorMessage
       );
     }
   }
@@ -520,7 +520,7 @@ export class ProtocolEngine {
    */
   private async _handleAskUserRequest(
     requestId: string,
-    params: Record<string, unknown>,
+    params: Record<string, unknown>
   ): Promise<void> {
     const handler = this._askUserHandler;
 
@@ -534,13 +534,12 @@ export class ProtocolEngine {
       const result = await Promise.resolve(handler(params));
       this._sendResponse(requestId, result);
     } catch (exc) {
-      const errorMessage =
-        exc instanceof Error ? exc.message : String(exc);
+      const errorMessage = exc instanceof Error ? exc.message : String(exc);
       this._sendErrorResponse(
         requestId,
         JsonRpcErrorCode.INTERNAL_ERROR,
-        "Failed to handle ask-user request",
-        errorMessage,
+        'Failed to handle ask-user request',
+        errorMessage
       );
     }
   }
@@ -557,7 +556,7 @@ export class ProtocolEngine {
   private _handleTransportError(error: Error): void {
     this._transportError = error;
     const connectionError = new ConnectionError(
-      `Transport error: ${error.message}`,
+      `Transport error: ${error.message}`
     );
     connectionError.cause = error;
     this._rejectAllPending(connectionError);
@@ -572,13 +571,13 @@ export class ProtocolEngine {
    */
   private _sendResponse(
     requestId: string,
-    result: Record<string, unknown>,
+    result: Record<string, unknown>
   ): void {
     const response: Record<string, unknown> = {
       jsonrpc: JSONRPC_VERSION,
       factoryApiVersion: LEGACY_FACTORY_API_VERSION,
       factoryProtocolVersion: FACTORY_PROTOCOL_VERSION,
-      type: "response",
+      type: 'response',
       id: requestId,
       result,
     };
@@ -596,18 +595,18 @@ export class ProtocolEngine {
     requestId: string,
     code: number,
     message: string,
-    data?: unknown,
+    data?: unknown
   ): void {
     const errorObj: Record<string, unknown> = { code, message };
     if (data !== undefined) {
-      errorObj["data"] = data;
+      errorObj['data'] = data;
     }
 
     const response: Record<string, unknown> = {
       jsonrpc: JSONRPC_VERSION,
       factoryApiVersion: LEGACY_FACTORY_API_VERSION,
       factoryProtocolVersion: FACTORY_PROTOCOL_VERSION,
-      type: "response",
+      type: 'response',
       id: requestId,
       error: errorObj,
     };

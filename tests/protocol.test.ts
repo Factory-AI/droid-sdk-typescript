@@ -6,23 +6,23 @@
  *   VAL-PROTOCOL-001 through VAL-PROTOCOL-008.
  */
 
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import {
   ConnectionError,
   ProtocolError,
   SessionNotFoundError,
   TimeoutError,
-} from "../src/errors.js";
-import { ProtocolEngine } from "../src/protocol.js";
+} from '../src/errors.js';
+import { ProtocolEngine } from '../src/protocol.js';
 import {
   DroidClientMethod,
   JsonRpcErrorCode,
   FACTORY_PROTOCOL_VERSION,
   JSONRPC_VERSION,
   LEGACY_FACTORY_API_VERSION,
-} from "../src/schemas/index.js";
-import { InMemoryTransport } from "./helpers.js";
+} from '../src/schemas/index.js';
+import { InMemoryTransport } from './helpers.js';
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -31,13 +31,13 @@ import { InMemoryTransport } from "./helpers.js";
 /** Build a JSON-RPC success response for a given request ID. */
 function makeSuccessResponse(
   id: string,
-  result: Record<string, unknown> = {},
+  result: Record<string, unknown> = {}
 ): Record<string, unknown> {
   return {
     jsonrpc: JSONRPC_VERSION,
     factoryApiVersion: LEGACY_FACTORY_API_VERSION,
     factoryProtocolVersion: FACTORY_PROTOCOL_VERSION,
-    type: "response",
+    type: 'response',
     id,
     result,
   };
@@ -48,17 +48,17 @@ function makeErrorResponse(
   id: string | null,
   code: number,
   message: string,
-  data?: unknown,
+  data?: unknown
 ): Record<string, unknown> {
   const errorObj: Record<string, unknown> = { code, message };
   if (data !== undefined) {
-    errorObj["data"] = data;
+    errorObj['data'] = data;
   }
   return {
     jsonrpc: JSONRPC_VERSION,
     factoryApiVersion: LEGACY_FACTORY_API_VERSION,
     factoryProtocolVersion: FACTORY_PROTOCOL_VERSION,
-    type: "response",
+    type: 'response',
     id,
     error: errorObj,
   };
@@ -67,13 +67,13 @@ function makeErrorResponse(
 /** Build a JSON-RPC notification. */
 function makeNotification(
   method: string,
-  params: Record<string, unknown>,
+  params: Record<string, unknown>
 ): Record<string, unknown> {
   return {
     jsonrpc: JSONRPC_VERSION,
     factoryApiVersion: LEGACY_FACTORY_API_VERSION,
     factoryProtocolVersion: FACTORY_PROTOCOL_VERSION,
-    type: "notification",
+    type: 'notification',
     method,
     params,
   };
@@ -83,13 +83,13 @@ function makeNotification(
 function makeServerRequest(
   id: string,
   method: string,
-  params: Record<string, unknown>,
+  params: Record<string, unknown>
 ): Record<string, unknown> {
   return {
     jsonrpc: JSONRPC_VERSION,
     factoryApiVersion: LEGACY_FACTORY_API_VERSION,
     factoryProtocolVersion: FACTORY_PROTOCOL_VERSION,
-    type: "request",
+    type: 'request',
     id,
     method,
     params,
@@ -100,7 +100,7 @@ function makeServerRequest(
 // Tests
 // ---------------------------------------------------------------------------
 
-describe("ProtocolEngine", () => {
+describe('ProtocolEngine', () => {
   let transport: InMemoryTransport;
   let engine: ProtocolEngine;
 
@@ -117,58 +117,60 @@ describe("ProtocolEngine", () => {
   // =======================================================================
   // VAL-PROTOCOL-001: Request-response correlation by ID
   // =======================================================================
-  describe("request-response correlation (VAL-PROTOCOL-001)", () => {
-    it("sends JSON-RPC request with correct envelope fields", async () => {
-      const promise = engine.sendRequest("droid.list_skills", { foo: "bar" });
+  describe('request-response correlation (VAL-PROTOCOL-001)', () => {
+    it('sends JSON-RPC request with correct envelope fields', async () => {
+      const promise = engine.sendRequest('droid.list_skills', { foo: 'bar' });
 
       // Verify the sent message has correct structure
       expect(transport.sentMessages).toHaveLength(1);
       const sent = transport.sentMessages[0] as Record<string, unknown>;
-      expect(sent["jsonrpc"]).toBe(JSONRPC_VERSION);
-      expect(sent["factoryApiVersion"]).toBe(LEGACY_FACTORY_API_VERSION);
-      expect(sent["factoryProtocolVersion"]).toBe(FACTORY_PROTOCOL_VERSION);
-      expect(sent["type"]).toBe("request");
-      expect(sent["method"]).toBe("droid.list_skills");
-      expect(sent["params"]).toEqual({ foo: "bar" });
-      expect(typeof sent["id"]).toBe("string");
-      expect((sent["id"] as string).length).toBeGreaterThan(0);
+      expect(sent['jsonrpc']).toBe(JSONRPC_VERSION);
+      expect(sent['factoryApiVersion']).toBe(LEGACY_FACTORY_API_VERSION);
+      expect(sent['factoryProtocolVersion']).toBe(FACTORY_PROTOCOL_VERSION);
+      expect(sent['type']).toBe('request');
+      expect(sent['method']).toBe('droid.list_skills');
+      expect(sent['params']).toEqual({ foo: 'bar' });
+      expect(typeof sent['id']).toBe('string');
+      expect((sent['id'] as string).length).toBeGreaterThan(0);
 
       // Respond with matching ID
-      const requestId = sent["id"] as string;
-      transport.injectMessage(
-        makeSuccessResponse(requestId, { skills: [] }),
-      );
+      const requestId = sent['id'] as string;
+      transport.injectMessage(makeSuccessResponse(requestId, { skills: [] }));
 
       const result = await promise;
-      expect(result["result"]).toEqual({ skills: [] });
+      expect(result['result']).toEqual({ skills: [] });
     });
 
-    it("correlates response to correct pending request by UUID ID", async () => {
-      const promise1 = engine.sendRequest("droid.method_a", {});
-      const promise2 = engine.sendRequest("droid.method_b", {});
+    it('correlates response to correct pending request by UUID ID', async () => {
+      const promise1 = engine.sendRequest('droid.method_a', {});
+      const promise2 = engine.sendRequest('droid.method_b', {});
 
       expect(transport.sentMessages).toHaveLength(2);
-      const id1 = (transport.sentMessages[0] as Record<string, unknown>)["id"] as string;
-      const id2 = (transport.sentMessages[1] as Record<string, unknown>)["id"] as string;
+      const id1 = (transport.sentMessages[0] as Record<string, unknown>)[
+        'id'
+      ] as string;
+      const id2 = (transport.sentMessages[1] as Record<string, unknown>)[
+        'id'
+      ] as string;
 
       // Respond in reverse order
-      transport.injectMessage(makeSuccessResponse(id2, { data: "b" }));
-      transport.injectMessage(makeSuccessResponse(id1, { data: "a" }));
+      transport.injectMessage(makeSuccessResponse(id2, { data: 'b' }));
+      transport.injectMessage(makeSuccessResponse(id1, { data: 'a' }));
 
       const result1 = await promise1;
       const result2 = await promise2;
 
-      expect(result1["result"]).toEqual({ data: "a" });
-      expect(result2["result"]).toEqual({ data: "b" });
+      expect(result1['result']).toEqual({ data: 'a' });
+      expect(result2['result']).toEqual({ data: 'b' });
     });
 
-    it("generates unique UUID IDs for each request", async () => {
-      const p1 = engine.sendRequest("droid.method_a", {});
-      const p2 = engine.sendRequest("droid.method_b", {});
-      const p3 = engine.sendRequest("droid.method_c", {});
+    it('generates unique UUID IDs for each request', async () => {
+      const p1 = engine.sendRequest('droid.method_a', {});
+      const p2 = engine.sendRequest('droid.method_b', {});
+      const p3 = engine.sendRequest('droid.method_c', {});
 
       const ids = transport.sentMessages.map(
-        (m) => (m as Record<string, unknown>)["id"] as string,
+        (m) => (m as Record<string, unknown>)['id'] as string
       );
 
       expect(new Set(ids).size).toBe(3);
@@ -184,8 +186,8 @@ describe("ProtocolEngine", () => {
   // =======================================================================
   // VAL-PROTOCOL-002: Notification dispatch to listeners
   // =======================================================================
-  describe("notification dispatch (VAL-PROTOCOL-002)", () => {
-    it("dispatches notifications to all registered listeners", () => {
+  describe('notification dispatch (VAL-PROTOCOL-002)', () => {
+    it('dispatches notifications to all registered listeners', () => {
       const received1: Record<string, unknown>[] = [];
       const received2: Record<string, unknown>[] = [];
 
@@ -196,12 +198,12 @@ describe("ProtocolEngine", () => {
         DroidClientMethod.SESSION_NOTIFICATION,
         {
           notification: {
-            type: "assistant_text_delta",
-            messageId: "msg-1",
+            type: 'assistant_text_delta',
+            messageId: 'msg-1',
             blockIndex: 0,
-            textDelta: "Hello",
+            textDelta: 'Hello',
           },
-        },
+        }
       );
 
       transport.injectMessage(notification);
@@ -211,50 +213,51 @@ describe("ProtocolEngine", () => {
       expect(received1[0]).toEqual(notification);
     });
 
-    it("filters notifications by type when filter is provided", () => {
+    it('filters notifications by type when filter is provided', () => {
       const received: Record<string, unknown>[] = [];
 
-      engine.onNotification(
-        (n) => received.push(n),
-        { type: "assistant_text_delta" },
-      );
+      engine.onNotification((n) => received.push(n), {
+        type: 'assistant_text_delta',
+      });
 
       // This one should be delivered
       transport.injectMessage(
         makeNotification(DroidClientMethod.SESSION_NOTIFICATION, {
           notification: {
-            type: "assistant_text_delta",
-            messageId: "m1",
+            type: 'assistant_text_delta',
+            messageId: 'm1',
             blockIndex: 0,
-            textDelta: "hi",
+            textDelta: 'hi',
           },
-        }),
+        })
       );
 
       // This one should NOT be delivered
       transport.injectMessage(
         makeNotification(DroidClientMethod.SESSION_NOTIFICATION, {
           notification: {
-            type: "tool_result",
-            messageId: "m2",
-            toolUseId: "t1",
+            type: 'tool_result',
+            messageId: 'm2',
+            toolUseId: 't1',
           },
-        }),
+        })
       );
 
       expect(received).toHaveLength(1);
-      const inner = (received[0]["params"] as Record<string, unknown>)["notification"] as Record<string, unknown>;
-      expect(inner["type"]).toBe("assistant_text_delta");
+      const inner = (received[0]['params'] as Record<string, unknown>)[
+        'notification'
+      ] as Record<string, unknown>;
+      expect(inner['type']).toBe('assistant_text_delta');
     });
 
-    it("unsubscribe function removes listener", () => {
+    it('unsubscribe function removes listener', () => {
       const received: Record<string, unknown>[] = [];
       const unsub = engine.onNotification((n) => received.push(n));
 
       transport.injectMessage(
         makeNotification(DroidClientMethod.SESSION_NOTIFICATION, {
-          notification: { type: "assistant_text_delta" },
-        }),
+          notification: { type: 'assistant_text_delta' },
+        })
       );
 
       expect(received).toHaveLength(1);
@@ -264,32 +267,32 @@ describe("ProtocolEngine", () => {
 
       transport.injectMessage(
         makeNotification(DroidClientMethod.SESSION_NOTIFICATION, {
-          notification: { type: "assistant_text_delta" },
-        }),
+          notification: { type: 'assistant_text_delta' },
+        })
       );
 
       // Should not receive after unsubscribe
       expect(received).toHaveLength(1);
     });
 
-    it("double-unsubscribe is safe (no-op)", () => {
+    it('double-unsubscribe is safe (no-op)', () => {
       const unsub = engine.onNotification(() => {});
       unsub();
       expect(() => unsub()).not.toThrow();
     });
 
-    it("listener exception does not crash engine or affect other listeners", () => {
+    it('listener exception does not crash engine or affect other listeners', () => {
       const received: Record<string, unknown>[] = [];
 
       engine.onNotification(() => {
-        throw new Error("boom");
+        throw new Error('boom');
       });
       engine.onNotification((n) => received.push(n));
 
       transport.injectMessage(
         makeNotification(DroidClientMethod.SESSION_NOTIFICATION, {
-          notification: { type: "assistant_text_delta" },
-        }),
+          notification: { type: 'assistant_text_delta' },
+        })
       );
 
       // Second listener still receives
@@ -300,12 +303,12 @@ describe("ProtocolEngine", () => {
   // =======================================================================
   // VAL-PROTOCOL-003: Request timeout handling
   // =======================================================================
-  describe("request timeout (VAL-PROTOCOL-003)", () => {
-    it("rejects with TimeoutError after configured duration", async () => {
+  describe('request timeout (VAL-PROTOCOL-003)', () => {
+    it('rejects with TimeoutError after configured duration', async () => {
       vi.useFakeTimers();
 
       try {
-        const promise = engine.sendRequest("droid.slow_method", {}, 100);
+        const promise = engine.sendRequest('droid.slow_method', {}, 100);
 
         // Advance time past the timeout
         vi.advanceTimersByTime(101);
@@ -317,7 +320,7 @@ describe("ProtocolEngine", () => {
       }
     });
 
-    it("uses default timeout when none specified", async () => {
+    it('uses default timeout when none specified', async () => {
       vi.useFakeTimers();
 
       try {
@@ -327,7 +330,7 @@ describe("ProtocolEngine", () => {
           defaultTimeout: 50,
         });
 
-        const promise = shortEngine.sendRequest("droid.method", {});
+        const promise = shortEngine.sendRequest('droid.method', {});
 
         vi.advanceTimersByTime(51);
 
@@ -339,20 +342,22 @@ describe("ProtocolEngine", () => {
       }
     });
 
-    it("does not reject if response arrives before timeout", async () => {
+    it('does not reject if response arrives before timeout', async () => {
       vi.useFakeTimers();
 
       try {
-        const promise = engine.sendRequest("droid.method", {}, 500);
+        const promise = engine.sendRequest('droid.method', {}, 500);
 
-        const id = (transport.sentMessages[0] as Record<string, unknown>)["id"] as string;
+        const id = (transport.sentMessages[0] as Record<string, unknown>)[
+          'id'
+        ] as string;
 
         // Respond quickly
         vi.advanceTimersByTime(10);
         transport.injectMessage(makeSuccessResponse(id, { ok: true }));
 
         const result = await promise;
-        expect(result["result"]).toEqual({ ok: true });
+        expect(result['result']).toEqual({ ok: true });
 
         // Advancing past timeout should not cause issues
         vi.advanceTimersByTime(500);
@@ -365,16 +370,16 @@ describe("ProtocolEngine", () => {
   // =======================================================================
   // VAL-PROTOCOL-004: Server→client request handling
   // =======================================================================
-  describe("server→client request handling (VAL-PROTOCOL-004)", () => {
-    describe("permission requests", () => {
-      it("invokes registered permission handler and sends response", async () => {
-        engine.setPermissionHandler((_params) => "proceed_once");
+  describe('server→client request handling (VAL-PROTOCOL-004)', () => {
+    describe('permission requests', () => {
+      it('invokes registered permission handler and sends response', async () => {
+        engine.setPermissionHandler((_params) => 'proceed_once');
 
         transport.injectMessage(
-          makeServerRequest("perm-1", DroidClientMethod.REQUEST_PERMISSION, {
+          makeServerRequest('perm-1', DroidClientMethod.REQUEST_PERMISSION, {
             toolUses: [],
             options: [],
-          }),
+          })
         );
 
         // Allow async handler to complete
@@ -383,17 +388,17 @@ describe("ProtocolEngine", () => {
         });
 
         const response = transport.sentMessages[0] as Record<string, unknown>;
-        expect(response["type"]).toBe("response");
-        expect(response["id"]).toBe("perm-1");
-        expect(response["result"]).toEqual({ selectedOption: "proceed_once" });
+        expect(response['type']).toBe('response');
+        expect(response['id']).toBe('perm-1');
+        expect(response['result']).toEqual({ selectedOption: 'proceed_once' });
       });
 
-      it("sends cancel when no permission handler registered", async () => {
+      it('sends cancel when no permission handler registered', async () => {
         transport.injectMessage(
-          makeServerRequest("perm-2", DroidClientMethod.REQUEST_PERMISSION, {
+          makeServerRequest('perm-2', DroidClientMethod.REQUEST_PERMISSION, {
             toolUses: [],
             options: [],
-          }),
+          })
         );
 
         await vi.waitFor(() => {
@@ -401,19 +406,19 @@ describe("ProtocolEngine", () => {
         });
 
         const response = transport.sentMessages[0] as Record<string, unknown>;
-        expect(response["result"]).toEqual({ selectedOption: "cancel" });
+        expect(response['result']).toEqual({ selectedOption: 'cancel' });
       });
 
-      it("sends error response when permission handler throws", async () => {
+      it('sends error response when permission handler throws', async () => {
         engine.setPermissionHandler(() => {
-          throw new Error("handler failure");
+          throw new Error('handler failure');
         });
 
         transport.injectMessage(
-          makeServerRequest("perm-3", DroidClientMethod.REQUEST_PERMISSION, {
+          makeServerRequest('perm-3', DroidClientMethod.REQUEST_PERMISSION, {
             toolUses: [],
             options: [],
-          }),
+          })
         );
 
         await vi.waitFor(() => {
@@ -421,23 +426,23 @@ describe("ProtocolEngine", () => {
         });
 
         const response = transport.sentMessages[0] as Record<string, unknown>;
-        expect(response["id"]).toBe("perm-3");
-        expect(response["error"]).toBeDefined();
-        const error = response["error"] as Record<string, unknown>;
-        expect(error["code"]).toBe(JsonRpcErrorCode.INTERNAL_ERROR);
-        expect(error["message"]).toBe("Failed to handle permission request");
+        expect(response['id']).toBe('perm-3');
+        expect(response['error']).toBeDefined();
+        const error = response['error'] as Record<string, unknown>;
+        expect(error['code']).toBe(JsonRpcErrorCode.INTERNAL_ERROR);
+        expect(error['message']).toBe('Failed to handle permission request');
       });
 
-      it("supports async permission handler", async () => {
+      it('supports async permission handler', async () => {
         engine.setPermissionHandler(async () => {
-          return "proceed_always";
+          return 'proceed_always';
         });
 
         transport.injectMessage(
-          makeServerRequest("perm-4", DroidClientMethod.REQUEST_PERMISSION, {
+          makeServerRequest('perm-4', DroidClientMethod.REQUEST_PERMISSION, {
             toolUses: [],
             options: [],
-          }),
+          })
         );
 
         await vi.waitFor(() => {
@@ -445,26 +450,26 @@ describe("ProtocolEngine", () => {
         });
 
         const response = transport.sentMessages[0] as Record<string, unknown>;
-        expect(response["result"]).toEqual({
-          selectedOption: "proceed_always",
+        expect(response['result']).toEqual({
+          selectedOption: 'proceed_always',
         });
       });
     });
 
-    describe("ask-user requests", () => {
-      it("invokes registered ask-user handler and sends response", async () => {
+    describe('ask-user requests', () => {
+      it('invokes registered ask-user handler and sends response', async () => {
         engine.setAskUserHandler((_params) => ({
           cancelled: false,
-          answers: [{ index: 0, question: "q?", answer: "a" }],
+          answers: [{ index: 0, question: 'q?', answer: 'a' }],
         }));
 
         transport.injectMessage(
-          makeServerRequest("ask-1", DroidClientMethod.ASK_USER, {
-            toolCallId: "tc-1",
+          makeServerRequest('ask-1', DroidClientMethod.ASK_USER, {
+            toolCallId: 'tc-1',
             questions: [
-              { index: 0, topic: "t", question: "q?", options: ["a", "b"] },
+              { index: 0, topic: 't', question: 'q?', options: ['a', 'b'] },
             ],
-          }),
+          })
         );
 
         await vi.waitFor(() => {
@@ -472,20 +477,20 @@ describe("ProtocolEngine", () => {
         });
 
         const response = transport.sentMessages[0] as Record<string, unknown>;
-        expect(response["type"]).toBe("response");
-        expect(response["id"]).toBe("ask-1");
-        expect(response["result"]).toEqual({
+        expect(response['type']).toBe('response');
+        expect(response['id']).toBe('ask-1');
+        expect(response['result']).toEqual({
           cancelled: false,
-          answers: [{ index: 0, question: "q?", answer: "a" }],
+          answers: [{ index: 0, question: 'q?', answer: 'a' }],
         });
       });
 
-      it("sends cancelled when no ask-user handler registered", async () => {
+      it('sends cancelled when no ask-user handler registered', async () => {
         transport.injectMessage(
-          makeServerRequest("ask-2", DroidClientMethod.ASK_USER, {
-            toolCallId: "tc-1",
+          makeServerRequest('ask-2', DroidClientMethod.ASK_USER, {
+            toolCallId: 'tc-1',
             questions: [],
-          }),
+          })
         );
 
         await vi.waitFor(() => {
@@ -493,22 +498,22 @@ describe("ProtocolEngine", () => {
         });
 
         const response = transport.sentMessages[0] as Record<string, unknown>;
-        expect(response["result"]).toEqual({
+        expect(response['result']).toEqual({
           cancelled: true,
           answers: [],
         });
       });
 
-      it("sends error response when ask-user handler throws", async () => {
+      it('sends error response when ask-user handler throws', async () => {
         engine.setAskUserHandler(() => {
-          throw new Error("ask failure");
+          throw new Error('ask failure');
         });
 
         transport.injectMessage(
-          makeServerRequest("ask-3", DroidClientMethod.ASK_USER, {
-            toolCallId: "tc-1",
+          makeServerRequest('ask-3', DroidClientMethod.ASK_USER, {
+            toolCallId: 'tc-1',
             questions: [],
-          }),
+          })
         );
 
         await vi.waitFor(() => {
@@ -516,23 +521,23 @@ describe("ProtocolEngine", () => {
         });
 
         const response = transport.sentMessages[0] as Record<string, unknown>;
-        expect(response["error"]).toBeDefined();
-        const error = response["error"] as Record<string, unknown>;
-        expect(error["code"]).toBe(JsonRpcErrorCode.INTERNAL_ERROR);
-        expect(error["message"]).toBe("Failed to handle ask-user request");
+        expect(response['error']).toBeDefined();
+        const error = response['error'] as Record<string, unknown>;
+        expect(error['code']).toBe(JsonRpcErrorCode.INTERNAL_ERROR);
+        expect(error['message']).toBe('Failed to handle ask-user request');
       });
 
-      it("supports async ask-user handler", async () => {
+      it('supports async ask-user handler', async () => {
         engine.setAskUserHandler(async () => ({
           cancelled: false,
           answers: [],
         }));
 
         transport.injectMessage(
-          makeServerRequest("ask-4", DroidClientMethod.ASK_USER, {
-            toolCallId: "tc-1",
+          makeServerRequest('ask-4', DroidClientMethod.ASK_USER, {
+            toolCallId: 'tc-1',
             questions: [],
-          }),
+          })
         );
 
         await vi.waitFor(() => {
@@ -540,7 +545,7 @@ describe("ProtocolEngine", () => {
         });
 
         const response = transport.sentMessages[0] as Record<string, unknown>;
-        expect(response["result"]).toEqual({
+        expect(response['result']).toEqual({
           cancelled: false,
           answers: [],
         });
@@ -551,85 +556,95 @@ describe("ProtocolEngine", () => {
   // =======================================================================
   // VAL-PROTOCOL-005: Sticky transport error pattern
   // =======================================================================
-  describe("sticky transport error (VAL-PROTOCOL-005)", () => {
-    it("rejects all pending requests when transport error occurs", async () => {
-      const p1 = engine.sendRequest("droid.method_a", {});
-      const p2 = engine.sendRequest("droid.method_b", {});
+  describe('sticky transport error (VAL-PROTOCOL-005)', () => {
+    it('rejects all pending requests when transport error occurs', async () => {
+      const p1 = engine.sendRequest('droid.method_a', {});
+      const p2 = engine.sendRequest('droid.method_b', {});
 
       // Simulate transport error
-      transport.injectError(new Error("process crashed"));
+      transport.injectError(new Error('process crashed'));
 
       await expect(p1).rejects.toThrow(ConnectionError);
       await expect(p1).rejects.toThrow(/Transport error/);
       await expect(p2).rejects.toThrow(ConnectionError);
     });
 
-    it("subsequent sendRequest() throws immediately after transport error", async () => {
+    it('subsequent sendRequest() throws immediately after transport error', async () => {
       // No pending requests — just inject error
-      transport.injectError(new Error("disconnected"));
+      transport.injectError(new Error('disconnected'));
 
       // New request should fail immediately
-      await expect(
-        engine.sendRequest("droid.method", {}),
-      ).rejects.toThrow(ConnectionError);
-      await expect(
-        engine.sendRequest("droid.method", {}),
-      ).rejects.toThrow(/Transport error/);
+      await expect(engine.sendRequest('droid.method', {})).rejects.toThrow(
+        ConnectionError
+      );
+      await expect(engine.sendRequest('droid.method', {})).rejects.toThrow(
+        /Transport error/
+      );
     });
 
     it("transport error is sticky — doesn't clear after first rejection", async () => {
-      transport.injectError(new Error("gone"));
+      transport.injectError(new Error('gone'));
 
       // Multiple subsequent requests all fail
-      await expect(engine.sendRequest("droid.a", {})).rejects.toThrow(ConnectionError);
-      await expect(engine.sendRequest("droid.b", {})).rejects.toThrow(ConnectionError);
-      await expect(engine.sendRequest("droid.c", {})).rejects.toThrow(ConnectionError);
+      await expect(engine.sendRequest('droid.a', {})).rejects.toThrow(
+        ConnectionError
+      );
+      await expect(engine.sendRequest('droid.b', {})).rejects.toThrow(
+        ConnectionError
+      );
+      await expect(engine.sendRequest('droid.c', {})).rejects.toThrow(
+        ConnectionError
+      );
     });
   });
 
   // =======================================================================
   // VAL-PROTOCOL-006: ENTITY_NOT_FOUND → SessionNotFoundError
   // =======================================================================
-  describe("error code mapping (VAL-PROTOCOL-006)", () => {
-    it("maps ENTITY_NOT_FOUND to SessionNotFoundError", async () => {
-      const promise = engine.sendRequest("droid.load_session", {
-        sessionId: "sess-123",
+  describe('error code mapping (VAL-PROTOCOL-006)', () => {
+    it('maps ENTITY_NOT_FOUND to SessionNotFoundError', async () => {
+      const promise = engine.sendRequest('droid.load_session', {
+        sessionId: 'sess-123',
       });
 
-      const id = (transport.sentMessages[0] as Record<string, unknown>)["id"] as string;
+      const id = (transport.sentMessages[0] as Record<string, unknown>)[
+        'id'
+      ] as string;
 
       transport.injectMessage(
         makeErrorResponse(
           id,
           JsonRpcErrorCode.ENTITY_NOT_FOUND,
-          "Session not found",
-        ),
+          'Session not found'
+        )
       );
 
       await expect(promise).rejects.toThrow(SessionNotFoundError);
     });
 
-    it("maps other error codes to ProtocolError", async () => {
-      const promise = engine.sendRequest("droid.method", {});
+    it('maps other error codes to ProtocolError', async () => {
+      const promise = engine.sendRequest('droid.method', {});
 
-      const id = (transport.sentMessages[0] as Record<string, unknown>)["id"] as string;
+      const id = (transport.sentMessages[0] as Record<string, unknown>)[
+        'id'
+      ] as string;
 
       transport.injectMessage(
         makeErrorResponse(
           id,
           JsonRpcErrorCode.INVALID_PARAMS,
-          "Invalid params",
-          { detail: "missing field" },
-        ),
+          'Invalid params',
+          { detail: 'missing field' }
+        )
       );
 
       const error = await promise.catch((e: Error) => e);
       expect(error).toBeInstanceOf(ProtocolError);
       expect((error as ProtocolError).code).toBe(
-        JsonRpcErrorCode.INVALID_PARAMS,
+        JsonRpcErrorCode.INVALID_PARAMS
       );
       expect((error as ProtocolError).data).toEqual({
-        detail: "missing field",
+        detail: 'missing field',
       });
     });
   });
@@ -637,26 +652,28 @@ describe("ProtocolEngine", () => {
   // =======================================================================
   // VAL-PROTOCOL-007: Unknown response ID ignored gracefully
   // =======================================================================
-  describe("unknown/duplicate response IDs (VAL-PROTOCOL-007)", () => {
-    it("ignores response with unknown ID without throwing", () => {
+  describe('unknown/duplicate response IDs (VAL-PROTOCOL-007)', () => {
+    it('ignores response with unknown ID without throwing', () => {
       // Should not throw
       expect(() => {
         transport.injectMessage(
-          makeSuccessResponse("unknown-id", { data: "stale" }),
+          makeSuccessResponse('unknown-id', { data: 'stale' })
         );
       }).not.toThrow();
     });
 
-    it("ignores duplicate response for already-resolved request", async () => {
-      const promise = engine.sendRequest("droid.method", {});
+    it('ignores duplicate response for already-resolved request', async () => {
+      const promise = engine.sendRequest('droid.method', {});
 
-      const id = (transport.sentMessages[0] as Record<string, unknown>)["id"] as string;
+      const id = (transport.sentMessages[0] as Record<string, unknown>)[
+        'id'
+      ] as string;
 
       // First response — resolves the promise
       transport.injectMessage(makeSuccessResponse(id, { first: true }));
 
       const result = await promise;
-      expect(result["result"]).toEqual({ first: true });
+      expect(result['result']).toEqual({ first: true });
 
       // Duplicate response — should be silently ignored
       expect(() => {
@@ -664,10 +681,14 @@ describe("ProtocolEngine", () => {
       }).not.toThrow();
     });
 
-    it("ignores response with null ID", () => {
+    it('ignores response with null ID', () => {
       expect(() => {
         transport.injectMessage(
-          makeErrorResponse(null, JsonRpcErrorCode.INTERNAL_ERROR, "server error"),
+          makeErrorResponse(
+            null,
+            JsonRpcErrorCode.INTERNAL_ERROR,
+            'server error'
+          )
         );
       }).not.toThrow();
     });
@@ -676,21 +697,21 @@ describe("ProtocolEngine", () => {
   // =======================================================================
   // VAL-PROTOCOL-008: Closed engine rejects new requests immediately
   // =======================================================================
-  describe("closed engine (VAL-PROTOCOL-008)", () => {
-    it("rejects new sendRequest() after close()", async () => {
+  describe('closed engine (VAL-PROTOCOL-008)', () => {
+    it('rejects new sendRequest() after close()', async () => {
       await engine.close();
 
-      await expect(
-        engine.sendRequest("droid.method", {}),
-      ).rejects.toThrow(ConnectionError);
-      await expect(
-        engine.sendRequest("droid.method", {}),
-      ).rejects.toThrow(/closed/);
+      await expect(engine.sendRequest('droid.method', {})).rejects.toThrow(
+        ConnectionError
+      );
+      await expect(engine.sendRequest('droid.method', {})).rejects.toThrow(
+        /closed/
+      );
     });
 
-    it("rejects all pending requests on close()", async () => {
-      const p1 = engine.sendRequest("droid.method_a", {});
-      const p2 = engine.sendRequest("droid.method_b", {});
+    it('rejects all pending requests on close()', async () => {
+      const p1 = engine.sendRequest('droid.method_a', {});
+      const p2 = engine.sendRequest('droid.method_b', {});
 
       await engine.close();
 
@@ -699,12 +720,12 @@ describe("ProtocolEngine", () => {
       await expect(p2).rejects.toThrow(ConnectionError);
     });
 
-    it("close() is idempotent", async () => {
+    it('close() is idempotent', async () => {
       await engine.close();
       await expect(engine.close()).resolves.toBeUndefined();
     });
 
-    it("close() clears notification listeners", async () => {
+    it('close() clears notification listeners', async () => {
       const received: Record<string, unknown>[] = [];
       engine.onNotification((n) => received.push(n));
 
@@ -713,8 +734,8 @@ describe("ProtocolEngine", () => {
       // Notification after close should not reach listener
       transport.injectMessage(
         makeNotification(DroidClientMethod.SESSION_NOTIFICATION, {
-          notification: { type: "assistant_text_delta" },
-        }),
+          notification: { type: 'assistant_text_delta' },
+        })
       );
 
       expect(received).toHaveLength(0);
@@ -724,28 +745,28 @@ describe("ProtocolEngine", () => {
   // =======================================================================
   // Additional edge cases
   // =======================================================================
-  describe("edge cases", () => {
-    it("handles send failure by rejecting the pending request", async () => {
+  describe('edge cases', () => {
+    it('handles send failure by rejecting the pending request', async () => {
       // Close the transport to make send() fail
       await transport.close();
 
-      await expect(
-        engine.sendRequest("droid.method", {}),
-      ).rejects.toThrow(ConnectionError);
-      await expect(
-        engine.sendRequest("droid.method", {}),
-      ).rejects.toThrow(/Failed to send/);
+      await expect(engine.sendRequest('droid.method', {})).rejects.toThrow(
+        ConnectionError
+      );
+      await expect(engine.sendRequest('droid.method', {})).rejects.toThrow(
+        /Failed to send/
+      );
     });
 
-    it("clearPermissionHandler restores default cancel behavior", async () => {
-      engine.setPermissionHandler(() => "proceed_once");
+    it('clearPermissionHandler restores default cancel behavior', async () => {
+      engine.setPermissionHandler(() => 'proceed_once');
       engine.clearPermissionHandler();
 
       transport.injectMessage(
-        makeServerRequest("perm-clear", DroidClientMethod.REQUEST_PERMISSION, {
+        makeServerRequest('perm-clear', DroidClientMethod.REQUEST_PERMISSION, {
           toolUses: [],
           options: [],
-        }),
+        })
       );
 
       await vi.waitFor(() => {
@@ -753,10 +774,10 @@ describe("ProtocolEngine", () => {
       });
 
       const response = transport.sentMessages[0] as Record<string, unknown>;
-      expect(response["result"]).toEqual({ selectedOption: "cancel" });
+      expect(response['result']).toEqual({ selectedOption: 'cancel' });
     });
 
-    it("clearAskUserHandler restores default cancelled behavior", async () => {
+    it('clearAskUserHandler restores default cancelled behavior', async () => {
       engine.setAskUserHandler(() => ({
         cancelled: false,
         answers: [],
@@ -764,10 +785,10 @@ describe("ProtocolEngine", () => {
       engine.clearAskUserHandler();
 
       transport.injectMessage(
-        makeServerRequest("ask-clear", DroidClientMethod.ASK_USER, {
-          toolCallId: "tc-1",
+        makeServerRequest('ask-clear', DroidClientMethod.ASK_USER, {
+          toolCallId: 'tc-1',
           questions: [],
-        }),
+        })
       );
 
       await vi.waitFor(() => {
@@ -775,13 +796,13 @@ describe("ProtocolEngine", () => {
       });
 
       const response = transport.sentMessages[0] as Record<string, unknown>;
-      expect(response["result"]).toEqual({
+      expect(response['result']).toEqual({
         cancelled: true,
         answers: [],
       });
     });
 
-    it("notification without params.notification.type still dispatches to unfiltered listeners", () => {
+    it('notification without params.notification.type still dispatches to unfiltered listeners', () => {
       const received: Record<string, unknown>[] = [];
       engine.onNotification((n) => received.push(n));
 
@@ -789,54 +810,51 @@ describe("ProtocolEngine", () => {
       transport.injectMessage({
         jsonrpc: JSONRPC_VERSION,
         factoryApiVersion: LEGACY_FACTORY_API_VERSION,
-        type: "notification",
-        method: "some.method",
-        params: { raw: "data" },
+        type: 'notification',
+        method: 'some.method',
+        params: { raw: 'data' },
       });
 
       expect(received).toHaveLength(1);
     });
 
-    it("filtered listener does not receive notifications without matching type", () => {
+    it('filtered listener does not receive notifications without matching type', () => {
       const received: Record<string, unknown>[] = [];
-      engine.onNotification(
-        (n) => received.push(n),
-        { type: "specific_type" },
-      );
+      engine.onNotification((n) => received.push(n), { type: 'specific_type' });
 
       // Notification with no inner type
       transport.injectMessage({
         jsonrpc: JSONRPC_VERSION,
         factoryApiVersion: LEGACY_FACTORY_API_VERSION,
-        type: "notification",
-        method: "some.method",
+        type: 'notification',
+        method: 'some.method',
         params: {},
       });
 
       expect(received).toHaveLength(0);
     });
 
-    it("handles message with ambiguous type via content detection", () => {
+    it('handles message with ambiguous type via content detection', () => {
       const received: Record<string, unknown>[] = [];
       engine.onNotification((n) => received.push(n));
 
       // Message without explicit type field but has method + no id (treated as notification)
       transport.injectMessage({
-        method: "some.notification",
-        params: { notification: { type: "test" } },
+        method: 'some.notification',
+        params: { notification: { type: 'test' } },
       });
 
       expect(received).toHaveLength(1);
     });
 
-    it("response envelope includes factory protocol fields", async () => {
-      engine.setPermissionHandler(() => "proceed_once");
+    it('response envelope includes factory protocol fields', async () => {
+      engine.setPermissionHandler(() => 'proceed_once');
 
       transport.injectMessage(
-        makeServerRequest("perm-env", DroidClientMethod.REQUEST_PERMISSION, {
+        makeServerRequest('perm-env', DroidClientMethod.REQUEST_PERMISSION, {
           toolUses: [],
           options: [],
-        }),
+        })
       );
 
       await vi.waitFor(() => {
@@ -844,11 +862,9 @@ describe("ProtocolEngine", () => {
       });
 
       const response = transport.sentMessages[0] as Record<string, unknown>;
-      expect(response["jsonrpc"]).toBe(JSONRPC_VERSION);
-      expect(response["factoryApiVersion"]).toBe(LEGACY_FACTORY_API_VERSION);
-      expect(response["factoryProtocolVersion"]).toBe(
-        FACTORY_PROTOCOL_VERSION,
-      );
+      expect(response['jsonrpc']).toBe(JSONRPC_VERSION);
+      expect(response['factoryApiVersion']).toBe(LEGACY_FACTORY_API_VERSION);
+      expect(response['factoryProtocolVersion']).toBe(FACTORY_PROTOCOL_VERSION);
     });
   });
 });

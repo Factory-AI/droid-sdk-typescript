@@ -10,7 +10,7 @@
  *   npx tsx examples/interrupt-session.ts
  */
 
-import { createSession } from "../src/index.js";
+import { createSession } from '../src/index.js';
 
 async function main(): Promise<void> {
   // Create a new session
@@ -19,8 +19,8 @@ async function main(): Promise<void> {
 
   // Start a streaming turn with a long-running prompt
   const prompt =
-    "Write a detailed essay about the history of computing, from the " +
-    "earliest mechanical calculators to modern quantum computers.";
+    'Write a detailed essay about the history of computing, from the ' +
+    'earliest mechanical calculators to modern quantum computers.';
   console.log(`Prompt: "${prompt}"\n`);
 
   let deltaCount = 0;
@@ -28,30 +28,30 @@ async function main(): Promise<void> {
 
   for await (const msg of session.stream(prompt)) {
     switch (msg.type) {
-      case "assistant_text_delta":
+      case 'assistant_text_delta':
         deltaCount++;
         process.stdout.write(msg.text);
 
         // After receiving 5 text deltas, send an interrupt
         if (deltaCount === 5 && !interrupted) {
           interrupted = true;
-          console.log("\n\n>>> Sending interrupt after 5 text deltas...\n");
+          console.log('\n\n>>> Sending interrupt after 5 text deltas...\n');
           await session.interrupt();
         }
         break;
 
-      case "turn_complete":
-        console.log("\n\n--- Turn complete ---");
+      case 'turn_complete':
+        console.log('\n\n--- Turn complete ---');
         console.log(`Total text deltas received: ${deltaCount}`);
         console.log(
           interrupted
-            ? "Session was interrupted successfully."
-            : "Session completed without interruption.",
+            ? 'Session was interrupted successfully.'
+            : 'Session completed without interruption.'
         );
         if (msg.tokenUsage) {
           console.log(
             `Tokens — input: ${msg.tokenUsage.inputTokens}, ` +
-              `output: ${msg.tokenUsage.outputTokens}`,
+              `output: ${msg.tokenUsage.outputTokens}`
           );
         }
         break;
@@ -60,10 +60,10 @@ async function main(): Promise<void> {
 
   // Cleanup
   await session.close();
-  console.log("\nSession closed.");
+  console.log('\nSession closed.');
 }
 
 main().catch((err: unknown) => {
-  console.error("Error:", err);
+  console.error('Error:', err);
   process.exit(1);
 });

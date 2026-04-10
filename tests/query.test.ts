@@ -5,10 +5,9 @@
  * Covers VAL-API-001, VAL-API-007, VAL-API-008, VAL-API-009, VAL-API-010.
  */
 
-import { describe, expect, it } from "vitest";
+import { describe, expect, it } from 'vitest';
 
-import { query } from "../src/query.js";
-import type { DroidMessage } from "../src/stream.js";
+import { query } from '../src/query.js';
 import {
   DroidClientMethod,
   DroidServerMethod,
@@ -17,8 +16,9 @@ import {
   JSONRPC_VERSION,
   LEGACY_FACTORY_API_VERSION,
   SessionNotificationType,
-} from "../src/schemas/index.js";
-import { InMemoryTransport } from "./helpers.js";
+} from '../src/schemas/index.js';
+import type { DroidMessage } from '../src/stream.js';
+import { InMemoryTransport } from './helpers.js';
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -26,13 +26,13 @@ import { InMemoryTransport } from "./helpers.js";
 
 function makeSuccessResponse(
   id: string,
-  result: Record<string, unknown> = {},
+  result: Record<string, unknown> = {}
 ): Record<string, unknown> {
   return {
     jsonrpc: JSONRPC_VERSION,
     factoryApiVersion: LEGACY_FACTORY_API_VERSION,
     factoryProtocolVersion: FACTORY_PROTOCOL_VERSION,
-    type: "response",
+    type: 'response',
     id,
     result,
   };
@@ -40,13 +40,13 @@ function makeSuccessResponse(
 
 function makeNotification(
   notificationType: string,
-  payload: Record<string, unknown> = {},
+  payload: Record<string, unknown> = {}
 ): Record<string, unknown> {
   return {
     jsonrpc: JSONRPC_VERSION,
     factoryApiVersion: LEGACY_FACTORY_API_VERSION,
     factoryProtocolVersion: FACTORY_PROTOCOL_VERSION,
-    type: "notification",
+    type: 'notification',
     method: DroidClientMethod.SESSION_NOTIFICATION,
     params: {
       notification: {
@@ -67,19 +67,19 @@ function makeNotification(
 function simulateQueryLifecycle(
   transport: InMemoryTransport,
   sessionId: string,
-  deltas: string[] = ["Hello", " world"],
+  deltas: string[] = ['Hello', ' world']
 ): void {
   // We need to intercept the sent messages and respond appropriately
-  let messageCount = 0;
+  let _messageCount = 0;
 
   const originalSend = transport.send.bind(transport);
   transport.send = (message: object) => {
     originalSend(message);
     const msg = message as Record<string, unknown>;
-    const method = msg["method"] as string;
-    const id = msg["id"] as string;
+    const method = msg['method'] as string;
+    const id = msg['id'] as string;
 
-    messageCount++;
+    _messageCount++;
 
     if (method === DroidServerMethod.INITIALIZE_SESSION) {
       // Respond with sessionId
@@ -89,10 +89,10 @@ function simulateQueryLifecycle(
             sessionId,
             session: {},
             settings: {
-              modelId: "test-model",
-              reasoningEffort: "medium",
+              modelId: 'test-model',
+              reasoningEffort: 'medium',
             },
-          }),
+          })
         );
       });
     } else if (method === DroidServerMethod.ADD_USER_MESSAGE) {
@@ -104,18 +104,18 @@ function simulateQueryLifecycle(
         transport.injectMessage(
           makeNotification(
             SessionNotificationType.DROID_WORKING_STATE_CHANGED,
-            { newState: DroidWorkingState.StreamingAssistantMessage },
-          ),
+            { newState: DroidWorkingState.StreamingAssistantMessage }
+          )
         );
 
         // Send text deltas
         for (const delta of deltas) {
           transport.injectMessage(
             makeNotification(SessionNotificationType.ASSISTANT_TEXT_DELTA, {
-              messageId: "msg-1",
+              messageId: 'msg-1',
               blockIndex: 0,
               textDelta: delta,
-            }),
+            })
           );
         }
 
@@ -131,16 +131,16 @@ function simulateQueryLifecycle(
                 cacheReadTokens: 10,
                 thinkingTokens: 0,
               },
-            },
-          ),
+            }
+          )
         );
 
         // Send working state change to idle (triggers TurnComplete)
         transport.injectMessage(
           makeNotification(
             SessionNotificationType.DROID_WORKING_STATE_CHANGED,
-            { newState: DroidWorkingState.Idle },
-          ),
+            { newState: DroidWorkingState.Idle }
+          )
         );
       });
     }
@@ -151,18 +151,18 @@ function simulateQueryLifecycle(
 // Tests
 // ---------------------------------------------------------------------------
 
-describe("query()", () => {
-  describe("lifecycle (VAL-API-001)", () => {
-    it("spawns transport, initializes session, sends message, yields DroidMessage, cleans up", async () => {
+describe('query()', () => {
+  describe('lifecycle (VAL-API-001)', () => {
+    it('spawns transport, initializes session, sends message, yields DroidMessage, cleans up', async () => {
       const transport = new InMemoryTransport();
       await transport.connect();
 
-      simulateQueryLifecycle(transport, "sess-001", ["Hello", " world"]);
+      simulateQueryLifecycle(transport, 'sess-001', ['Hello', ' world']);
 
       const messages: DroidMessage[] = [];
       const q = query({
-        prompt: "Test prompt",
-        cwd: "/tmp",
+        prompt: 'Test prompt',
+        cwd: '/tmp',
         transport,
       });
 
@@ -174,21 +174,21 @@ describe("query()", () => {
       expect(messages.length).toBeGreaterThanOrEqual(5);
 
       // First message should be working state change
-      expect(messages[0].type).toBe("working_state_changed");
+      expect(messages[0].type).toBe('working_state_changed');
 
       // Should contain text deltas
       const textDeltas = messages.filter(
-        (m) => m.type === "assistant_text_delta",
+        (m) => m.type === 'assistant_text_delta'
       );
       expect(textDeltas.length).toBe(2);
 
       // Last message should be turn_complete
       const lastMsg = messages[messages.length - 1];
-      expect(lastMsg.type).toBe("turn_complete");
+      expect(lastMsg.type).toBe('turn_complete');
 
       // Transport should have been sent initializeSession and addUserMessage
       const sentMethods = transport.sentMessages.map(
-        (m) => (m as Record<string, unknown>)["method"],
+        (m) => (m as Record<string, unknown>)['method']
       );
       expect(sentMethods).toContain(DroidServerMethod.INITIALIZE_SESSION);
       expect(sentMethods).toContain(DroidServerMethod.ADD_USER_MESSAGE);
@@ -197,17 +197,17 @@ describe("query()", () => {
       expect(transport.isConnected).toBe(false);
     });
 
-    it("passes QueryOptions to initializeSession", async () => {
+    it('passes QueryOptions to initializeSession', async () => {
       const transport = new InMemoryTransport();
       await transport.connect();
 
-      simulateQueryLifecycle(transport, "sess-002");
+      simulateQueryLifecycle(transport, 'sess-002');
 
       const q = query({
-        prompt: "Test",
-        cwd: "/my/project",
-        machineId: "my-machine",
-        modelId: "claude-test",
+        prompt: 'Test',
+        cwd: '/my/project',
+        machineId: 'my-machine',
+        modelId: 'claude-test',
         transport,
       });
 
@@ -218,25 +218,25 @@ describe("query()", () => {
       // Check that initializeSession was called with correct params
       const initMsg = transport.sentMessages.find(
         (m) =>
-          (m as Record<string, unknown>)["method"] ===
-          DroidServerMethod.INITIALIZE_SESSION,
+          (m as Record<string, unknown>)['method'] ===
+          DroidServerMethod.INITIALIZE_SESSION
       ) as Record<string, unknown>;
       expect(initMsg).toBeDefined();
 
-      const params = initMsg["params"] as Record<string, unknown>;
-      expect(params["cwd"]).toBe("/my/project");
-      expect(params["machineId"]).toBe("my-machine");
-      expect(params["modelId"]).toBe("claude-test");
+      const params = initMsg['params'] as Record<string, unknown>;
+      expect(params['cwd']).toBe('/my/project');
+      expect(params['machineId']).toBe('my-machine');
+      expect(params['modelId']).toBe('claude-test');
     });
 
-    it("sends the prompt as user message", async () => {
+    it('sends the prompt as user message', async () => {
       const transport = new InMemoryTransport();
       await transport.connect();
 
-      simulateQueryLifecycle(transport, "sess-003");
+      simulateQueryLifecycle(transport, 'sess-003');
 
       const q = query({
-        prompt: "Fix the bug",
+        prompt: 'Fix the bug',
         transport,
       });
 
@@ -247,18 +247,18 @@ describe("query()", () => {
       // Check addUserMessage was called with the prompt
       const addMsg = transport.sentMessages.find(
         (m) =>
-          (m as Record<string, unknown>)["method"] ===
-          DroidServerMethod.ADD_USER_MESSAGE,
+          (m as Record<string, unknown>)['method'] ===
+          DroidServerMethod.ADD_USER_MESSAGE
       ) as Record<string, unknown>;
       expect(addMsg).toBeDefined();
 
-      const params = addMsg["params"] as Record<string, unknown>;
-      expect(params["text"]).toBe("Fix the bug");
+      const params = addMsg['params'] as Record<string, unknown>;
+      expect(params['text']).toBe('Fix the bug');
     });
   });
 
-  describe("DroidQuery.interrupt() (VAL-API-007)", () => {
-    it("sends interrupt_session request", async () => {
+  describe('DroidQuery.interrupt() (VAL-API-007)', () => {
+    it('sends interrupt_session request', async () => {
       const transport = new InMemoryTransport();
       await transport.connect();
 
@@ -269,17 +269,17 @@ describe("query()", () => {
       transport.send = (message: object) => {
         originalSend(message);
         const msg = message as Record<string, unknown>;
-        const method = msg["method"] as string;
-        const id = msg["id"] as string;
+        const method = msg['method'] as string;
+        const id = msg['id'] as string;
 
         if (method === DroidServerMethod.INITIALIZE_SESSION) {
           queueMicrotask(() => {
             transport.injectMessage(
               makeSuccessResponse(id, {
-                sessionId: "sess-int",
+                sessionId: 'sess-int',
                 session: {},
-                settings: { modelId: "test", reasoningEffort: "medium" },
-              }),
+                settings: { modelId: 'test', reasoningEffort: 'medium' },
+              })
             );
           });
         } else if (method === DroidServerMethod.ADD_USER_MESSAGE) {
@@ -290,15 +290,16 @@ describe("query()", () => {
             transport.injectMessage(
               makeNotification(
                 SessionNotificationType.DROID_WORKING_STATE_CHANGED,
-                { newState: DroidWorkingState.StreamingAssistantMessage },
-              ),
+                { newState: DroidWorkingState.StreamingAssistantMessage }
+              )
             );
 
             transport.injectMessage(
-              makeNotification(
-                SessionNotificationType.ASSISTANT_TEXT_DELTA,
-                { messageId: "msg-1", blockIndex: 0, textDelta: "Starting..." },
-              ),
+              makeNotification(SessionNotificationType.ASSISTANT_TEXT_DELTA, {
+                messageId: 'msg-1',
+                blockIndex: 0,
+                textDelta: 'Starting...',
+              })
             );
           });
         } else if (method === DroidServerMethod.INTERRUPT_SESSION) {
@@ -310,21 +311,21 @@ describe("query()", () => {
             transport.injectMessage(
               makeNotification(
                 SessionNotificationType.DROID_WORKING_STATE_CHANGED,
-                { newState: DroidWorkingState.Idle },
-              ),
+                { newState: DroidWorkingState.Idle }
+              )
             );
           });
         }
       };
 
-      const q = query({ prompt: "Long task", transport });
+      const q = query({ prompt: 'Long task', transport });
 
       const messages: DroidMessage[] = [];
       let interrupted = false;
 
       for await (const msg of q) {
         messages.push(msg);
-        if (msg.type === "assistant_text_delta" && !interrupted) {
+        if (msg.type === 'assistant_text_delta' && !interrupted) {
           interrupted = true;
           await q.interrupt();
         }
@@ -333,18 +334,18 @@ describe("query()", () => {
       expect(interruptResponseSent).toBe(true);
 
       // Should have received turn_complete at the end
-      expect(messages[messages.length - 1].type).toBe("turn_complete");
+      expect(messages[messages.length - 1].type).toBe('turn_complete');
 
       // Verify interrupt_session was sent
       const sentMethods = transport.sentMessages.map(
-        (m) => (m as Record<string, unknown>)["method"],
+        (m) => (m as Record<string, unknown>)['method']
       );
       expect(sentMethods).toContain(DroidServerMethod.INTERRUPT_SESSION);
     });
   });
 
-  describe("DroidQuery.abort() (VAL-API-008)", () => {
-    it("forcefully closes transport and terminates generator", async () => {
+  describe('DroidQuery.abort() (VAL-API-008)', () => {
+    it('forcefully closes transport and terminates generator', async () => {
       const transport = new InMemoryTransport();
       await transport.connect();
 
@@ -353,17 +354,17 @@ describe("query()", () => {
       transport.send = (message: object) => {
         originalSend(message);
         const msg = message as Record<string, unknown>;
-        const method = msg["method"] as string;
-        const id = msg["id"] as string;
+        const method = msg['method'] as string;
+        const id = msg['id'] as string;
 
         if (method === DroidServerMethod.INITIALIZE_SESSION) {
           queueMicrotask(() => {
             transport.injectMessage(
               makeSuccessResponse(id, {
-                sessionId: "sess-abort",
+                sessionId: 'sess-abort',
                 session: {},
-                settings: { modelId: "test", reasoningEffort: "medium" },
-              }),
+                settings: { modelId: 'test', reasoningEffort: 'medium' },
+              })
             );
           });
         } else if (method === DroidServerMethod.ADD_USER_MESSAGE) {
@@ -373,26 +374,27 @@ describe("query()", () => {
             transport.injectMessage(
               makeNotification(
                 SessionNotificationType.DROID_WORKING_STATE_CHANGED,
-                { newState: DroidWorkingState.StreamingAssistantMessage },
-              ),
+                { newState: DroidWorkingState.StreamingAssistantMessage }
+              )
             );
 
             transport.injectMessage(
-              makeNotification(
-                SessionNotificationType.ASSISTANT_TEXT_DELTA,
-                { messageId: "msg-1", blockIndex: 0, textDelta: "Starting..." },
-              ),
+              makeNotification(SessionNotificationType.ASSISTANT_TEXT_DELTA, {
+                messageId: 'msg-1',
+                blockIndex: 0,
+                textDelta: 'Starting...',
+              })
             );
           });
         }
       };
 
-      const q = query({ prompt: "Abort me", transport });
+      const q = query({ prompt: 'Abort me', transport });
 
       const messages: DroidMessage[] = [];
       for await (const msg of q) {
         messages.push(msg);
-        if (msg.type === "assistant_text_delta") {
+        if (msg.type === 'assistant_text_delta') {
           q.abort();
         }
       }
@@ -405,26 +407,26 @@ describe("query()", () => {
     });
   });
 
-  describe("DroidQuery.sessionId (VAL-API-009)", () => {
-    it("is null before initialization", () => {
+  describe('DroidQuery.sessionId (VAL-API-009)', () => {
+    it('is null before initialization', () => {
       const transport = new InMemoryTransport();
       // Don't connect or start — just create the query
       // sessionId should be null since we haven't started iteration
       const q = query({
-        prompt: "Test",
+        prompt: 'Test',
         transport,
       });
 
       expect(q.sessionId).toBeNull();
     });
 
-    it("is accessible after initialization", async () => {
+    it('is accessible after initialization', async () => {
       const transport = new InMemoryTransport();
       await transport.connect();
 
-      simulateQueryLifecycle(transport, "sess-id-test");
+      simulateQueryLifecycle(transport, 'sess-id-test');
 
-      const q = query({ prompt: "Test", transport });
+      const q = query({ prompt: 'Test', transport });
 
       // Consume first message to trigger initialization
       const iterator = q[Symbol.asyncIterator]();
@@ -432,7 +434,7 @@ describe("query()", () => {
       expect(first.done).toBe(false);
 
       // sessionId should now be set
-      expect(q.sessionId).toBe("sess-id-test");
+      expect(q.sessionId).toBe('sess-id-test');
 
       // Consume rest
       while (true) {
@@ -442,8 +444,8 @@ describe("query()", () => {
     });
   });
 
-  describe("cleanup on early break (VAL-API-010)", () => {
-    it("closes transport when breaking out of generator early", async () => {
+  describe('cleanup on early break (VAL-API-010)', () => {
+    it('closes transport when breaking out of generator early', async () => {
       const transport = new InMemoryTransport();
       await transport.connect();
 
@@ -452,17 +454,17 @@ describe("query()", () => {
       transport.send = (message: object) => {
         originalSend(message);
         const msg = message as Record<string, unknown>;
-        const method = msg["method"] as string;
-        const id = msg["id"] as string;
+        const method = msg['method'] as string;
+        const id = msg['id'] as string;
 
         if (method === DroidServerMethod.INITIALIZE_SESSION) {
           queueMicrotask(() => {
             transport.injectMessage(
               makeSuccessResponse(id, {
-                sessionId: "sess-break",
+                sessionId: 'sess-break',
                 session: {},
-                settings: { modelId: "test", reasoningEffort: "medium" },
-              }),
+                settings: { modelId: 'test', reasoningEffort: 'medium' },
+              })
             );
           });
         } else if (method === DroidServerMethod.ADD_USER_MESSAGE) {
@@ -472,28 +474,25 @@ describe("query()", () => {
             transport.injectMessage(
               makeNotification(
                 SessionNotificationType.DROID_WORKING_STATE_CHANGED,
-                { newState: DroidWorkingState.StreamingAssistantMessage },
-              ),
+                { newState: DroidWorkingState.StreamingAssistantMessage }
+              )
             );
 
             // Send several deltas
             for (let i = 0; i < 10; i++) {
               transport.injectMessage(
-                makeNotification(
-                  SessionNotificationType.ASSISTANT_TEXT_DELTA,
-                  {
-                    messageId: "msg-1",
-                    blockIndex: 0,
-                    textDelta: `delta-${i} `,
-                  },
-                ),
+                makeNotification(SessionNotificationType.ASSISTANT_TEXT_DELTA, {
+                  messageId: 'msg-1',
+                  blockIndex: 0,
+                  textDelta: `delta-${i} `,
+                })
               );
             }
           });
         }
       };
 
-      const q = query({ prompt: "Long output", transport });
+      const q = query({ prompt: 'Long output', transport });
 
       let count = 0;
       for await (const _msg of q) {
@@ -511,8 +510,8 @@ describe("query()", () => {
     });
   });
 
-  describe("permission and ask-user handlers", () => {
-    it("invokes permissionHandler when set", async () => {
+  describe('permission and ask-user handlers', () => {
+    it('invokes permissionHandler when set', async () => {
       const transport = new InMemoryTransport();
       await transport.connect();
 
@@ -522,17 +521,17 @@ describe("query()", () => {
       transport.send = (message: object) => {
         originalSend(message);
         const msg = message as Record<string, unknown>;
-        const method = msg["method"] as string;
-        const id = msg["id"] as string;
+        const method = msg['method'] as string;
+        const id = msg['id'] as string;
 
         if (method === DroidServerMethod.INITIALIZE_SESSION) {
           queueMicrotask(() => {
             transport.injectMessage(
               makeSuccessResponse(id, {
-                sessionId: "sess-perm",
+                sessionId: 'sess-perm',
                 session: {},
-                settings: { modelId: "test", reasoningEffort: "medium" },
-              }),
+                settings: { modelId: 'test', reasoningEffort: 'medium' },
+              })
             );
           });
         } else if (method === DroidServerMethod.ADD_USER_MESSAGE) {
@@ -544,10 +543,10 @@ describe("query()", () => {
               jsonrpc: JSONRPC_VERSION,
               factoryApiVersion: LEGACY_FACTORY_API_VERSION,
               factoryProtocolVersion: FACTORY_PROTOCOL_VERSION,
-              type: "request",
-              id: "perm-req-1",
+              type: 'request',
+              id: 'perm-req-1',
               method: DroidClientMethod.REQUEST_PERMISSION,
-              params: { toolName: "execute", command: "rm -rf /" },
+              params: { toolName: 'execute', command: 'rm -rf /' },
             });
 
             // After response, continue streaming
@@ -555,14 +554,14 @@ describe("query()", () => {
               transport.injectMessage(
                 makeNotification(
                   SessionNotificationType.DROID_WORKING_STATE_CHANGED,
-                  { newState: DroidWorkingState.StreamingAssistantMessage },
-                ),
+                  { newState: DroidWorkingState.StreamingAssistantMessage }
+                )
               );
               transport.injectMessage(
                 makeNotification(
                   SessionNotificationType.DROID_WORKING_STATE_CHANGED,
-                  { newState: DroidWorkingState.Idle },
-                ),
+                  { newState: DroidWorkingState.Idle }
+                )
               );
             }, 20);
           });
@@ -570,11 +569,11 @@ describe("query()", () => {
       };
 
       const q = query({
-        prompt: "Do something",
+        prompt: 'Do something',
         transport,
         permissionHandler: (_params) => {
           permissionCalled = true;
-          return "proceed_once";
+          return 'proceed_once';
         },
       });
 

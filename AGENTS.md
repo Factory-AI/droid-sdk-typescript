@@ -88,14 +88,14 @@ npm install @factory/droid-sdk
 
 The SDK is layered:
 
-| Layer | File | Purpose |
-|---|---|---|
+| Layer     | File                                     | Purpose                                              |
+| --------- | ---------------------------------------- | ---------------------------------------------------- |
 | Transport | [`src/transport.ts`](./src/transport.ts) | Spawns `droid exec`, JSONL framing over stdin/stdout |
-| Protocol | [`src/protocol.ts`](./src/protocol.ts) | JSON-RPC request/response correlation, timeouts |
-| Client | [`src/client.ts`](./src/client.ts) | Typed methods for all 19 RPC operations |
-| Stream | [`src/stream.ts`](./src/stream.ts) | Notification-to-message conversion, turn detection |
-| Query | [`src/query.ts`](./src/query.ts) | One-shot `query()` convenience function |
-| Session | [`src/session.ts`](./src/session.ts) | Multi-turn `DroidSession` class |
+| Protocol  | [`src/protocol.ts`](./src/protocol.ts)   | JSON-RPC request/response correlation, timeouts      |
+| Client    | [`src/client.ts`](./src/client.ts)       | Typed methods for all 19 RPC operations              |
+| Stream    | [`src/stream.ts`](./src/stream.ts)       | Notification-to-message conversion, turn detection   |
+| Query     | [`src/query.ts`](./src/query.ts)         | One-shot `query()` convenience function              |
+| Session   | [`src/session.ts`](./src/session.ts)     | Multi-turn `DroidSession` class                      |
 
 ## API Patterns
 
@@ -104,28 +104,30 @@ The SDK is layered:
 Use `query()` when you need a single prompt-response cycle. It handles the entire lifecycle automatically — spawning the process, initializing a session, sending the prompt, streaming the response, and cleaning up.
 
 ```ts
-import { query } from "@factory/droid-sdk";
+import { query } from '@factory/droid-sdk';
 
 const stream = query({
-  prompt: "What files are in the current directory?",
-  cwd: "/my/project",
+  prompt: 'What files are in the current directory?',
+  cwd: '/my/project',
 });
 
 for await (const msg of stream) {
   switch (msg.type) {
-    case "assistant_text_delta":
+    case 'assistant_text_delta':
       process.stdout.write(msg.text);
       break;
-    case "tool_use":
+    case 'tool_use':
       console.log(`[Tool] ${msg.toolName}`);
       break;
-    case "tool_result":
-      console.log(`[Tool Result] ${msg.isError ? "Error" : "OK"}`);
+    case 'tool_result':
+      console.log(`[Tool Result] ${msg.isError ? 'Error' : 'OK'}`);
       break;
-    case "turn_complete":
-      console.log("\nDone!");
+    case 'turn_complete':
+      console.log('\nDone!');
       if (msg.tokenUsage) {
-        console.log(`Tokens: ${msg.tokenUsage.inputTokens} in, ${msg.tokenUsage.outputTokens} out`);
+        console.log(
+          `Tokens: ${msg.tokenUsage.inputTokens} in, ${msg.tokenUsage.outputTokens} out`
+        );
       }
       break;
   }
@@ -141,22 +143,22 @@ The returned `DroidQuery` object also exposes `interrupt()`, `abort()`, and `ses
 Use `createSession()` for conversations that span multiple turns. The session keeps the droid process alive between messages.
 
 ```ts
-import { createSession } from "@factory/droid-sdk";
+import { createSession } from '@factory/droid-sdk';
 
-const session = await createSession({ cwd: "/my/project" });
+const session = await createSession({ cwd: '/my/project' });
 
 // Streaming turn
-for await (const msg of session.stream("List all TypeScript files")) {
-  if (msg.type === "assistant_text_delta") {
+for await (const msg of session.stream('List all TypeScript files')) {
+  if (msg.type === 'assistant_text_delta') {
     process.stdout.write(msg.text);
   }
 }
 
 // Non-streaming turn (collects the full response)
-const result = await session.send("Summarize the project in one sentence");
-console.log(result.text);              // concatenated assistant text
-console.log(result.messages.length);   // all DroidMessage objects
-console.log(result.tokenUsage);        // final token counters
+const result = await session.send('Summarize the project in one sentence');
+console.log(result.text); // concatenated assistant text
+console.log(result.messages.length); // all DroidMessage objects
+console.log(result.tokenUsage); // final token counters
 
 // Always close when done
 await session.close();
@@ -171,10 +173,10 @@ await session.close();
 Resume a previous session by its ID:
 
 ```ts
-import { resumeSession } from "@factory/droid-sdk";
+import { resumeSession } from '@factory/droid-sdk';
 
-const session = await resumeSession("session-id-here");
-const result = await session.send("Continue where we left off");
+const session = await resumeSession('session-id-here');
+const result = await session.send('Continue where we left off');
 console.log(result.text);
 await session.close();
 ```
@@ -185,30 +187,30 @@ The session ID is available as `session.sessionId` after creation, or as `stream
 
 All messages are discriminated by `msg.type`. The full `DroidMessage` union includes 22 types:
 
-| Type | Description | Key Fields |
-|---|---|---|
-| `assistant_text_delta` | Streaming text token | `text`, `messageId`, `blockIndex` |
-| `thinking_text_delta` | Reasoning/thinking token | `text`, `messageId`, `blockIndex` |
-| `tool_use` | Tool invocation | `toolName`, `toolInput`, `toolUseId` |
-| `tool_result` | Tool execution result | `toolUseId`, `content`, `isError` |
-| `tool_progress` | Progress during tool execution | `toolUseId`, `toolName`, `content` |
-| `working_state_changed` | Agent state transition | `state` (see `DroidWorkingState`) |
-| `token_usage_update` | Token counters update | `inputTokens`, `outputTokens`, etc. |
-| `create_message` | Full assistant message | `messageId`, `role`, `content[]` |
-| `turn_complete` | Agent turn finished (sentinel) | `tokenUsage` (or null) |
-| `error` | Error from the process | `message`, `errorType`, `timestamp` |
-| `permission_resolved` | Permission request resolved | `requestId`, `selectedOption` |
-| `settings_updated` | Session settings changed | `settings` |
-| `session_title_updated` | Title changed | `title` |
-| `mcp_status_changed` | MCP server status change | `servers`, `summary` |
-| `mcp_auth_required` | OAuth authentication needed | `serverName`, `authUrl` |
-| `mcp_auth_completed` | OAuth authentication done | `serverName`, `outcome` |
-| `mission_state_changed` | Mission state transition | `state` |
-| `mission_features_changed` | Mission features updated | `features` |
-| `mission_progress_entry` | Mission progress log | `progressLog` |
-| `mission_heartbeat` | Mission keepalive | `timestamp` |
-| `mission_worker_started` | Worker session started | `workerSessionId` |
-| `mission_worker_completed` | Worker session finished | `workerSessionId`, `exitCode` |
+| Type                       | Description                    | Key Fields                           |
+| -------------------------- | ------------------------------ | ------------------------------------ |
+| `assistant_text_delta`     | Streaming text token           | `text`, `messageId`, `blockIndex`    |
+| `thinking_text_delta`      | Reasoning/thinking token       | `text`, `messageId`, `blockIndex`    |
+| `tool_use`                 | Tool invocation                | `toolName`, `toolInput`, `toolUseId` |
+| `tool_result`              | Tool execution result          | `toolUseId`, `content`, `isError`    |
+| `tool_progress`            | Progress during tool execution | `toolUseId`, `toolName`, `content`   |
+| `working_state_changed`    | Agent state transition         | `state` (see `DroidWorkingState`)    |
+| `token_usage_update`       | Token counters update          | `inputTokens`, `outputTokens`, etc.  |
+| `create_message`           | Full assistant message         | `messageId`, `role`, `content[]`     |
+| `turn_complete`            | Agent turn finished (sentinel) | `tokenUsage` (or null)               |
+| `error`                    | Error from the process         | `message`, `errorType`, `timestamp`  |
+| `permission_resolved`      | Permission request resolved    | `requestId`, `selectedOption`        |
+| `settings_updated`         | Session settings changed       | `settings`                           |
+| `session_title_updated`    | Title changed                  | `title`                              |
+| `mcp_status_changed`       | MCP server status change       | `servers`, `summary`                 |
+| `mcp_auth_required`        | OAuth authentication needed    | `serverName`, `authUrl`              |
+| `mcp_auth_completed`       | OAuth authentication done      | `serverName`, `outcome`              |
+| `mission_state_changed`    | Mission state transition       | `state`                              |
+| `mission_features_changed` | Mission features updated       | `features`                           |
+| `mission_progress_entry`   | Mission progress log           | `progressLog`                        |
+| `mission_heartbeat`        | Mission keepalive              | `timestamp`                          |
+| `mission_worker_started`   | Worker session started         | `workerSessionId`                    |
+| `mission_worker_completed` | Worker session finished        | `workerSessionId`, `exitCode`        |
 
 The `turn_complete` message is the sentinel that signals the end of an agent turn. It is synthesized by the SDK when the agent transitions from a non-idle working state back to idle.
 
@@ -217,23 +219,23 @@ The `turn_complete` message is the sentinel that signals the end of an agent tur
 When using models with reasoning/thinking capabilities (and a `reasoningEffort` above `None`), the agent may emit `thinking_text_delta` messages alongside `assistant_text_delta`. These contain the model's chain-of-thought reasoning:
 
 ```ts
-import { query, ReasoningEffort } from "@factory/droid-sdk";
+import { query, ReasoningEffort } from '@factory/droid-sdk';
 
 const stream = query({
-  prompt: "Analyze the architecture of this project",
-  cwd: "/my/project",
+  prompt: 'Analyze the architecture of this project',
+  cwd: '/my/project',
   reasoningEffort: ReasoningEffort.High,
 });
 
-let thinkingText = "";
+let thinkingText = '';
 
 for await (const msg of stream) {
   switch (msg.type) {
-    case "thinking_text_delta":
+    case 'thinking_text_delta':
       thinkingText += msg.text;
       // Optionally display thinking in a collapsible UI section
       break;
-    case "assistant_text_delta":
+    case 'assistant_text_delta':
       process.stdout.write(msg.text);
       break;
   }
@@ -249,38 +251,38 @@ Both delta types include `messageId` and `blockIndex` for correlating fragments 
 Both `session.stream()` and `session.send()` accept optional `images` and `files` alongside the text message, via the `MessageOptions` parameter:
 
 ```ts
-import { createSession } from "@factory/droid-sdk";
-import * as fs from "node:fs";
+import { createSession } from '@factory/droid-sdk';
+import * as fs from 'node:fs';
 
-const session = await createSession({ cwd: "/my/project" });
+const session = await createSession({ cwd: '/my/project' });
 
 // Send a message with an image (base64-encoded)
-const imageData = fs.readFileSync("screenshot.png").toString("base64");
+const imageData = fs.readFileSync('screenshot.png').toString('base64');
 
-for await (const msg of session.stream("What does this screenshot show?", {
+for await (const msg of session.stream('What does this screenshot show?', {
   images: [
     {
-      type: "base64",
+      type: 'base64',
       data: imageData,
-      mediaType: "image/png",
+      mediaType: 'image/png',
     },
   ],
 })) {
-  if (msg.type === "assistant_text_delta") {
+  if (msg.type === 'assistant_text_delta') {
     process.stdout.write(msg.text);
   }
 }
 
 // Send a message with a document (e.g., PDF)
-const pdfData = fs.readFileSync("spec.pdf").toString("base64");
+const pdfData = fs.readFileSync('spec.pdf').toString('base64');
 
-const result = await session.send("Summarize this document", {
+const result = await session.send('Summarize this document', {
   files: [
     {
-      type: "base64",
-      mediaType: "application/pdf",
+      type: 'base64',
+      mediaType: 'application/pdf',
       data: pdfData,
-      name: "spec.pdf",
+      name: 'spec.pdf',
     },
   ],
 });
@@ -296,11 +298,11 @@ Supported image media types: `image/jpeg`, `image/png`, `image/gif`, `image/webp
 When the agent needs to execute a tool that requires user confirmation (file edits, command execution, etc.), the SDK invokes your `permissionHandler`. Return a `ToolConfirmationOutcome` value:
 
 ```ts
-import { query, ToolConfirmationOutcome } from "@factory/droid-sdk";
+import { query, ToolConfirmationOutcome } from '@factory/droid-sdk';
 
 const stream = query({
-  prompt: "Create a hello.txt file",
-  cwd: "/my/project",
+  prompt: 'Create a hello.txt file',
+  cwd: '/my/project',
   permissionHandler(params) {
     // params.toolUses is an array of { toolUse: { name, input }, confirmationType }
     const toolUses = params.toolUses as Array<{
@@ -318,22 +320,22 @@ const stream = query({
 });
 
 for await (const msg of stream) {
-  if (msg.type === "assistant_text_delta") process.stdout.write(msg.text);
+  if (msg.type === 'assistant_text_delta') process.stdout.write(msg.text);
 }
 ```
 
 Available outcomes:
 
-| Outcome | Effect |
-|---|---|
-| `ProceedOnce` | Approve this tool execution only |
-| `ProceedAlways` | Approve this tool for the rest of the session |
-| `ProceedAutoRun` | Auto-approve all tools |
-| `ProceedAutoRunLow` | Auto-approve low-risk tools only |
-| `ProceedAutoRunMedium` | Auto-approve up to medium-risk tools |
-| `ProceedAutoRunHigh` | Auto-approve up to high-risk tools |
-| `ProceedEdit` | Allow the edit to proceed |
-| `Cancel` | Reject the tool execution |
+| Outcome                | Effect                                        |
+| ---------------------- | --------------------------------------------- |
+| `ProceedOnce`          | Approve this tool execution only              |
+| `ProceedAlways`        | Approve this tool for the rest of the session |
+| `ProceedAutoRun`       | Auto-approve all tools                        |
+| `ProceedAutoRunLow`    | Auto-approve low-risk tools only              |
+| `ProceedAutoRunMedium` | Auto-approve up to medium-risk tools          |
+| `ProceedAutoRunHigh`   | Auto-approve up to high-risk tools            |
+| `ProceedEdit`          | Allow the edit to proceed                     |
+| `Cancel`               | Reject the tool execution                     |
 
 If no handler is set, the SDK defaults to `Cancel`.
 
@@ -348,11 +350,11 @@ import {
   query,
   ToolConfirmationOutcome,
   ToolConfirmationType,
-} from "@factory/droid-sdk";
+} from '@factory/droid-sdk';
 
 const stream = query({
-  prompt: "Refactor the utils module",
-  cwd: "/my/project",
+  prompt: 'Refactor the utils module',
+  cwd: '/my/project',
   permissionHandler(params) {
     const toolUses = params.toolUses as Array<{
       toolUse: { name: string; input: Record<string, unknown> };
@@ -365,8 +367,12 @@ const stream = query({
         case ToolConfirmationType.Edit:
           // details: { filePath, fileName, oldContent?, newContent? }
           console.log(`Edit: ${item.details.filePath}`);
-          console.log(`  Old: ${(item.details.oldContent as string)?.slice(0, 80)}...`);
-          console.log(`  New: ${(item.details.newContent as string)?.slice(0, 80)}...`);
+          console.log(
+            `  Old: ${(item.details.oldContent as string)?.slice(0, 80)}...`
+          );
+          console.log(
+            `  New: ${(item.details.newContent as string)?.slice(0, 80)}...`
+          );
           break;
 
         case ToolConfirmationType.Create:
@@ -387,7 +393,9 @@ const stream = query({
 
         case ToolConfirmationType.McpTool:
           // details: { toolName, impactLevel }
-          console.log(`MCP Tool: ${item.details.toolName} (${item.details.impactLevel})`);
+          console.log(
+            `MCP Tool: ${item.details.toolName} (${item.details.impactLevel})`
+          );
           break;
       }
     }
@@ -397,23 +405,23 @@ const stream = query({
 });
 
 for await (const msg of stream) {
-  if (msg.type === "assistant_text_delta") process.stdout.write(msg.text);
+  if (msg.type === 'assistant_text_delta') process.stdout.write(msg.text);
 }
 ```
 
 All confirmation detail types:
 
-| `confirmationType` | Enum / Value | Detail Fields | Description |
-|---|---|---|---|
-| `Edit` | `"edit"` | `filePath`, `fileName`, `oldContent?`, `newContent?` | File edit with diff |
-| `Create` | `"create"` | `filePath`, `fileName`, `content` | New file creation |
-| `Execute` | `"exec"` | `fullCommand`, `command`, `extractedCommands?`, `impactLevel?` | Shell command execution |
-| `ApplyPatch` | `"apply_patch"` | `filePath`, `fileName`, `patchContent`, `oldContent?`, `newContent?` | Patch application |
-| `McpTool` | `"mcp_tool"` | `toolName`, `impactLevel` | MCP tool invocation |
-| `AskUser` | `"ask_user"` | `questionnaire`, `parsed?`, `parseError?` | Agent asking a question |
-| `ExitSpecMode` | `"exit_spec_mode"` | `plan`, `title?`, `optionNames?` | Exiting spec/planning mode |
-| `ProposeMission` | `"propose_mission"` | `proposal`, `title?` | Mission proposal |
-| `StartMissionRun` | `"start_mission_run"` | `runningMissionCount`, `runningMissionSessionIds` | Starting a mission run |
+| `confirmationType` | Enum / Value          | Detail Fields                                                        | Description                |
+| ------------------ | --------------------- | -------------------------------------------------------------------- | -------------------------- |
+| `Edit`             | `"edit"`              | `filePath`, `fileName`, `oldContent?`, `newContent?`                 | File edit with diff        |
+| `Create`           | `"create"`            | `filePath`, `fileName`, `content`                                    | New file creation          |
+| `Execute`          | `"exec"`              | `fullCommand`, `command`, `extractedCommands?`, `impactLevel?`       | Shell command execution    |
+| `ApplyPatch`       | `"apply_patch"`       | `filePath`, `fileName`, `patchContent`, `oldContent?`, `newContent?` | Patch application          |
+| `McpTool`          | `"mcp_tool"`          | `toolName`, `impactLevel`                                            | MCP tool invocation        |
+| `AskUser`          | `"ask_user"`          | `questionnaire`, `parsed?`, `parseError?`                            | Agent asking a question    |
+| `ExitSpecMode`     | `"exit_spec_mode"`    | `plan`, `title?`, `optionNames?`                                     | Exiting spec/planning mode |
+| `ProposeMission`   | `"propose_mission"`   | `proposal`, `title?`                                                 | Mission proposal           |
+| `StartMissionRun`  | `"start_mission_run"` | `runningMissionCount`, `runningMissionSessionIds`                    | Starting a mission run     |
 
 Schemas: [`src/schemas/server.ts`](./src/schemas/server.ts) (`ToolConfirmationDetailsSchema`)
 
@@ -422,10 +430,10 @@ Schemas: [`src/schemas/server.ts`](./src/schemas/server.ts) (`ToolConfirmationDe
 When the agent needs to ask the user a question (e.g., clarification), the SDK invokes your `askUserHandler`. The handler receives structured questions with indexed options and should return matching answers:
 
 ```ts
-import { createSession } from "@factory/droid-sdk";
+import { createSession } from '@factory/droid-sdk';
 
 const session = await createSession({
-  cwd: "/my/project",
+  cwd: '/my/project',
   askUserHandler(params) {
     // params.questions is an array of:
     //   { index: number, topic: string, question: string, options: string[] }
@@ -436,10 +444,10 @@ const session = await createSession({
       options: string[];
     }>;
 
-    console.log("Agent asks:");
+    console.log('Agent asks:');
     for (const q of questions) {
       console.log(`  [${q.topic}] ${q.question}`);
-      console.log(`    Options: ${q.options.join(", ")}`);
+      console.log(`    Options: ${q.options.join(', ')}`);
     }
 
     // Return structured answers (one per question, matching by index)
@@ -469,15 +477,17 @@ Interrupt tells the agent to stop after its current operation. The stream contin
 
 ```ts
 // With query()
-const stream = query({ prompt: "Write a long essay...", cwd: "." });
+const stream = query({ prompt: 'Write a long essay...', cwd: '.' });
 setTimeout(() => stream.interrupt(), 5000);
-for await (const msg of stream) { /* ... */ }
+for await (const msg of stream) {
+  /* ... */
+}
 
 // With session
-const session = await createSession({ cwd: "." });
+const session = await createSession({ cwd: '.' });
 let count = 0;
-for await (const msg of session.stream("Write a detailed essay...")) {
-  if (msg.type === "assistant_text_delta") {
+for await (const msg of session.stream('Write a detailed essay...')) {
+  if (msg.type === 'assistant_text_delta') {
     count++;
     process.stdout.write(msg.text);
     if (count === 5) {
@@ -494,7 +504,7 @@ for await (const msg of session.stream("Write a detailed essay...")) {
 Abort kills the subprocess immediately. Only available on `DroidQuery`:
 
 ```ts
-const stream = query({ prompt: "...", cwd: "." });
+const stream = query({ prompt: '...', cwd: '.' });
 stream.abort(); // kills the process, generator terminates
 ```
 
@@ -503,11 +513,11 @@ stream.abort(); // kills the process, generator terminates
 The `query()` function accepts a standard `AbortSignal` in its options for external cancellation. Note: as of v0.1.4, the `abortSignal` option is declared in `QueryOptions` but not yet wired into the implementation. Use `query.abort()` or `query.interrupt()` for cancellation instead:
 
 ```ts
-import { query } from "@factory/droid-sdk";
+import { query } from '@factory/droid-sdk';
 
 const stream = query({
-  prompt: "Analyze the entire codebase",
-  cwd: "/my/project",
+  prompt: 'Analyze the entire codebase',
+  cwd: '/my/project',
 });
 
 // Cancel after 30 seconds using abort()
@@ -515,12 +525,12 @@ setTimeout(() => stream.abort(), 30_000);
 
 try {
   for await (const msg of stream) {
-    if (msg.type === "assistant_text_delta") {
+    if (msg.type === 'assistant_text_delta') {
       process.stdout.write(msg.text);
     }
   }
 } catch {
-  console.log("Query was aborted");
+  console.log('Query was aborted');
 }
 ```
 
@@ -534,11 +544,11 @@ import {
   AutonomyLevel,
   ReasoningEffort,
   DroidInteractionMode,
-} from "@factory/droid-sdk";
+} from '@factory/droid-sdk';
 
 const session = await createSession({
-  cwd: "/my/project",
-  modelId: "claude-sonnet-4-20250514",
+  cwd: '/my/project',
+  modelId: 'claude-sonnet-4-20250514',
   autonomyLevel: AutonomyLevel.Medium,
   reasoningEffort: ReasoningEffort.High,
   interactionMode: DroidInteractionMode.Auto,
@@ -546,7 +556,7 @@ const session = await createSession({
 
 // Change settings mid-session
 await session.updateSettings({
-  modelId: "claude-sonnet-4-20250514",
+  modelId: 'claude-sonnet-4-20250514',
   reasoningEffort: ReasoningEffort.Low,
   autonomyLevel: AutonomyLevel.High,
 });
@@ -559,21 +569,21 @@ You can also pass these in `QueryOptions` for one-shot queries.
 When initializing sessions via the low-level `DroidClient`, you can attach tags and source metadata for tracking and filtering:
 
 ```ts
-import { DroidClient, ProcessTransport } from "@factory/droid-sdk";
+import { DroidClient, ProcessTransport } from '@factory/droid-sdk';
 
-const transport = new ProcessTransport({ cwd: "/my/project" });
+const transport = new ProcessTransport({ cwd: '/my/project' });
 await transport.connect();
 const client = new DroidClient({ transport });
 
 const initResult = await client.initializeSession({
-  machineId: "default",
-  cwd: "/my/project",
+  machineId: 'default',
+  cwd: '/my/project',
   tags: [
-    { name: "environment", metadata: { value: "production" } },
-    { name: "team", metadata: { value: "platform" } },
+    { name: 'environment', metadata: { value: 'production' } },
+    { name: 'team', metadata: { value: 'platform' } },
   ],
   sessionSource: {
-    platform: "my-app",
+    platform: 'my-app',
     // additional keys are allowed (passthrough schema)
   },
 });
@@ -586,16 +596,16 @@ Tags are `{ name: string, metadata?: Record<string, string> }` pairs. The sessio
 When subscribing to notifications on a session or client, you can filter by notification type to only receive events you care about:
 
 ```ts
-import { createSession, SessionNotificationType } from "@factory/droid-sdk";
+import { createSession, SessionNotificationType } from '@factory/droid-sdk';
 
-const session = await createSession({ cwd: "/my/project" });
+const session = await createSession({ cwd: '/my/project' });
 
 // Only receive tool_result notifications
 const unsubscribe = session.onNotification(
   (notification) => {
-    console.log("Tool result received:", notification);
+    console.log('Tool result received:', notification);
   },
-  { type: SessionNotificationType.TOOL_RESULT },
+  { type: SessionNotificationType.TOOL_RESULT }
 );
 
 // ... send messages and process results ...
@@ -613,20 +623,26 @@ Available notification types are enumerated in `SessionNotificationType` (20 typ
 Add, remove, list, and toggle MCP (Model Context Protocol) servers within a session:
 
 ```ts
-import { createSession, McpServerType, SettingsLevel } from "@factory/droid-sdk";
+import {
+  createSession,
+  McpServerType,
+  SettingsLevel,
+} from '@factory/droid-sdk';
 
-const session = await createSession({ cwd: "/my/project" });
+const session = await createSession({ cwd: '/my/project' });
 
 // Add an MCP server
 await session.addMcpServer({
-  name: "my-server",
+  name: 'my-server',
   type: McpServerType.Http,
-  url: "https://mcp.example.com/mcp",
+  url: 'https://mcp.example.com/mcp',
 });
 
 // List servers
 const { servers, summary } = await session.listMcpServers();
-console.log(`MCP: ${summary.connected}/${summary.total} connected, ${servers.length} servers`);
+console.log(
+  `MCP: ${summary.connected}/${summary.total} connected, ${servers.length} servers`
+);
 
 // List available tools
 const { tools } = await session.listMcpTools();
@@ -636,7 +652,7 @@ for (const tool of tools) {
 
 // Remove a server
 await session.removeMcpServer({
-  serverName: "my-server",
+  serverName: 'my-server',
   settingsLevel: SettingsLevel.User,
 });
 
@@ -647,10 +663,15 @@ You can also pass MCP servers at initialization time:
 
 ```ts
 const session = await createSession({
-  cwd: "/my/project",
+  cwd: '/my/project',
   mcpServers: [
-    { name: "figma", type: "http", url: "https://mcp.figma.com/mcp", headers: [] },
-    { name: "local-tools", command: "npx", args: ["-y", "my-mcp-server"] },
+    {
+      name: 'figma',
+      type: 'http',
+      url: 'https://mcp.figma.com/mcp',
+      headers: [],
+    },
+    { name: 'local-tools', command: 'npx', args: ['-y', 'my-mcp-server'] },
   ],
 });
 ```
@@ -660,14 +681,14 @@ const session = await createSession({
 Some MCP servers require OAuth authentication. The SDK provides a full OAuth lifecycle through stream events and client methods:
 
 ```ts
-import { createSession, McpServerType } from "@factory/droid-sdk";
+import { createSession, McpServerType } from '@factory/droid-sdk';
 
-const session = await createSession({ cwd: "/my/project" });
+const session = await createSession({ cwd: '/my/project' });
 
 await session.addMcpServer({
-  name: "github-mcp",
+  name: 'github-mcp',
   type: McpServerType.Http,
-  url: "https://mcp.github.com/mcp",
+  url: 'https://mcp.github.com/mcp',
 });
 
 // Listen for auth events
@@ -675,19 +696,21 @@ session.onNotification((notification) => {
   const params = notification.params as Record<string, unknown>;
   const inner = params?.notification as Record<string, unknown>;
 
-  if (inner?.type === "mcp_auth_required") {
+  if (inner?.type === 'mcp_auth_required') {
     // Open this URL in the user's browser for OAuth
     console.log(`Auth required for ${inner.serverName}`);
     console.log(`Open: ${inner.authUrl}`);
   }
 
-  if (inner?.type === "mcp_auth_completed") {
-    console.log(`Auth ${inner.outcome} for ${inner.serverName}: ${inner.message}`);
+  if (inner?.type === 'mcp_auth_completed') {
+    console.log(
+      `Auth ${inner.outcome} for ${inner.serverName}: ${inner.message}`
+    );
   }
 });
 
 // Trigger authentication for a server
-await session.authenticateMcpServer({ serverName: "github-mcp" });
+await session.authenticateMcpServer({ serverName: 'github-mcp' });
 
 // The auth timeout is 300 seconds (MCP_AUTH_TIMEOUT) to allow
 // for the user to complete the OAuth flow in their browser.
@@ -702,9 +725,9 @@ The OAuth flow emits `mcp_auth_required` (with `authUrl` to open in a browser) a
 List available skills (custom droids, built-in skills, and project-level skills) within a session:
 
 ```ts
-import { createSession } from "@factory/droid-sdk";
+import { createSession } from '@factory/droid-sdk';
 
-const session = await createSession({ cwd: "/my/project" });
+const session = await createSession({ cwd: '/my/project' });
 
 const { skills } = await session.listSkills();
 
@@ -712,7 +735,9 @@ for (const skill of skills) {
   console.log(`${skill.name} (${skill.location})`);
   if (skill.description) console.log(`  ${skill.description}`);
   if (skill.resources?.length) {
-    console.log(`  Resources: ${skill.resources.map((r) => r.name).join(", ")}`);
+    console.log(
+      `  Resources: ${skill.resources.map((r) => r.name).join(', ')}`
+    );
   }
 }
 
@@ -726,47 +751,51 @@ Each skill has a `name`, `description`, `location` (`project`, `personal`, or `b
 The SDK supports Factory's mission/AGI mode, where an orchestrator decomposes complex tasks into features and delegates them to parallel worker sessions. Enable it via `DroidInteractionMode.AGI`:
 
 ```ts
-import { createSession, DroidInteractionMode } from "@factory/droid-sdk";
+import { createSession, DroidInteractionMode } from '@factory/droid-sdk';
 
 const session = await createSession({
-  cwd: "/my/project",
+  cwd: '/my/project',
   interactionMode: DroidInteractionMode.AGI,
 });
 
-for await (const msg of session.stream("Build a REST API with auth, CRUD, and tests")) {
+for await (const msg of session.stream(
+  'Build a REST API with auth, CRUD, and tests'
+)) {
   switch (msg.type) {
-    case "assistant_text_delta":
+    case 'assistant_text_delta':
       process.stdout.write(msg.text);
       break;
 
-    case "mission_state_changed":
+    case 'mission_state_changed':
       // States: AwaitingInput → Initializing → Running → OrchestratorTurn → Completed
       console.log(`\n[Mission] State: ${msg.state}`);
       break;
 
-    case "mission_features_changed":
+    case 'mission_features_changed':
       // Features with status lifecycle: Pending → InProgress → Completed/Cancelled
       for (const feature of msg.features) {
         console.log(`  Feature: ${feature.description} [${feature.status}]`);
       }
       break;
 
-    case "mission_worker_started":
+    case 'mission_worker_started':
       console.log(`[Worker] Started: ${msg.workerSessionId}`);
       break;
 
-    case "mission_worker_completed":
-      console.log(`[Worker] Completed: ${msg.workerSessionId} (exit: ${msg.exitCode})`);
+    case 'mission_worker_completed':
+      console.log(
+        `[Worker] Completed: ${msg.workerSessionId} (exit: ${msg.exitCode})`
+      );
       break;
 
-    case "mission_progress_entry":
+    case 'mission_progress_entry':
       // Detailed progress log with typed entries
       for (const entry of msg.progressLog) {
         console.log(`  [${entry.type}] ${JSON.stringify(entry)}`);
       }
       break;
 
-    case "mission_heartbeat":
+    case 'mission_heartbeat':
       // Periodic keepalive during long-running missions
       break;
   }
@@ -778,6 +807,7 @@ await session.close();
 ### Mission Data Model
 
 Features (`MissionFeature`) include:
+
 - `id`, `description`, `status` (`pending`, `in_progress`, `completed`, `cancelled`)
 - `skillName` — the skill/droid used
 - `preconditions`, `expectedBehavior`, `verificationSteps`
@@ -796,19 +826,29 @@ Schemas: [`src/schemas/mission.ts`](./src/schemas/mission.ts), [`src/schemas/enu
 By default, the SDK spawns a `droid exec` subprocess via `ProcessTransport`. You can provide your own transport implementation for testing or custom communication channels:
 
 ```ts
-import { createSession, type DroidClientTransport } from "@factory/droid-sdk";
+import { createSession, type DroidClientTransport } from '@factory/droid-sdk';
 
 const myTransport: DroidClientTransport = {
-  send(message: object) { /* ... */ },
-  onMessage(callback) { /* ... */ },
-  onError(callback) { /* ... */ },
-  async close() { /* ... */ },
-  get isConnected() { return true; },
+  send(message: object) {
+    /* ... */
+  },
+  onMessage(callback) {
+    /* ... */
+  },
+  onError(callback) {
+    /* ... */
+  },
+  async close() {
+    /* ... */
+  },
+  get isConnected() {
+    return true;
+  },
 };
 
 const session = await createSession({
   transport: myTransport,
-  cwd: "/my/project",
+  cwd: '/my/project',
 });
 ```
 
@@ -819,30 +859,30 @@ The `DroidClientTransport` interface is defined in [`src/types.ts`](./src/types.
 For advanced use cases, you can use `DroidClient` directly. It provides typed methods for all 19 JSON-RPC operations:
 
 ```ts
-import { DroidClient, ProcessTransport } from "@factory/droid-sdk";
+import { DroidClient, ProcessTransport } from '@factory/droid-sdk';
 
-const transport = new ProcessTransport({ cwd: "/my/project" });
+const transport = new ProcessTransport({ cwd: '/my/project' });
 await transport.connect();
 
 const client = new DroidClient({ transport });
 
 // Initialize session
 const initResult = await client.initializeSession({
-  machineId: "default",
-  cwd: "/my/project",
+  machineId: 'default',
+  cwd: '/my/project',
 });
-console.log("Session:", initResult.sessionId);
+console.log('Session:', initResult.sessionId);
 
 // Register notification listener
 const unsubscribe = client.onNotification((notification) => {
-  console.log("Notification:", notification);
+  console.log('Notification:', notification);
 });
 
 // Set permission handler
-client.setPermissionHandler((params) => "proceed_once");
+client.setPermissionHandler((params) => 'proceed_once');
 
 // Send a message
-await client.addUserMessage({ text: "Hello!" });
+await client.addUserMessage({ text: 'Hello!' });
 
 // ... listen for notifications ...
 
@@ -864,30 +904,30 @@ import {
   InitializeSessionRequestParamsSchema,
   SessionNotificationPayloadSchema,
   ToolConfirmationDetailsSchema,
-} from "@factory/droid-sdk";
+} from '@factory/droid-sdk';
 
 // Validate request params before sending
 const params = InitializeSessionRequestParamsSchema.parse({
-  machineId: "default",
-  cwd: "/my/project",
-  modelId: "claude-sonnet-4-20250514",
+  machineId: 'default',
+  cwd: '/my/project',
+  modelId: 'claude-sonnet-4-20250514',
 });
 
 // Validate a notification payload
 const notification = SessionNotificationPayloadSchema.parse({
-  type: "assistant_text_delta",
-  messageId: "msg-123",
+  type: 'assistant_text_delta',
+  messageId: 'msg-123',
   blockIndex: 0,
-  textDelta: "Hello",
+  textDelta: 'Hello',
 });
 
 // Validate tool confirmation details (discriminated union)
 const details = ToolConfirmationDetailsSchema.parse({
-  type: "edit",
-  filePath: "/src/main.ts",
-  fileName: "main.ts",
-  oldContent: "const x = 1;",
-  newContent: "const x = 2;",
+  type: 'edit',
+  filePath: '/src/main.ts',
+  fileName: 'main.ts',
+  oldContent: 'const x = 1;',
+  newContent: 'const x = 2;',
 });
 
 // All schemas use .passthrough() for forward-compatibility with
@@ -895,6 +935,7 @@ const details = ToolConfirmationDetailsSchema.parse({
 ```
 
 Schemas are defined in `src/schemas/`:
+
 - **Client requests/responses:** [`src/schemas/client.ts`](./src/schemas/client.ts) (19 RPC methods)
 - **Server notifications/requests:** [`src/schemas/server.ts`](./src/schemas/server.ts) (20 notification types + permission + ask-user)
 - **JSON-RPC base:** [`src/schemas/shared.ts`](./src/schemas/shared.ts)
@@ -914,10 +955,10 @@ import {
   SessionNotFoundError,
   TimeoutError,
   ProcessExitError,
-} from "@factory/droid-sdk";
+} from '@factory/droid-sdk';
 
 try {
-  const session = await resumeSession("invalid-id");
+  const session = await resumeSession('invalid-id');
 } catch (err) {
   if (err instanceof SessionNotFoundError) {
     console.log(`Session not found: ${err.sessionId}`);
@@ -933,14 +974,14 @@ try {
 }
 ```
 
-| Error | When Thrown |
-|---|---|
-| `ConnectionError` | Failed to spawn or connect to the droid process |
-| `ProtocolError` | JSON-RPC protocol violation or server error response |
-| `SessionError` | General session-level error (base class) |
-| `SessionNotFoundError` | Session ID does not exist (extends `SessionError`) |
-| `TimeoutError` | Request exceeded timeout (default: 30s, init: 60s) |
-| `ProcessExitError` | Droid subprocess exited unexpectedly |
+| Error                  | When Thrown                                          |
+| ---------------------- | ---------------------------------------------------- |
+| `ConnectionError`      | Failed to spawn or connect to the droid process      |
+| `ProtocolError`        | JSON-RPC protocol violation or server error response |
+| `SessionError`         | General session-level error (base class)             |
+| `SessionNotFoundError` | Session ID does not exist (extends `SessionError`)   |
+| `TimeoutError`         | Request exceeded timeout (default: 30s, init: 60s)   |
+| `ProcessExitError`     | Droid subprocess exited unexpectedly                 |
 
 Source: [`src/errors.ts`](./src/errors.ts)
 
@@ -950,15 +991,15 @@ All enums are exported from the main entry point:
 
 ```ts
 import {
-  AutonomyLevel,         // Off, Low, Medium, High
-  DroidInteractionMode,  // Auto, Spec, AGI
-  ReasoningEffort,        // None, Off, Dynamic, Minimal, Low, Medium, High, ExtraHigh ("xhigh"), Max
-  ToolConfirmationOutcome,// ProceedOnce, ProceedAlways, Cancel, etc.
-  ToolConfirmationType,   // Edit, Execute, Create, McpTool, etc.
-  DroidWorkingState,      // Idle, StreamingAssistantMessage, ExecutingTool, etc.
-  McpServerType,          // Stdio, Http, Sse
-  McpServerStatus,        // Connecting, Connected, Disconnected, Failed, Disabled
-} from "@factory/droid-sdk";
+  AutonomyLevel, // Off, Low, Medium, High
+  DroidInteractionMode, // Auto, Spec, AGI
+  ReasoningEffort, // None, Off, Dynamic, Minimal, Low, Medium, High, ExtraHigh ("xhigh"), Max
+  ToolConfirmationOutcome, // ProceedOnce, ProceedAlways, Cancel, etc.
+  ToolConfirmationType, // Edit, Execute, Create, McpTool, etc.
+  DroidWorkingState, // Idle, StreamingAssistantMessage, ExecutingTool, etc.
+  McpServerType, // Stdio, Http, Sse
+  McpServerStatus, // Connecting, Connected, Disconnected, Failed, Disabled
+} from '@factory/droid-sdk';
 ```
 
 Full enum definitions: [`src/schemas/enums.ts`](./src/schemas/enums.ts)

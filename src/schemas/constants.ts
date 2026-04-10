@@ -3,22 +3,22 @@
  */
 
 /** JSON-RPC protocol version. */
-export const JSONRPC_VERSION = "2.0" as const;
+export const JSONRPC_VERSION = '2.0' as const;
 
 /**
  * Legacy Factory API version for backward compatibility.
  * @deprecated Use FACTORY_PROTOCOL_VERSION for runtime compatibility instead.
  */
-export const LEGACY_FACTORY_API_VERSION = "1.0.0" as const;
+export const LEGACY_FACTORY_API_VERSION = '1.0.0' as const;
 
 /** Current Factory protocol version. */
-export const FACTORY_PROTOCOL_VERSION = "1.2.0" as const;
+export const FACTORY_PROTOCOL_VERSION = '1.2.0' as const;
 
 /** HTTP header identifying the Factory client type. */
-export const FACTORY_CLIENT_HEADER = "X-Factory-Client" as const;
+export const FACTORY_CLIENT_HEADER = 'X-Factory-Client' as const;
 
 /** HTTP header identifying the Factory client version. */
-export const FACTORY_CLIENT_VERSION = "X-Client-Version" as const;
+export const FACTORY_CLIENT_VERSION = 'X-Client-Version' as const;
 
 /** Default request timeout in milliseconds (30s). */
 export const DEFAULT_REQUEST_TIMEOUT = 30_000;

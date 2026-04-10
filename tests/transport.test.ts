@@ -7,12 +7,12 @@
  * InMemoryTransport tests verify the mock's capture/inject behavior.
  */
 
-import { describe, expect, it, beforeEach, afterEach } from "vitest";
+import { describe, expect, it, beforeEach, afterEach } from 'vitest';
 
-import { ConnectionError, ProcessExitError } from "../src/errors.js";
-import { ProcessTransport } from "../src/transport.js";
-import type { DroidClientTransport } from "../src/types.js";
-import { InMemoryTransport } from "./helpers.js";
+import { ConnectionError, ProcessExitError } from '../src/errors.js';
+import { ProcessTransport } from '../src/transport.js';
+import type { DroidClientTransport } from '../src/types.js';
+import { InMemoryTransport } from './helpers.js';
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -24,11 +24,11 @@ import { InMemoryTransport } from "./helpers.js";
  */
 function createNodeTransport(
   script: string,
-  options?: { gracePeriod?: number },
+  options?: { gracePeriod?: number }
 ): ProcessTransport {
   return new ProcessTransport({
-    execPath: "node",
-    execArgs: ["-e", script],
+    execPath: 'node',
+    execArgs: ['-e', script],
     gracePeriod: options?.gracePeriod,
   });
 }
@@ -39,15 +39,15 @@ function createNodeTransport(
 function collectMessages(
   transport: DroidClientTransport,
   count: number,
-  timeoutMs = 5_000,
+  timeoutMs = 5_000
 ): Promise<object[]> {
   return new Promise((resolve, reject) => {
     const messages: object[] = [];
     const timer = setTimeout(() => {
       reject(
         new Error(
-          `Timeout waiting for ${count} messages (got ${messages.length})`,
-        ),
+          `Timeout waiting for ${count} messages (got ${messages.length})`
+        )
       );
     }, timeoutMs);
 
@@ -66,11 +66,11 @@ function collectMessages(
  */
 function waitForError(
   transport: DroidClientTransport,
-  timeoutMs = 5_000,
+  timeoutMs = 5_000
 ): Promise<Error> {
   return new Promise((resolve, reject) => {
     const timer = setTimeout(() => {
-      reject(new Error("Timeout waiting for error"));
+      reject(new Error('Timeout waiting for error'));
     }, timeoutMs);
 
     transport.onError((err) => {
@@ -84,43 +84,39 @@ function waitForError(
 // DroidClientTransport interface compliance
 // ---------------------------------------------------------------------------
 
-describe("ProcessTransport", () => {
-  describe("interface compliance", () => {
-    it("implements DroidClientTransport interface", () => {
+describe('ProcessTransport', () => {
+  describe('interface compliance', () => {
+    it('implements DroidClientTransport interface', () => {
       const transport: DroidClientTransport = new ProcessTransport();
-      expect(transport.send).toBeTypeOf("function");
-      expect(transport.onMessage).toBeTypeOf("function");
-      expect(transport.onError).toBeTypeOf("function");
-      expect(transport.close).toBeTypeOf("function");
-      expect(typeof transport.isConnected).toBe("boolean");
-      expect(transport.connect).toBeTypeOf("function");
+      expect(transport.send).toBeTypeOf('function');
+      expect(transport.onMessage).toBeTypeOf('function');
+      expect(transport.onError).toBeTypeOf('function');
+      expect(transport.close).toBeTypeOf('function');
+      expect(typeof transport.isConnected).toBe('boolean');
+      expect(transport.connect).toBeTypeOf('function');
     });
 
-    it("isConnected is false before connect()", () => {
+    it('isConnected is false before connect()', () => {
       const transport = new ProcessTransport();
       expect(transport.isConnected).toBe(false);
     });
 
-    it("isConnected is true after connect()", async () => {
+    it('isConnected is true after connect()', async () => {
       // Spawn a node process that stays alive briefly
-      const transport = createNodeTransport(
-        'setTimeout(() => {}, 10000);',
-      );
+      const transport = createNodeTransport('setTimeout(() => {}, 10000);');
       await transport.connect!();
       expect(transport.isConnected).toBe(true);
       await transport.close();
     });
 
-    it("throws ConnectionError when connecting while already connected", async () => {
-      const transport = createNodeTransport(
-        'setTimeout(() => {}, 10000);',
-      );
+    it('throws ConnectionError when connecting while already connected', async () => {
+      const transport = createNodeTransport('setTimeout(() => {}, 10000);');
       await transport.connect!();
       await expect(transport.connect!()).rejects.toThrow(ConnectionError);
       await transport.close();
     });
 
-    it("throws when sending before connect()", () => {
+    it('throws when sending before connect()', () => {
       const transport = new ProcessTransport();
       expect(() => transport.send({ test: true })).toThrow(ConnectionError);
     });
@@ -130,8 +126,8 @@ describe("ProcessTransport", () => {
   // JSONL stdin (send)
   // -----------------------------------------------------------------------
 
-  describe("JSONL stdin (send)", () => {
-    it("sends JSONL via stdin — one JSON object per newline", async () => {
+  describe('JSONL stdin (send)', () => {
+    it('sends JSONL via stdin — one JSON object per newline', async () => {
       // Node script that echoes each stdin line as a JSON message
       const script = `
         const readline = require('readline');
@@ -148,7 +144,7 @@ describe("ProcessTransport", () => {
       const messagePromise = collectMessages(transport, 1);
       await transport.connect!();
 
-      const testMsg = { jsonrpc: "2.0", method: "test", id: "1" };
+      const testMsg = { jsonrpc: '2.0', method: 'test', id: '1' };
       transport.send(testMsg);
 
       const messages = await messagePromise;
@@ -158,7 +154,7 @@ describe("ProcessTransport", () => {
       await transport.close();
     });
 
-    it("serializes multiple sends without interleaving", async () => {
+    it('serializes multiple sends without interleaving', async () => {
       // Node script that collects all lines and echoes count at the end
       const script = `
         const readline = require('readline');
@@ -179,7 +175,7 @@ describe("ProcessTransport", () => {
 
       // Fire 5 sends concurrently
       for (let i = 0; i < 5; i++) {
-        transport.send({ id: String(i), data: "x".repeat(100) });
+        transport.send({ id: String(i), data: 'x'.repeat(100) });
       }
 
       const messages = await messagePromise;
@@ -187,9 +183,9 @@ describe("ProcessTransport", () => {
 
       // Each message should have a distinct, correctly-parsed id
       const ids = messages.map(
-        (m) => (m as { received: { id: string } }).received.id,
+        (m) => (m as { received: { id: string } }).received.id
       );
-      expect(ids).toEqual(["0", "1", "2", "3", "4"]);
+      expect(ids).toEqual(['0', '1', '2', '3', '4']);
 
       await transport.close();
     });
@@ -199,8 +195,8 @@ describe("ProcessTransport", () => {
   // JSONL stdout (receive)
   // -----------------------------------------------------------------------
 
-  describe("JSONL stdout parsing", () => {
-    it("parses JSONL messages from stdout", async () => {
+  describe('JSONL stdout parsing', () => {
+    it('parses JSONL messages from stdout', async () => {
       const script = `
         process.stdout.write(JSON.stringify({ type: "notification", method: "test" }) + '\\n');
         process.stdout.write(JSON.stringify({ type: "response", id: "1", result: 42 }) + '\\n');
@@ -214,19 +210,19 @@ describe("ProcessTransport", () => {
       const messages = await messagePromise;
       expect(messages).toHaveLength(2);
       expect(messages[0]).toEqual({
-        type: "notification",
-        method: "test",
+        type: 'notification',
+        method: 'test',
       });
       expect(messages[1]).toEqual({
-        type: "response",
-        id: "1",
+        type: 'response',
+        id: '1',
         result: 42,
       });
 
       await transport.close();
     });
 
-    it("silently skips non-JSON stdout lines", async () => {
+    it('silently skips non-JSON stdout lines', async () => {
       const script = `
         process.stdout.write('DEBUG: starting up\\n');
         process.stdout.write(JSON.stringify({ valid: true }) + '\\n');
@@ -242,12 +238,12 @@ describe("ProcessTransport", () => {
       const messages = await messagePromise;
       expect(messages).toHaveLength(2);
       expect(messages[0]).toEqual({ valid: true });
-      expect(messages[1]).toEqual({ also: "valid" });
+      expect(messages[1]).toEqual({ also: 'valid' });
 
       await transport.close();
     });
 
-    it("skips blank lines", async () => {
+    it('skips blank lines', async () => {
       const script = `
         process.stdout.write('\\n');
         process.stdout.write('\\n');
@@ -266,7 +262,7 @@ describe("ProcessTransport", () => {
       await transport.close();
     });
 
-    it("skips malformed JSON lines", async () => {
+    it('skips malformed JSON lines', async () => {
       const script = `
         process.stdout.write('{broken json\\n');
         process.stdout.write(JSON.stringify({ good: true }) + '\\n');
@@ -289,8 +285,8 @@ describe("ProcessTransport", () => {
   // Process exit handling
   // -----------------------------------------------------------------------
 
-  describe("process exit handling", () => {
-    it("fires ProcessExitError on abnormal exit (non-zero)", async () => {
+  describe('process exit handling', () => {
+    it('fires ProcessExitError on abnormal exit (non-zero)', async () => {
       const script = `
         process.stdout.write(JSON.stringify({ hello: true }) + '\\n');
         setTimeout(() => process.exit(42), 200);
@@ -308,7 +304,7 @@ describe("ProcessTransport", () => {
       await transport.close();
     });
 
-    it("fires ProcessExitError on normal exit (code 0)", async () => {
+    it('fires ProcessExitError on normal exit (code 0)', async () => {
       const script = `
         process.exit(0);
       `;
@@ -325,7 +321,7 @@ describe("ProcessTransport", () => {
       await transport.close();
     });
 
-    it("sets isConnected to false after process exits", async () => {
+    it('sets isConnected to false after process exits', async () => {
       const script = `process.exit(1);`;
 
       const transport = createNodeTransport(script);
@@ -338,7 +334,7 @@ describe("ProcessTransport", () => {
       await transport.close();
     });
 
-    it("subsequent send() throws after process exit", async () => {
+    it('subsequent send() throws after process exit', async () => {
       const script = `process.exit(1);`;
 
       const transport = createNodeTransport(script);
@@ -348,9 +344,7 @@ describe("ProcessTransport", () => {
       await errorPromise;
 
       // send() should throw the sticky error
-      expect(() =>
-        transport.send({ test: true }),
-      ).toThrow(ProcessExitError);
+      expect(() => transport.send({ test: true })).toThrow(ProcessExitError);
 
       await transport.close();
     });
@@ -360,8 +354,8 @@ describe("ProcessTransport", () => {
   // Reconnection
   // -----------------------------------------------------------------------
 
-  describe("reconnection", () => {
-    it("supports close → connect cycle", async () => {
+  describe('reconnection', () => {
+    it('supports close → connect cycle', async () => {
       // First connection: echo script
       const echoScript = `
         const readline = require('readline');
@@ -376,8 +370,8 @@ describe("ProcessTransport", () => {
 
       // Use a transport with node -e that we can reconnect
       const transport = new ProcessTransport({
-        execPath: "node",
-        execArgs: ["-e", echoScript],
+        execPath: 'node',
+        execArgs: ['-e', echoScript],
       });
 
       // First connection
@@ -405,9 +399,9 @@ describe("ProcessTransport", () => {
       await transport.close();
     });
 
-    it("resets processError on reconnect so send() works", async () => {
+    it('resets processError on reconnect so send() works', async () => {
       // Process that exits immediately with error
-      const transport = createNodeTransport("process.exit(1);");
+      const transport = createNodeTransport('process.exit(1);');
       const errorPromise = waitForError(transport);
       await transport.connect!();
       await errorPromise;
@@ -430,8 +424,8 @@ describe("ProcessTransport", () => {
       `;
       // Create a new transport for reconnect since execArgs are fixed
       const transport2 = new ProcessTransport({
-        execPath: "node",
-        execArgs: ["-e", echoScript],
+        execPath: 'node',
+        execArgs: ['-e', echoScript],
       });
       await transport2.connect!();
 
@@ -449,11 +443,9 @@ describe("ProcessTransport", () => {
   // Shutdown escalation (SIGTERM → SIGKILL)
   // -----------------------------------------------------------------------
 
-  describe("SIGTERM → SIGKILL shutdown escalation", () => {
-    it("close() terminates process and sets isConnected to false", async () => {
-      const transport = createNodeTransport(
-        'setTimeout(() => {}, 60000);',
-      );
+  describe('SIGTERM → SIGKILL shutdown escalation', () => {
+    it('close() terminates process and sets isConnected to false', async () => {
+      const transport = createNodeTransport('setTimeout(() => {}, 60000);');
       await transport.connect!();
       expect(transport.isConnected).toBe(true);
 
@@ -461,10 +453,8 @@ describe("ProcessTransport", () => {
       expect(transport.isConnected).toBe(false);
     });
 
-    it("close() is idempotent", async () => {
-      const transport = createNodeTransport(
-        'setTimeout(() => {}, 60000);',
-      );
+    it('close() is idempotent', async () => {
+      const transport = createNodeTransport('setTimeout(() => {}, 60000);');
       await transport.connect!();
 
       // Calling close() twice should not throw
@@ -473,7 +463,7 @@ describe("ProcessTransport", () => {
       expect(transport.isConnected).toBe(false);
     });
 
-    it("escalates to SIGKILL for processes that ignore SIGTERM", async () => {
+    it('escalates to SIGKILL for processes that ignore SIGTERM', async () => {
       // Process that traps SIGTERM and ignores it
       const script = `
         process.on('SIGTERM', () => { /* ignore */ });
@@ -496,10 +486,10 @@ describe("ProcessTransport", () => {
   // Edge cases
   // -----------------------------------------------------------------------
 
-  describe("edge cases", () => {
-    it("handles spawn failure (ENOENT) via error event", async () => {
+  describe('edge cases', () => {
+    it('handles spawn failure (ENOENT) via error event', async () => {
       const transport = new ProcessTransport({
-        execPath: "/nonexistent/binary",
+        execPath: '/nonexistent/binary',
       });
 
       const errorPromise = waitForError(transport);
@@ -512,7 +502,7 @@ describe("ProcessTransport", () => {
       await transport.close();
     });
 
-    it("handlers registered before connect() still fire after connect()", async () => {
+    it('handlers registered before connect() still fire after connect()', async () => {
       const script = `
         process.stdout.write(JSON.stringify({ early: true }) + '\\n');
         setTimeout(() => process.exit(0), 200);
@@ -540,7 +530,7 @@ describe("ProcessTransport", () => {
 // InMemoryTransport
 // ---------------------------------------------------------------------------
 
-describe("InMemoryTransport", () => {
+describe('InMemoryTransport', () => {
   let transport: InMemoryTransport;
 
   beforeEach(async () => {
@@ -552,36 +542,36 @@ describe("InMemoryTransport", () => {
     await transport.close();
   });
 
-  it("implements DroidClientTransport interface", () => {
+  it('implements DroidClientTransport interface', () => {
     const t: DroidClientTransport = transport;
-    expect(t.send).toBeTypeOf("function");
-    expect(t.onMessage).toBeTypeOf("function");
-    expect(t.onError).toBeTypeOf("function");
-    expect(t.close).toBeTypeOf("function");
-    expect(typeof t.isConnected).toBe("boolean");
-    expect(t.connect).toBeTypeOf("function");
+    expect(t.send).toBeTypeOf('function');
+    expect(t.onMessage).toBeTypeOf('function');
+    expect(t.onError).toBeTypeOf('function');
+    expect(t.close).toBeTypeOf('function');
+    expect(typeof t.isConnected).toBe('boolean');
+    expect(t.connect).toBeTypeOf('function');
   });
 
-  describe("connection state", () => {
-    it("isConnected is false before connect()", () => {
+  describe('connection state', () => {
+    it('isConnected is false before connect()', () => {
       const t = new InMemoryTransport();
       expect(t.isConnected).toBe(false);
     });
 
-    it("isConnected is true after connect()", () => {
+    it('isConnected is true after connect()', () => {
       expect(transport.isConnected).toBe(true);
     });
 
-    it("isConnected is false after close()", async () => {
+    it('isConnected is false after close()', async () => {
       await transport.close();
       expect(transport.isConnected).toBe(false);
     });
   });
 
-  describe("send() captures messages", () => {
-    it("captures sent messages in sentMessages array", () => {
-      const msg1 = { jsonrpc: "2.0", method: "test", id: "1" };
-      const msg2 = { jsonrpc: "2.0", method: "test2", id: "2" };
+  describe('send() captures messages', () => {
+    it('captures sent messages in sentMessages array', () => {
+      const msg1 = { jsonrpc: '2.0', method: 'test', id: '1' };
+      const msg2 = { jsonrpc: '2.0', method: 'test2', id: '2' };
 
       transport.send(msg1);
       transport.send(msg2);
@@ -591,54 +581,50 @@ describe("InMemoryTransport", () => {
       expect(transport.sentMessages[1]).toEqual(msg2);
     });
 
-    it("throws when sending while not connected", async () => {
+    it('throws when sending while not connected', async () => {
       await transport.close();
       expect(() => transport.send({ test: true })).toThrow(
-        "InMemoryTransport is not connected",
+        'InMemoryTransport is not connected'
       );
     });
   });
 
-  describe("injectMessage()", () => {
-    it("fires onMessage handler with injected message", () => {
+  describe('injectMessage()', () => {
+    it('fires onMessage handler with injected message', () => {
       const received: object[] = [];
       transport.onMessage((msg) => received.push(msg));
 
-      const msg = { type: "notification", method: "test" };
+      const msg = { type: 'notification', method: 'test' };
       transport.injectMessage(msg);
 
       expect(received).toHaveLength(1);
       expect(received[0]).toEqual(msg);
     });
 
-    it("does not throw when no handler registered", () => {
-      expect(() =>
-        transport.injectMessage({ test: true }),
-      ).not.toThrow();
+    it('does not throw when no handler registered', () => {
+      expect(() => transport.injectMessage({ test: true })).not.toThrow();
     });
   });
 
-  describe("injectError()", () => {
-    it("fires onError handler with injected error", () => {
+  describe('injectError()', () => {
+    it('fires onError handler with injected error', () => {
       const errors: Error[] = [];
       transport.onError((err) => errors.push(err));
 
-      const error = new Error("test error");
+      const error = new Error('test error');
       transport.injectError(error);
 
       expect(errors).toHaveLength(1);
       expect(errors[0]).toBe(error);
     });
 
-    it("does not throw when no handler registered", () => {
-      expect(() =>
-        transport.injectError(new Error("test")),
-      ).not.toThrow();
+    it('does not throw when no handler registered', () => {
+      expect(() => transport.injectError(new Error('test'))).not.toThrow();
     });
   });
 
-  describe("handler replacement", () => {
-    it("onMessage replaces previous handler", () => {
+  describe('handler replacement', () => {
+    it('onMessage replaces previous handler', () => {
       const first: object[] = [];
       const second: object[] = [];
 
@@ -654,20 +640,20 @@ describe("InMemoryTransport", () => {
       expect(second[0]).toEqual({ b: 2 });
     });
 
-    it("onError replaces previous handler", () => {
+    it('onError replaces previous handler', () => {
       const first: Error[] = [];
       const second: Error[] = [];
 
       transport.onError((err) => first.push(err));
-      transport.injectError(new Error("a"));
+      transport.injectError(new Error('a'));
 
       transport.onError((err) => second.push(err));
-      transport.injectError(new Error("b"));
+      transport.injectError(new Error('b'));
 
       expect(first).toHaveLength(1);
       expect(second).toHaveLength(1);
-      expect(first[0]!.message).toBe("a");
-      expect(second[0]!.message).toBe("b");
+      expect(first[0]!.message).toBe('a');
+      expect(second[0]!.message).toBe('b');
     });
   });
 });

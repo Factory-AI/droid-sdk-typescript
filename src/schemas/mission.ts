@@ -4,7 +4,7 @@
  * Ported from: packages/common/src/droid/schemas/mission-decomposition.ts
  */
 
-import { z } from "zod";
+import { z } from 'zod';
 
 import {
   DismissalType,
@@ -12,7 +12,7 @@ import {
   FeatureSuccessState,
   IssueSeverity,
   ProgressLogEntryType,
-} from "./enums.js";
+} from './enums.js';
 
 // ---------------------------------------------------------------------------
 // Feature schema
@@ -276,7 +276,7 @@ export type MilestoneValidationTriggeredEntry = z.infer<
 >;
 
 /** Discriminated union over all 11 progress log entry types. */
-export const ProgressLogEntrySchema = z.discriminatedUnion("type", [
+export const ProgressLogEntrySchema = z.discriminatedUnion('type', [
   MissionAcceptedEntrySchema,
   MissionPausedEntrySchema,
   MissionResumedEntrySchema,
