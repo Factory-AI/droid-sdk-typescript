@@ -38,6 +38,13 @@ import type {
   AddMcpServerResult,
   AuthenticateMcpServerRequestParams,
   AuthenticateMcpServerResult,
+  CompactSessionRequestParams,
+  CompactSessionResult,
+  ExecuteRewindRequestParams,
+  ExecuteRewindResult,
+  ForkSessionResult,
+  GetRewindInfoRequestParams,
+  GetRewindInfoResult,
   InitializeSessionRequestParams,
   InitializeSessionResult,
   ListMcpServersResult,
@@ -488,6 +495,48 @@ export class DroidSession {
   async listSkills(): Promise<ListSkillsResult> {
     this._ensureNotClosed();
     return this._client.listSkills();
+  }
+
+  // ------------------------------------------------------------------
+  // Rewind / Compact / Fork
+  // ------------------------------------------------------------------
+
+  /**
+   * Get rewind info for a specific message.
+   */
+  async getRewindInfo(
+    params: GetRewindInfoRequestParams
+  ): Promise<GetRewindInfoResult> {
+    this._ensureNotClosed();
+    return this._client.getRewindInfo(params);
+  }
+
+  /**
+   * Execute a rewind to a specific message.
+   */
+  async executeRewind(
+    params: ExecuteRewindRequestParams
+  ): Promise<ExecuteRewindResult> {
+    this._ensureNotClosed();
+    return this._client.executeRewind(params);
+  }
+
+  /**
+   * Compact the session conversation.
+   */
+  async compactSession(
+    params?: CompactSessionRequestParams
+  ): Promise<CompactSessionResult> {
+    this._ensureNotClosed();
+    return this._client.compactSession(params ?? {});
+  }
+
+  /**
+   * Fork the current session.
+   */
+  async forkSession(): Promise<ForkSessionResult> {
+    this._ensureNotClosed();
+    return this._client.forkSession();
   }
 
   // ------------------------------------------------------------------

@@ -118,6 +118,20 @@ import {
   RequestPermissionResultSchema,
   AskUserRequestParamsSchema,
   AskUserResultSchema,
+  // Rewind / Compact / Fork schemas
+  COMPACTION_TIMEOUT,
+  REWIND_TIMEOUT,
+  RewindFileSnapshotSchema,
+  RewindFileCreationSchema,
+  RewindEvictedFileSchema,
+  GetRewindInfoRequestParamsSchema,
+  GetRewindInfoResultSchema,
+  ExecuteRewindRequestParamsSchema,
+  ExecuteRewindResultSchema,
+  CompactSessionRequestParamsSchema,
+  CompactSessionResultSchema,
+  ForkSessionRequestParamsSchema,
+  ForkSessionResultSchema,
 } from '../src/schemas/index.js';
 
 // ============================================================
@@ -125,9 +139,9 @@ import {
 // ============================================================
 
 describe('enums', () => {
-  it('DroidServerMethod has all 19 methods', () => {
+  it('DroidServerMethod has all 23 methods', () => {
     const values = Object.values(DroidServerMethod);
-    expect(values).toHaveLength(19);
+    expect(values).toHaveLength(23);
     expect(values).toContain('droid.initialize_session');
     expect(values).toContain('droid.load_session');
     expect(values).toContain('droid.add_user_message');
@@ -147,6 +161,10 @@ describe('enums', () => {
     expect(values).toContain('droid.submit_mcp_auth_code');
     expect(values).toContain('droid.list_skills');
     expect(values).toContain('droid.submit_bug_report');
+    expect(values).toContain('droid.get_rewind_info');
+    expect(values).toContain('droid.execute_rewind');
+    expect(values).toContain('droid.compact_session');
+    expect(values).toContain('droid.fork_session');
   });
 
   it('DroidClientMethod has all 3 methods', () => {
@@ -1268,5 +1286,193 @@ describe('server→client request schemas', () => {
   it('AskUserResultSchema parses cancelled result', () => {
     const result = { cancelled: true, answers: [] };
     expect(AskUserResultSchema.parse(result).cancelled).toBe(true);
+  });
+});
+
+// ============================================================
+// Rewind / Compact / Fork constants and schemas
+// ============================================================
+
+describe('rewind/compact/fork constants', () => {
+  it('COMPACTION_TIMEOUT is 240 seconds', () => {
+    expect(COMPACTION_TIMEOUT).toBe(240_000);
+  });
+
+  it('REWIND_TIMEOUT is 60 seconds', () => {
+    expect(REWIND_TIMEOUT).toBe(60_000);
+  });
+});
+
+describe('rewind sub-type schemas', () => {
+  it('RewindFileSnapshotSchema parses valid data', () => {
+    const data = {
+      filePath: '/src/main.ts',
+      contentHash: 'abc123',
+      size: 1024,
+    };
+    const result = RewindFileSnapshotSchema.parse(data);
+    expect(result.filePath).toBe('/src/main.ts');
+    expect(result.contentHash).toBe('abc123');
+    expect(result.size).toBe(1024);
+  });
+
+  it('RewindFileSnapshotSchema preserves unknown fields (passthrough)', () => {
+    const data = { filePath: '/a.ts', contentHash: 'h', size: 1, extra: true };
+    const result = RewindFileSnapshotSchema.parse(data);
+    expect((result as Record<string, unknown>)['extra']).toBe(true);
+  });
+
+  it('RewindFileSnapshotSchema rejects missing fields', () => {
+    expect(() =>
+      RewindFileSnapshotSchema.parse({ filePath: '/a.ts' })
+    ).toThrow();
+  });
+
+  it('RewindFileCreationSchema parses valid data', () => {
+    const data = { filePath: '/src/new.ts' };
+    const result = RewindFileCreationSchema.parse(data);
+    expect(result.filePath).toBe('/src/new.ts');
+  });
+
+  it('RewindFileCreationSchema preserves unknown fields', () => {
+    const data = { filePath: '/a.ts', extra: 'val' };
+    const result = RewindFileCreationSchema.parse(data);
+    expect((result as Record<string, unknown>)['extra']).toBe('val');
+  });
+
+  it('RewindEvictedFileSchema parses valid data', () => {
+    const data = { filePath: '/src/old.ts', reason: 'too large' };
+    const result = RewindEvictedFileSchema.parse(data);
+    expect(result.filePath).toBe('/src/old.ts');
+    expect(result.reason).toBe('too large');
+  });
+
+  it('RewindEvictedFileSchema rejects missing reason', () => {
+    expect(() =>
+      RewindEvictedFileSchema.parse({ filePath: '/a.ts' })
+    ).toThrow();
+  });
+});
+
+describe('GetRewindInfo schemas', () => {
+  it('GetRewindInfoRequestParamsSchema parses valid params', () => {
+    const params = { messageId: 'msg-123' };
+    const result = GetRewindInfoRequestParamsSchema.parse(params);
+    expect(result.messageId).toBe('msg-123');
+  });
+
+  it('GetRewindInfoRequestParamsSchema rejects missing messageId', () => {
+    expect(() => GetRewindInfoRequestParamsSchema.parse({})).toThrow();
+  });
+
+  it('GetRewindInfoResultSchema parses valid result', () => {
+    const data = {
+      availableFiles: [{ filePath: '/a.ts', contentHash: 'h', size: 10 }],
+      createdFiles: [{ filePath: '/b.ts' }],
+      evictedFiles: [{ filePath: '/c.ts', reason: 'binary' }],
+    };
+    const result = GetRewindInfoResultSchema.parse(data);
+    expect(result.availableFiles).toHaveLength(1);
+    expect(result.createdFiles).toHaveLength(1);
+    expect(result.evictedFiles).toHaveLength(1);
+  });
+
+  it('GetRewindInfoResultSchema preserves unknown fields', () => {
+    const data = {
+      availableFiles: [],
+      createdFiles: [],
+      evictedFiles: [],
+      futureField: 'hello',
+    };
+    const result = GetRewindInfoResultSchema.parse(data);
+    expect((result as Record<string, unknown>)['futureField']).toBe('hello');
+  });
+});
+
+describe('ExecuteRewind schemas', () => {
+  it('ExecuteRewindRequestParamsSchema parses valid params', () => {
+    const params = {
+      messageId: 'msg-1',
+      filesToRestore: [{ filePath: '/a.ts', contentHash: 'h', size: 10 }],
+      filesToDelete: [{ filePath: '/b.ts' }],
+      forkTitle: 'My Rewind',
+    };
+    const result = ExecuteRewindRequestParamsSchema.parse(params);
+    expect(result.messageId).toBe('msg-1');
+    expect(result.filesToRestore).toHaveLength(1);
+    expect(result.filesToDelete).toHaveLength(1);
+    expect(result.forkTitle).toBe('My Rewind');
+  });
+
+  it('ExecuteRewindRequestParamsSchema rejects missing forkTitle', () => {
+    expect(() =>
+      ExecuteRewindRequestParamsSchema.parse({
+        messageId: 'msg-1',
+        filesToRestore: [],
+        filesToDelete: [],
+      })
+    ).toThrow();
+  });
+
+  it('ExecuteRewindResultSchema parses valid result', () => {
+    const data = {
+      newSessionId: 'new-sess',
+      restoredCount: 3,
+      deletedCount: 1,
+      failedRestoreCount: 0,
+      failedDeleteCount: 0,
+    };
+    const result = ExecuteRewindResultSchema.parse(data);
+    expect(result.newSessionId).toBe('new-sess');
+    expect(result.restoredCount).toBe(3);
+  });
+});
+
+describe('CompactSession schemas', () => {
+  it('CompactSessionRequestParamsSchema parses with customInstructions', () => {
+    const params = { customInstructions: 'Keep code context' };
+    const result = CompactSessionRequestParamsSchema.parse(params);
+    expect(result.customInstructions).toBe('Keep code context');
+  });
+
+  it('CompactSessionRequestParamsSchema parses without customInstructions', () => {
+    const result = CompactSessionRequestParamsSchema.parse({});
+    expect(result.customInstructions).toBeUndefined();
+  });
+
+  it('CompactSessionResultSchema parses valid result', () => {
+    const data = { newSessionId: 'compact-sess', removedCount: 42 };
+    const result = CompactSessionResultSchema.parse(data);
+    expect(result.newSessionId).toBe('compact-sess');
+    expect(result.removedCount).toBe(42);
+  });
+
+  it('CompactSessionResultSchema rejects missing removedCount', () => {
+    expect(() =>
+      CompactSessionResultSchema.parse({ newSessionId: 'x' })
+    ).toThrow();
+  });
+});
+
+describe('ForkSession schemas', () => {
+  it('ForkSessionRequestParamsSchema parses empty object', () => {
+    const result = ForkSessionRequestParamsSchema.parse({});
+    expect(result).toBeDefined();
+  });
+
+  it('ForkSessionRequestParamsSchema preserves unknown fields', () => {
+    const data = { futureOption: true };
+    const result = ForkSessionRequestParamsSchema.parse(data);
+    expect((result as Record<string, unknown>)['futureOption']).toBe(true);
+  });
+
+  it('ForkSessionResultSchema parses valid result', () => {
+    const data = { newSessionId: 'forked-sess' };
+    const result = ForkSessionResultSchema.parse(data);
+    expect(result.newSessionId).toBe('forked-sess');
+  });
+
+  it('ForkSessionResultSchema rejects missing newSessionId', () => {
+    expect(() => ForkSessionResultSchema.parse({})).toThrow();
   });
 });

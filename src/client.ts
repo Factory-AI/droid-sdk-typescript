@@ -28,6 +28,13 @@ import type {
   CancelMcpAuthResult,
   ClearMcpAuthRequestParams,
   ClearMcpAuthResult,
+  CompactSessionRequestParams,
+  CompactSessionResult,
+  ExecuteRewindRequestParams,
+  ExecuteRewindResult,
+  ForkSessionResult,
+  GetRewindInfoRequestParams,
+  GetRewindInfoResult,
   InitializeSessionRequestParams,
   InitializeSessionResult,
   InterruptSessionResult,
@@ -58,6 +65,10 @@ import {
   AuthenticateMcpServerResultSchema,
   CancelMcpAuthResultSchema,
   ClearMcpAuthResultSchema,
+  CompactSessionResultSchema,
+  ExecuteRewindResultSchema,
+  ForkSessionResultSchema,
+  GetRewindInfoResultSchema,
   InitializeSessionResultSchema,
   InterruptSessionResultSchema,
   KillWorkerSessionResultSchema,
@@ -73,7 +84,12 @@ import {
   ToggleMcpToolResultSchema,
   UpdateSessionSettingsResultSchema,
 } from './schemas/client.js';
-import { MCP_AUTH_TIMEOUT, SESSION_INIT_TIMEOUT } from './schemas/constants.js';
+import {
+  COMPACTION_TIMEOUT,
+  MCP_AUTH_TIMEOUT,
+  REWIND_TIMEOUT,
+  SESSION_INIT_TIMEOUT,
+} from './schemas/constants.js';
 import { DroidServerMethod } from './schemas/enums.js';
 import { SessionNotificationParamsSchema } from './schemas/server.js';
 import type { DroidClientTransport } from './types.js';
@@ -535,6 +551,85 @@ export class DroidClient {
       DroidServerMethod.SUBMIT_BUG_REPORT,
       params,
       SubmitBugReportResultSchema
+    );
+  }
+
+  // ------------------------------------------------------------------
+  // Rewind / Compact / Fork methods
+  // ------------------------------------------------------------------
+
+  /**
+   * Get rewind info for a specific message.
+   *
+   * Returns file snapshots, created files, and evicted files at the
+   * point of the given message.
+   */
+  async getRewindInfo(
+    params: GetRewindInfoRequestParams
+  ): Promise<GetRewindInfoResult> {
+    this._ensureNotClosed();
+    this._ensureSession();
+
+    return this._rpc(
+      DroidServerMethod.GET_REWIND_INFO,
+      params,
+      GetRewindInfoResultSchema
+    );
+  }
+
+  /**
+   * Execute a rewind to a specific message.
+   *
+   * Restores files, deletes created files, and forks the session.
+   * Uses extended timeout (60s) for file operations.
+   */
+  async executeRewind(
+    params: ExecuteRewindRequestParams
+  ): Promise<ExecuteRewindResult> {
+    this._ensureNotClosed();
+    this._ensureSession();
+
+    return this._rpc(
+      DroidServerMethod.EXECUTE_REWIND,
+      params,
+      ExecuteRewindResultSchema,
+      REWIND_TIMEOUT
+    );
+  }
+
+  /**
+   * Compact the session conversation.
+   *
+   * Summarizes the conversation and creates a new session.
+   * Uses extended timeout (240s) for LLM summarization.
+   */
+  async compactSession(
+    params: CompactSessionRequestParams
+  ): Promise<CompactSessionResult> {
+    this._ensureNotClosed();
+    this._ensureSession();
+
+    return this._rpc(
+      DroidServerMethod.COMPACT_SESSION,
+      params,
+      CompactSessionResultSchema,
+      COMPACTION_TIMEOUT
+    );
+  }
+
+  /**
+   * Fork the current session.
+   *
+   * Creates a new session that is a copy of the current session.
+   */
+  async forkSession(): Promise<ForkSessionResult> {
+    this._ensureNotClosed();
+    this._ensureSession();
+
+    return this._rpc(
+      DroidServerMethod.FORK_SESSION,
+      {},
+      ForkSessionResultSchema
     );
   }
 

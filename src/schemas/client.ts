@@ -464,6 +464,87 @@ export type SubmitBugReportRequestParams = z.infer<
 >;
 
 // ---------------------------------------------------------------------------
+// Rewind sub-types
+// ---------------------------------------------------------------------------
+
+/** File snapshot for rewind operations. */
+export const RewindFileSnapshotSchema = z
+  .object({
+    filePath: z.string(),
+    contentHash: z.string(),
+    size: z.number(),
+  })
+  .passthrough();
+
+export type RewindFileSnapshot = z.infer<typeof RewindFileSnapshotSchema>;
+
+/** File creation record for rewind operations. */
+export const RewindFileCreationSchema = z
+  .object({
+    filePath: z.string(),
+  })
+  .passthrough();
+
+export type RewindFileCreation = z.infer<typeof RewindFileCreationSchema>;
+
+/** Evicted file record for rewind operations. */
+export const RewindEvictedFileSchema = z
+  .object({
+    filePath: z.string(),
+    reason: z.string(),
+  })
+  .passthrough();
+
+export type RewindEvictedFile = z.infer<typeof RewindEvictedFileSchema>;
+
+// ---------------------------------------------------------------------------
+// Rewind / Compact / Fork request params
+// ---------------------------------------------------------------------------
+
+/** Parameters for droid.get_rewind_info request. */
+export const GetRewindInfoRequestParamsSchema = z
+  .object({
+    messageId: z.string(),
+  })
+  .passthrough();
+
+export type GetRewindInfoRequestParams = z.infer<
+  typeof GetRewindInfoRequestParamsSchema
+>;
+
+/** Parameters for droid.execute_rewind request. */
+export const ExecuteRewindRequestParamsSchema = z
+  .object({
+    messageId: z.string(),
+    filesToRestore: z.array(RewindFileSnapshotSchema),
+    filesToDelete: z.array(RewindFileCreationSchema),
+    forkTitle: z.string(),
+  })
+  .passthrough();
+
+export type ExecuteRewindRequestParams = z.infer<
+  typeof ExecuteRewindRequestParamsSchema
+>;
+
+/** Parameters for droid.compact_session request. */
+export const CompactSessionRequestParamsSchema = z
+  .object({
+    customInstructions: z.string().optional(),
+  })
+  .passthrough();
+
+export type CompactSessionRequestParams = z.infer<
+  typeof CompactSessionRequestParamsSchema
+>;
+
+/** Parameters for droid.fork_session request (empty). */
+export const ForkSessionRequestParamsSchema = z.object({}).passthrough();
+
+export type ForkSessionRequestParams = z.infer<
+  typeof ForkSessionRequestParamsSchema
+>;
+
+// ---------------------------------------------------------------------------
 // Full request schemas (JsonRpcRequest + method literal + typed params)
 // ---------------------------------------------------------------------------
 
@@ -620,7 +701,35 @@ export type SubmitBugReportRequest = z.infer<
   typeof SubmitBugReportRequestSchema
 >;
 
-/** Discriminated union over all 19 client→server request types. */
+export const GetRewindInfoRequestSchema = JsonRpcRequestSchema.extend({
+  method: z.literal(DroidServerMethod.GET_REWIND_INFO),
+  params: GetRewindInfoRequestParamsSchema,
+});
+
+export type GetRewindInfoRequest = z.infer<typeof GetRewindInfoRequestSchema>;
+
+export const ExecuteRewindRequestSchema = JsonRpcRequestSchema.extend({
+  method: z.literal(DroidServerMethod.EXECUTE_REWIND),
+  params: ExecuteRewindRequestParamsSchema,
+});
+
+export type ExecuteRewindRequest = z.infer<typeof ExecuteRewindRequestSchema>;
+
+export const CompactSessionRequestSchema = JsonRpcRequestSchema.extend({
+  method: z.literal(DroidServerMethod.COMPACT_SESSION),
+  params: CompactSessionRequestParamsSchema,
+});
+
+export type CompactSessionRequest = z.infer<typeof CompactSessionRequestSchema>;
+
+export const ForkSessionRequestSchema = JsonRpcRequestSchema.extend({
+  method: z.literal(DroidServerMethod.FORK_SESSION),
+  params: ForkSessionRequestParamsSchema,
+});
+
+export type ForkSessionRequest = z.infer<typeof ForkSessionRequestSchema>;
+
+/** Discriminated union over all 23 client→server request types. */
 export const ClientRequestSchema = z.discriminatedUnion('method', [
   InitializeSessionRequestSchema,
   LoadSessionRequestSchema,
@@ -641,6 +750,10 @@ export const ClientRequestSchema = z.discriminatedUnion('method', [
   ToggleMcpToolRequestSchema,
   ListSkillsRequestSchema,
   SubmitBugReportRequestSchema,
+  GetRewindInfoRequestSchema,
+  ExecuteRewindRequestSchema,
+  CompactSessionRequestSchema,
+  ForkSessionRequestSchema,
 ]);
 
 export type ClientRequest = z.infer<typeof ClientRequestSchema>;
@@ -826,6 +939,49 @@ export const SubmitBugReportResultSchema = z
   .passthrough();
 
 export type SubmitBugReportResult = z.infer<typeof SubmitBugReportResultSchema>;
+
+/** Result for droid.get_rewind_info response. */
+export const GetRewindInfoResultSchema = z
+  .object({
+    availableFiles: z.array(RewindFileSnapshotSchema),
+    createdFiles: z.array(RewindFileCreationSchema),
+    evictedFiles: z.array(RewindEvictedFileSchema),
+  })
+  .passthrough();
+
+export type GetRewindInfoResult = z.infer<typeof GetRewindInfoResultSchema>;
+
+/** Result for droid.execute_rewind response. */
+export const ExecuteRewindResultSchema = z
+  .object({
+    newSessionId: z.string(),
+    restoredCount: z.number(),
+    deletedCount: z.number(),
+    failedRestoreCount: z.number(),
+    failedDeleteCount: z.number(),
+  })
+  .passthrough();
+
+export type ExecuteRewindResult = z.infer<typeof ExecuteRewindResultSchema>;
+
+/** Result for droid.compact_session response. */
+export const CompactSessionResultSchema = z
+  .object({
+    newSessionId: z.string(),
+    removedCount: z.number(),
+  })
+  .passthrough();
+
+export type CompactSessionResult = z.infer<typeof CompactSessionResultSchema>;
+
+/** Result for droid.fork_session response. */
+export const ForkSessionResultSchema = z
+  .object({
+    newSessionId: z.string(),
+  })
+  .passthrough();
+
+export type ForkSessionResult = z.infer<typeof ForkSessionResultSchema>;
 
 // ---------------------------------------------------------------------------
 // Response schemas (union of success | failure)
@@ -1019,3 +1175,33 @@ export const SubmitBugReportResponseSchema = z.union([
 export type SubmitBugReportResponse = z.infer<
   typeof SubmitBugReportResponseSchema
 >;
+
+export const GetRewindInfoResponseSchema = z.union([
+  JsonRpcResponseSuccessSchema.extend({ result: GetRewindInfoResultSchema }),
+  JsonRpcResponseFailureSchema,
+]);
+
+export type GetRewindInfoResponse = z.infer<typeof GetRewindInfoResponseSchema>;
+
+export const ExecuteRewindResponseSchema = z.union([
+  JsonRpcResponseSuccessSchema.extend({ result: ExecuteRewindResultSchema }),
+  JsonRpcResponseFailureSchema,
+]);
+
+export type ExecuteRewindResponse = z.infer<typeof ExecuteRewindResponseSchema>;
+
+export const CompactSessionResponseSchema = z.union([
+  JsonRpcResponseSuccessSchema.extend({ result: CompactSessionResultSchema }),
+  JsonRpcResponseFailureSchema,
+]);
+
+export type CompactSessionResponse = z.infer<
+  typeof CompactSessionResponseSchema
+>;
+
+export const ForkSessionResponseSchema = z.union([
+  JsonRpcResponseSuccessSchema.extend({ result: ForkSessionResultSchema }),
+  JsonRpcResponseFailureSchema,
+]);
+
+export type ForkSessionResponse = z.infer<typeof ForkSessionResponseSchema>;

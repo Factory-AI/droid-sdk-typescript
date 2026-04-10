@@ -29,6 +29,10 @@ export enum DroidServerMethod {
   SUBMIT_MCP_AUTH_CODE = 'droid.submit_mcp_auth_code',
   LIST_SKILLS = 'droid.list_skills',
   SUBMIT_BUG_REPORT = 'droid.submit_bug_report',
+  GET_REWIND_INFO = 'droid.get_rewind_info',
+  EXECUTE_REWIND = 'droid.execute_rewind',
+  COMPACT_SESSION = 'droid.compact_session',
+  FORK_SESSION = 'droid.fork_session',
 }
 
 /** Droid client methods (server → client communication). */

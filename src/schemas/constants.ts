@@ -28,3 +28,9 @@ export const SESSION_INIT_TIMEOUT = 60_000;
 
 /** MCP authentication timeout in milliseconds (300s). */
 export const MCP_AUTH_TIMEOUT = 300_000;
+
+/** Compaction timeout in milliseconds (240s — LLM summarization of full conversation). */
+export const COMPACTION_TIMEOUT = 240_000;
+
+/** Rewind timeout in milliseconds (60s — file restore + session fork). */
+export const REWIND_TIMEOUT = 60_000;

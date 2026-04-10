@@ -886,6 +886,163 @@ describe('DroidSession', () => {
     });
   });
 
+  describe('getRewindInfo()', () => {
+    it('delegates getRewindInfo to client', async () => {
+      const transport = new InMemoryTransport();
+      await transport.connect();
+
+      setupFullResponder(transport, 'sess-rewind-info-001', {
+        [DroidServerMethod.GET_REWIND_INFO]: (id) => {
+          queueMicrotask(() => {
+            transport.injectMessage(
+              makeSuccessResponse(id, {
+                availableFiles: [
+                  { filePath: '/src/main.ts', contentHash: 'abc', size: 100 },
+                ],
+                createdFiles: [],
+                evictedFiles: [],
+              })
+            );
+          });
+        },
+      });
+
+      const session = await createSession({ transport });
+
+      const result = await session.getRewindInfo({ messageId: 'msg-1' });
+
+      expect(result).toBeDefined();
+      expect(result.availableFiles).toHaveLength(1);
+      expect(result.createdFiles).toHaveLength(0);
+      expect(result.evictedFiles).toHaveLength(0);
+
+      await session.close();
+    });
+  });
+
+  describe('executeRewind()', () => {
+    it('delegates executeRewind to client', async () => {
+      const transport = new InMemoryTransport();
+      await transport.connect();
+
+      setupFullResponder(transport, 'sess-rewind-exec-001', {
+        [DroidServerMethod.EXECUTE_REWIND]: (id) => {
+          queueMicrotask(() => {
+            transport.injectMessage(
+              makeSuccessResponse(id, {
+                newSessionId: 'new-sess-001',
+                restoredCount: 2,
+                deletedCount: 1,
+                failedRestoreCount: 0,
+                failedDeleteCount: 0,
+              })
+            );
+          });
+        },
+      });
+
+      const session = await createSession({ transport });
+
+      const result = await session.executeRewind({
+        messageId: 'msg-1',
+        filesToRestore: [
+          { filePath: '/src/a.ts', contentHash: 'h1', size: 50 },
+        ],
+        filesToDelete: [{ filePath: '/src/b.ts' }],
+        forkTitle: 'Rewind test',
+      });
+
+      expect(result.newSessionId).toBe('new-sess-001');
+      expect(result.restoredCount).toBe(2);
+
+      await session.close();
+    });
+  });
+
+  describe('compactSession()', () => {
+    it('delegates compactSession to client', async () => {
+      const transport = new InMemoryTransport();
+      await transport.connect();
+
+      setupFullResponder(transport, 'sess-compact-001', {
+        [DroidServerMethod.COMPACT_SESSION]: (id) => {
+          queueMicrotask(() => {
+            transport.injectMessage(
+              makeSuccessResponse(id, {
+                newSessionId: 'compact-sess-001',
+                removedCount: 15,
+              })
+            );
+          });
+        },
+      });
+
+      const session = await createSession({ transport });
+
+      const result = await session.compactSession({
+        customInstructions: 'Keep context',
+      });
+
+      expect(result.newSessionId).toBe('compact-sess-001');
+      expect(result.removedCount).toBe(15);
+
+      await session.close();
+    });
+
+    it('works without params (defaults to empty object)', async () => {
+      const transport = new InMemoryTransport();
+      await transport.connect();
+
+      setupFullResponder(transport, 'sess-compact-002', {
+        [DroidServerMethod.COMPACT_SESSION]: (id) => {
+          queueMicrotask(() => {
+            transport.injectMessage(
+              makeSuccessResponse(id, {
+                newSessionId: 'compact-sess-002',
+                removedCount: 5,
+              })
+            );
+          });
+        },
+      });
+
+      const session = await createSession({ transport });
+
+      const result = await session.compactSession();
+
+      expect(result.newSessionId).toBe('compact-sess-002');
+
+      await session.close();
+    });
+  });
+
+  describe('forkSession()', () => {
+    it('delegates forkSession to client', async () => {
+      const transport = new InMemoryTransport();
+      await transport.connect();
+
+      setupFullResponder(transport, 'sess-fork-001', {
+        [DroidServerMethod.FORK_SESSION]: (id) => {
+          queueMicrotask(() => {
+            transport.injectMessage(
+              makeSuccessResponse(id, {
+                newSessionId: 'forked-sess-001',
+              })
+            );
+          });
+        },
+      });
+
+      const session = await createSession({ transport });
+
+      const result = await session.forkSession();
+
+      expect(result.newSessionId).toBe('forked-sess-001');
+
+      await session.close();
+    });
+  });
+
   describe('listSkills()', () => {
     it('delegates listSkills to client', async () => {
       const transport = new InMemoryTransport();
@@ -988,6 +1145,30 @@ describe('DroidSession', () => {
       await expect(session.updateSettings({ modelId: 'x' })).rejects.toThrow(
         ConnectionError
       );
+    });
+
+    it('rewind/compact/fork methods throw after close', async () => {
+      const transport = new InMemoryTransport();
+      await transport.connect();
+
+      setupInitResponder(transport, 'sess-post-close-rewind');
+
+      const session = await createSession({ transport });
+      await session.close();
+
+      await expect(
+        session.getRewindInfo({ messageId: 'msg-1' })
+      ).rejects.toThrow(ConnectionError);
+      await expect(
+        session.executeRewind({
+          messageId: 'msg-1',
+          filesToRestore: [],
+          filesToDelete: [],
+          forkTitle: 'test',
+        })
+      ).rejects.toThrow(ConnectionError);
+      await expect(session.compactSession()).rejects.toThrow(ConnectionError);
+      await expect(session.forkSession()).rejects.toThrow(ConnectionError);
     });
   });
 });
