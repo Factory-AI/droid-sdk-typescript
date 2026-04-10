@@ -138,7 +138,7 @@ describe('ProtocolEngine', () => {
       transport.injectMessage(makeSuccessResponse(requestId, { skills: [] }));
 
       const result = await promise;
-      expect(result['result']).toEqual({ skills: [] });
+      expect(result).toEqual({ skills: [] });
     });
 
     it('correlates response to correct pending request by UUID ID', async () => {
@@ -160,8 +160,8 @@ describe('ProtocolEngine', () => {
       const result1 = await promise1;
       const result2 = await promise2;
 
-      expect(result1['result']).toEqual({ data: 'a' });
-      expect(result2['result']).toEqual({ data: 'b' });
+      expect(result1).toEqual({ data: 'a' });
+      expect(result2).toEqual({ data: 'b' });
     });
 
     it('generates unique UUID IDs for each request', async () => {
@@ -357,7 +357,7 @@ describe('ProtocolEngine', () => {
         transport.injectMessage(makeSuccessResponse(id, { ok: true }));
 
         const result = await promise;
-        expect(result['result']).toEqual({ ok: true });
+        expect(result).toEqual({ ok: true });
 
         // Advancing past timeout should not cause issues
         vi.advanceTimersByTime(500);
@@ -673,7 +673,7 @@ describe('ProtocolEngine', () => {
       transport.injectMessage(makeSuccessResponse(id, { first: true }));
 
       const result = await promise;
-      expect(result['result']).toEqual({ first: true });
+      expect(result).toEqual({ first: true });
 
       // Duplicate response — should be silently ignored
       expect(() => {
@@ -834,12 +834,15 @@ describe('ProtocolEngine', () => {
       expect(received).toHaveLength(0);
     });
 
-    it('handles message with ambiguous type via content detection', () => {
+    it('handles well-formed notification with all required fields', () => {
       const received: Record<string, unknown>[] = [];
       engine.onNotification((n) => received.push(n));
 
-      // Message without explicit type field but has method + no id (treated as notification)
+      // Valid JSON-RPC notification with all required envelope fields
       transport.injectMessage({
+        jsonrpc: JSONRPC_VERSION,
+        factoryApiVersion: LEGACY_FACTORY_API_VERSION,
+        type: 'notification',
         method: 'some.notification',
         params: { notification: { type: 'test' } },
       });

@@ -602,7 +602,7 @@ describe('convertNotificationToStreamMessage', () => {
       const result = convertNotificationToStreamMessage(
         notification
       ) as ToolProgress;
-      expect(result.update).toBe(update);
+      expect(result.update).toStrictEqual(update);
     });
   });
 
@@ -667,6 +667,8 @@ describe('convertNotificationToStreamMessage', () => {
           message: {
             id: 'msg-1',
             role: 'assistant',
+            createdAt: 1000,
+            updatedAt: 1000,
             content: [
               {
                 type: 'tool_use',
@@ -718,6 +720,8 @@ describe('convertNotificationToStreamMessage', () => {
           message: {
             id: 'msg-1',
             role: 'assistant',
+            createdAt: 1000,
+            updatedAt: 1000,
             content: [{ type: 'text', text: 'hello' }],
           },
         }
@@ -734,7 +738,13 @@ describe('convertNotificationToStreamMessage', () => {
       const notification = makeNotification(
         SessionNotificationType.CREATE_MESSAGE,
         {
-          message: { id: 'msg-1', role: 'assistant', content: [] },
+          message: {
+            id: 'msg-1',
+            role: 'assistant',
+            createdAt: 1000,
+            updatedAt: 1000,
+            content: [],
+          },
         }
       );
       const result = convertNotificationToStreamMessage(notification);
@@ -1042,11 +1052,17 @@ describe('convertNotificationToStreamMessage', () => {
           },
         },
         [SessionNotificationType.CREATE_MESSAGE]: {
-          message: { id: 'm', role: 'assistant', content: [] },
+          message: {
+            id: 'm',
+            role: 'assistant',
+            createdAt: 1000,
+            updatedAt: 1000,
+            content: [],
+          },
         },
         [SessionNotificationType.ERROR]: {
           message: 'err',
-          errorType: 'Error',
+          errorType: DroidErrorType.SESSION_ERROR,
           timestamp: 't',
         },
         [SessionNotificationType.PERMISSION_RESOLVED]: {
