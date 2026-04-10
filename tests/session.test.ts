@@ -1603,11 +1603,14 @@ describe('DroidSession', () => {
               );
 
               transport.injectMessage(
-                makeNotification(SessionNotificationType.ASSISTANT_TEXT_DELTA, {
-                  messageId: 'msg-2',
-                  blockIndex: 0,
-                  textDelta: 'Recovered',
-                })
+                makeNotification(
+                  SessionNotificationType.ASSISTANT_TEXT_DELTA,
+                  {
+                    messageId: 'msg-2',
+                    blockIndex: 0,
+                    textDelta: 'Recovered',
+                  }
+                )
               );
 
               transport.injectMessage(
@@ -1652,7 +1655,9 @@ describe('DroidSession', () => {
       const session = await createSession({ transport });
 
       for await (const _msg of session.stream('Look at this', {
-        images: [{ type: 'base64', data: 'abc123', mediaType: 'image/png' }],
+        images: [
+          { type: 'base64', data: 'abc123', mediaType: 'image/png' },
+        ],
       })) {
         // consume
       }
@@ -1808,7 +1813,9 @@ describe('DroidSession', () => {
         (m) => (m as Record<string, unknown>)['method']
       );
       expect(sentMethods).toContain(DroidServerMethod.ADD_USER_MESSAGE);
-      expect(sentMethods).toContain(DroidServerMethod.UPDATE_SESSION_SETTINGS);
+      expect(sentMethods).toContain(
+        DroidServerMethod.UPDATE_SESSION_SETTINGS
+      );
 
       await session.close();
     });
