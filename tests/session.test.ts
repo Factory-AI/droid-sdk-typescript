@@ -799,7 +799,7 @@ describe('DroidSession', () => {
         expect(typeof result.tokenUsage.inputTokens).toBe('number');
         expect(typeof result.tokenUsage.outputTokens).toBe('number');
         expect(typeof result.tokenUsage.cacheReadTokens).toBe('number');
-        expect(typeof result.tokenUsage.cacheWriteTokens).toBe('number');
+        expect(typeof result.tokenUsage.cacheCreationTokens).toBe('number');
         expect(typeof result.tokenUsage.thinkingTokens).toBe('number');
       }
 
