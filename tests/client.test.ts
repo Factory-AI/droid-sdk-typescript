@@ -24,6 +24,7 @@ import {
   SettingsLevel,
   McpServerType,
   SessionNotificationType,
+  ToolConfirmationOutcome,
 } from '../src/schemas/index.js';
 import { InMemoryTransport } from './helpers.js';
 
@@ -786,6 +787,45 @@ describe('DroidClient', () => {
 
       expect(response['result']).toEqual({ selectedOption: 'proceed_once' });
     });
+
+    it.each(
+      Object.entries(ToolConfirmationOutcome).map(([key, value]) => ({
+        name: key,
+        outcome: value,
+      }))
+    )(
+      'permission handler returning $name sends correct response',
+      async ({ outcome }) => {
+        const handler = vi.fn().mockReturnValue(outcome);
+        client.setPermissionHandler(handler);
+
+        const reqId = `perm-outcome-${outcome}`;
+        transport.injectMessage(
+          makeServerRequest(reqId, DroidClientMethod.REQUEST_PERMISSION, {
+            toolUses: [{ name: 'test-tool', type: 'exec' }],
+          })
+        );
+
+        await vi.waitFor(() => {
+          const responses = transport.sentMessages.filter(
+            (msg) =>
+              (msg as Record<string, unknown>)['type'] === 'response' &&
+              (msg as Record<string, unknown>)['id'] === reqId
+          );
+          expect(responses.length).toBe(1);
+        });
+
+        expect(handler).toHaveBeenCalledOnce();
+
+        const response = transport.sentMessages.find(
+          (msg) =>
+            (msg as Record<string, unknown>)['type'] === 'response' &&
+            (msg as Record<string, unknown>)['id'] === reqId
+        ) as Record<string, unknown>;
+
+        expect(response['result']).toEqual({ selectedOption: outcome });
+      }
+    );
 
     it('invokes sync handler correctly', async () => {
       const handler = vi.fn().mockReturnValue('proceed_always');

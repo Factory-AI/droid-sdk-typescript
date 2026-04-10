@@ -1104,6 +1104,333 @@ describe('DroidSession', () => {
     });
   });
 
+  describe('close() during active stream', () => {
+    it('close() during active stream closes transport and subsequent calls throw', async () => {
+      const transport = new InMemoryTransport();
+      await transport.connect();
+
+      // Wire addUserMessage to send streaming state + one delta,
+      // then send Idle after a delay (simulating close racing with the stream)
+      const originalSend = transport.send.bind(transport);
+      transport.send = (message: object) => {
+        originalSend(message);
+        const msg = message as Record<string, unknown>;
+        const method = msg['method'] as string;
+        const id = msg['id'] as string;
+
+        if (method === DroidServerMethod.INITIALIZE_SESSION) {
+          queueMicrotask(() => {
+            transport.injectMessage(
+              makeSuccessResponse(id, {
+                sessionId: 'sess-close-stream',
+                session: {},
+                settings: { modelId: 'test', reasoningEffort: 'medium' },
+              })
+            );
+          });
+        } else if (method === DroidServerMethod.ADD_USER_MESSAGE) {
+          queueMicrotask(() => {
+            transport.injectMessage(makeSuccessResponse(id, {}));
+
+            transport.injectMessage(
+              makeNotification(
+                SessionNotificationType.DROID_WORKING_STATE_CHANGED,
+                { newState: DroidWorkingState.StreamingAssistantMessage }
+              )
+            );
+
+            transport.injectMessage(
+              makeNotification(SessionNotificationType.ASSISTANT_TEXT_DELTA, {
+                messageId: 'msg-1',
+                blockIndex: 0,
+                textDelta: 'Hello',
+              })
+            );
+
+            // Send Idle so the stream completes
+            transport.injectMessage(
+              makeNotification(
+                SessionNotificationType.DROID_WORKING_STATE_CHANGED,
+                { newState: DroidWorkingState.Idle }
+              )
+            );
+          });
+        }
+      };
+
+      const session = await createSession({ transport });
+
+      const messages: DroidMessage[] = [];
+      for await (const msg of session.stream('test')) {
+        messages.push(msg);
+        if (msg.type === 'assistant_text_delta') {
+          // Close session mid-stream — this won't terminate the current generator
+          // but marks the session as closed for future use
+          await session.close();
+        }
+      }
+
+      // Stream completed (turn_complete was emitted)
+      expect(messages[messages.length - 1].type).toBe('turn_complete');
+      expect(transport.isConnected).toBe(false);
+
+      // Session is now closed — subsequent calls throw
+      await expect(session.send('test')).rejects.toThrow(ConnectionError);
+    });
+  });
+
+  describe('concurrent usage', () => {
+    it('second stream() call while first is active receives its own messages', async () => {
+      const transport = new InMemoryTransport();
+      await transport.connect();
+
+      let addUserMessageCount = 0;
+
+      const originalSend = transport.send.bind(transport);
+      transport.send = (message: object) => {
+        originalSend(message);
+        const msg = message as Record<string, unknown>;
+        const method = msg['method'] as string;
+        const id = msg['id'] as string;
+
+        if (method === DroidServerMethod.INITIALIZE_SESSION) {
+          queueMicrotask(() => {
+            transport.injectMessage(
+              makeSuccessResponse(id, {
+                sessionId: 'sess-concurrent',
+                session: {},
+                settings: { modelId: 'test', reasoningEffort: 'medium' },
+              })
+            );
+          });
+        } else if (method === DroidServerMethod.ADD_USER_MESSAGE) {
+          addUserMessageCount++;
+          const callIndex = addUserMessageCount;
+          queueMicrotask(() => {
+            transport.injectMessage(makeSuccessResponse(id, {}));
+
+            transport.injectMessage(
+              makeNotification(
+                SessionNotificationType.DROID_WORKING_STATE_CHANGED,
+                { newState: DroidWorkingState.StreamingAssistantMessage }
+              )
+            );
+
+            transport.injectMessage(
+              makeNotification(SessionNotificationType.ASSISTANT_TEXT_DELTA, {
+                messageId: `msg-${callIndex}`,
+                blockIndex: 0,
+                textDelta: `Response ${callIndex}`,
+              })
+            );
+
+            transport.injectMessage(
+              makeNotification(
+                SessionNotificationType.DROID_WORKING_STATE_CHANGED,
+                { newState: DroidWorkingState.Idle }
+              )
+            );
+          });
+        }
+      };
+
+      const session = await createSession({ transport });
+
+      const msgsA: DroidMessage[] = [];
+      const msgsB: DroidMessage[] = [];
+
+      // Start both streams concurrently
+      const promiseA = (async () => {
+        for await (const msg of session.stream('A')) {
+          msgsA.push(msg);
+        }
+      })();
+
+      const promiseB = (async () => {
+        for await (const msg of session.stream('B')) {
+          msgsB.push(msg);
+        }
+      })();
+
+      await Promise.all([promiseA, promiseB]);
+
+      // Both should have received messages and completed with turn_complete
+      expect(msgsA.length).toBeGreaterThan(0);
+      expect(msgsB.length).toBeGreaterThan(0);
+      expect(msgsA[msgsA.length - 1].type).toBe('turn_complete');
+      expect(msgsB[msgsB.length - 1].type).toBe('turn_complete');
+
+      await session.close();
+    });
+  });
+
+  describe('transport errors during stream', () => {
+    it('transport error before addUserMessage response rejects stream', async () => {
+      const transport = new InMemoryTransport();
+      await transport.connect();
+
+      const originalSend = transport.send.bind(transport);
+      transport.send = (message: object) => {
+        originalSend(message);
+        const msg = message as Record<string, unknown>;
+        const method = msg['method'] as string;
+        const id = msg['id'] as string;
+
+        if (method === DroidServerMethod.INITIALIZE_SESSION) {
+          queueMicrotask(() => {
+            transport.injectMessage(
+              makeSuccessResponse(id, {
+                sessionId: 'sess-transport-err',
+                session: {},
+                settings: { modelId: 'test', reasoningEffort: 'medium' },
+              })
+            );
+          });
+        } else if (method === DroidServerMethod.ADD_USER_MESSAGE) {
+          // Don't respond — inject a transport error instead
+          setTimeout(() => {
+            transport.injectError(new Error('process crashed'));
+          }, 10);
+        }
+      };
+
+      const session = await createSession({ transport });
+
+      // The stream should throw because addUserMessage fails with transport error
+      await expect(async () => {
+        for await (const _msg of session.stream('test')) {
+          // should not yield
+        }
+      }).rejects.toThrow(ConnectionError);
+    });
+  });
+
+  describe('break from stream() for-await', () => {
+    it('breaking from stream() for-await loop does not leak listeners', async () => {
+      const transport = new InMemoryTransport();
+      await transport.connect();
+
+      setupFullResponder(transport, 'sess-break-001');
+
+      const session = await createSession({ transport });
+
+      // First turn: break early after first message
+      for await (const msg of session.stream('test')) {
+        if (
+          msg.type === 'working_state_changed' ||
+          msg.type === 'assistant_text_delta'
+        ) {
+          break;
+        }
+      }
+
+      // Session should still be usable for a second turn
+      const result = await session.send('second turn');
+      expect(result.text).toBe('Hello world');
+      expect(result.messages.length).toBeGreaterThanOrEqual(3);
+
+      // Verify two addUserMessage requests were sent
+      const addMsgCalls = transport.sentMessages.filter(
+        (m) =>
+          (m as Record<string, unknown>)['method'] ===
+          DroidServerMethod.ADD_USER_MESSAGE
+      );
+      expect(addMsgCalls.length).toBe(2);
+
+      await session.close();
+    });
+  });
+
+  describe('multi-turn state isolation', () => {
+    it('token usage from turn 1 does not leak into turn 2', async () => {
+      const transport = new InMemoryTransport();
+      await transport.connect();
+
+      let turnCount = 0;
+
+      const originalSend = transport.send.bind(transport);
+      transport.send = (message: object) => {
+        originalSend(message);
+        const msg = message as Record<string, unknown>;
+        const method = msg['method'] as string;
+        const id = msg['id'] as string;
+
+        if (method === DroidServerMethod.INITIALIZE_SESSION) {
+          queueMicrotask(() => {
+            transport.injectMessage(
+              makeSuccessResponse(id, {
+                sessionId: 'sess-token-iso',
+                session: {},
+                settings: { modelId: 'test', reasoningEffort: 'medium' },
+              })
+            );
+          });
+        } else if (method === DroidServerMethod.ADD_USER_MESSAGE) {
+          turnCount++;
+          const currentTurn = turnCount;
+
+          queueMicrotask(() => {
+            transport.injectMessage(makeSuccessResponse(id, {}));
+
+            transport.injectMessage(
+              makeNotification(
+                SessionNotificationType.DROID_WORKING_STATE_CHANGED,
+                { newState: DroidWorkingState.StreamingAssistantMessage }
+              )
+            );
+
+            transport.injectMessage(
+              makeNotification(SessionNotificationType.ASSISTANT_TEXT_DELTA, {
+                messageId: `msg-${currentTurn}`,
+                blockIndex: 0,
+                textDelta: `Turn ${currentTurn}`,
+              })
+            );
+
+            transport.injectMessage(
+              makeNotification(
+                SessionNotificationType.SESSION_TOKEN_USAGE_CHANGED,
+                {
+                  sessionId: 'sess-token-iso',
+                  tokenUsage: {
+                    inputTokens: currentTurn * 100,
+                    outputTokens: currentTurn === 1 ? 50 : 75,
+                    cacheCreationTokens: 0,
+                    cacheReadTokens: 0,
+                    thinkingTokens: 0,
+                  },
+                }
+              )
+            );
+
+            transport.injectMessage(
+              makeNotification(
+                SessionNotificationType.DROID_WORKING_STATE_CHANGED,
+                { newState: DroidWorkingState.Idle }
+              )
+            );
+          });
+        }
+      };
+
+      const session = await createSession({ transport });
+
+      // Turn 1
+      const result1 = await session.send('first');
+      expect(result1.tokenUsage).not.toBeNull();
+      expect(result1.tokenUsage!.inputTokens).toBe(100);
+      expect(result1.tokenUsage!.outputTokens).toBe(50);
+
+      // Turn 2
+      const result2 = await session.send('second');
+      expect(result2.tokenUsage).not.toBeNull();
+      expect(result2.tokenUsage!.inputTokens).toBe(200);
+      expect(result2.tokenUsage!.outputTokens).toBe(75);
+
+      await session.close();
+    });
+  });
+
   describe('post-close behavior', () => {
     it('stream() throws after close', async () => {
       const transport = new InMemoryTransport();
