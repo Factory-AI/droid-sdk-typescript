@@ -7,6 +7,7 @@
 
 import { describe, expect, it } from 'vitest';
 
+import { SDK_TAG } from '../src/constants.js';
 import { query } from '../src/query.js';
 import {
   DroidClientMethod,
@@ -675,6 +676,62 @@ describe('query()', () => {
 
       // Stream should have completed
       expect(messages[messages.length - 1].type).toBe('turn_complete');
+    });
+  });
+
+  // =========================================================================
+  // SDK_TAG auto-injection
+  // =========================================================================
+  describe('SDK_TAG auto-injection', () => {
+    it('injects SDK_TAG when no user tags are provided', async () => {
+      const transport = new InMemoryTransport();
+      await transport.connect();
+
+      simulateQueryLifecycle(transport, 'sess-sdk-tag-q-default');
+
+      const q = query({ prompt: 'Test', transport });
+
+      for await (const _msg of q) {
+        // consume
+      }
+
+      const initMsg = transport.sentMessages.find(
+        (m) =>
+          (m as Record<string, unknown>)['method'] ===
+          DroidServerMethod.INITIALIZE_SESSION
+      ) as Record<string, unknown>;
+
+      const params = initMsg['params'] as Record<string, unknown>;
+      expect(params['tags']).toEqual([SDK_TAG]);
+    });
+
+    it('merges user tags with SDK_TAG', async () => {
+      const transport = new InMemoryTransport();
+      await transport.connect();
+
+      simulateQueryLifecycle(transport, 'sess-sdk-tag-q-merge');
+
+      const q = query({
+        prompt: 'Test',
+        transport,
+        tags: [{ name: 'custom', metadata: { env: 'test' } }],
+      });
+
+      for await (const _msg of q) {
+        // consume
+      }
+
+      const initMsg = transport.sentMessages.find(
+        (m) =>
+          (m as Record<string, unknown>)['method'] ===
+          DroidServerMethod.INITIALIZE_SESSION
+      ) as Record<string, unknown>;
+
+      const params = initMsg['params'] as Record<string, unknown>;
+      expect(params['tags']).toEqual([
+        { name: 'custom', metadata: { env: 'test' } },
+        SDK_TAG,
+      ]);
     });
   });
 

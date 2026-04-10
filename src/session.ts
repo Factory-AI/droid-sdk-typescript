@@ -31,6 +31,7 @@ import type {
   ClientAskUserHandler,
   ClientPermissionHandler,
 } from './client.js';
+import { SDK_TAG } from './constants.js';
 import { ConnectionError } from './errors.js';
 import type { NotificationCallback, NotificationFilter } from './protocol.js';
 import type {
@@ -55,6 +56,7 @@ import type {
   McpServerConfig,
   RemoveMcpServerRequestParams,
   RemoveMcpServerResult,
+  SessionTag,
   ToggleMcpServerRequestParams,
   ToggleMcpServerResult,
   UpdateSessionSettingsRequestParams,
@@ -126,6 +128,9 @@ export interface CreateSessionOptions {
 
   /** Additional tool IDs to enable. */
   enabledToolIds?: string[];
+
+  /** Session tags for tracking and filtering. The SDK tag is always appended automatically. */
+  tags?: SessionTag[];
 
   /** Path to the `droid` executable. Defaults to `"droid"`. */
   execPath?: string;
@@ -641,6 +646,7 @@ export async function createSession(
     ...(options.enabledToolIds !== undefined && {
       enabledToolIds: options.enabledToolIds,
     }),
+    tags: [...(options.tags ?? []), SDK_TAG],
   };
 
   try {
