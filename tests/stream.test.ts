@@ -133,14 +133,14 @@ describe('DroidMessage types', () => {
       inputTokens: 100,
       outputTokens: 50,
       cacheReadTokens: 10,
-      cacheWriteTokens: 5,
+      cacheCreationTokens: 5,
       thinkingTokens: 20,
     };
     expect(msg.type).toBe('token_usage_update');
     expect(msg.inputTokens).toBe(100);
     expect(msg.outputTokens).toBe(50);
     expect(msg.cacheReadTokens).toBe(10);
-    expect(msg.cacheWriteTokens).toBe(5);
+    expect(msg.cacheCreationTokens).toBe(5);
     expect(msg.thinkingTokens).toBe(20);
   });
 
@@ -319,7 +319,7 @@ describe('DroidMessage types', () => {
       inputTokens: 100,
       outputTokens: 50,
       cacheReadTokens: 10,
-      cacheWriteTokens: 5,
+      cacheCreationTokens: 5,
       thinkingTokens: 20,
     };
     const msg: TurnComplete = {
@@ -366,7 +366,7 @@ describe('DroidMessage types', () => {
         inputTokens: 0,
         outputTokens: 0,
         cacheReadTokens: 0,
-        cacheWriteTokens: 0,
+        cacheCreationTokens: 0,
         thinkingTokens: 0,
       },
       {
@@ -661,8 +661,7 @@ describe('convertNotificationToStreamMessage', () => {
       expect(result.inputTokens).toBe(100);
       expect(result.outputTokens).toBe(50);
       expect(result.cacheReadTokens).toBe(10);
-      // cacheCreationTokens → cacheWriteTokens mapping
-      expect(result.cacheWriteTokens).toBe(5);
+      expect(result.cacheCreationTokens).toBe(5);
       expect(result.thinkingTokens).toBe(20);
     });
   });
@@ -1238,7 +1237,7 @@ describe('StreamStateTracker', () => {
         inputTokens: 100,
         outputTokens: 50,
         cacheReadTokens: 10,
-        cacheWriteTokens: 5,
+        cacheCreationTokens: 5,
         thinkingTokens: 20,
       };
 
@@ -1259,7 +1258,7 @@ describe('StreamStateTracker', () => {
       expect(tc.tokenUsage!.inputTokens).toBe(100);
       expect(tc.tokenUsage!.outputTokens).toBe(50);
       expect(tc.tokenUsage!.cacheReadTokens).toBe(10);
-      expect(tc.tokenUsage!.cacheWriteTokens).toBe(5);
+      expect(tc.tokenUsage!.cacheCreationTokens).toBe(5);
       expect(tc.tokenUsage!.thinkingTokens).toBe(20);
     });
 
@@ -1273,7 +1272,7 @@ describe('StreamStateTracker', () => {
         inputTokens: 50,
         outputTokens: 25,
         cacheReadTokens: 5,
-        cacheWriteTokens: 2,
+        cacheCreationTokens: 2,
         thinkingTokens: 10,
       });
       tracker.processMessage({
@@ -1281,7 +1280,7 @@ describe('StreamStateTracker', () => {
         inputTokens: 200,
         outputTokens: 100,
         cacheReadTokens: 20,
-        cacheWriteTokens: 10,
+        cacheCreationTokens: 10,
         thinkingTokens: 40,
       });
 
@@ -1320,7 +1319,7 @@ describe('StreamStateTracker', () => {
         inputTokens: 100,
         outputTokens: 50,
         cacheReadTokens: 10,
-        cacheWriteTokens: 5,
+        cacheCreationTokens: 5,
         thinkingTokens: 20,
       });
       tracker.processMessage({
@@ -1479,7 +1478,7 @@ describe('StreamStateTracker', () => {
         inputTokens: 50,
         outputTokens: 25,
         cacheReadTokens: 0,
-        cacheWriteTokens: 0,
+        cacheCreationTokens: 0,
         thinkingTokens: 0,
       });
       const turn1Result = tracker.processMessage({
@@ -1504,7 +1503,7 @@ describe('StreamStateTracker', () => {
         inputTokens: 200,
         outputTokens: 100,
         cacheReadTokens: 10,
-        cacheWriteTokens: 5,
+        cacheCreationTokens: 5,
         thinkingTokens: 30,
       });
       const turn2Result = tracker.processMessage({

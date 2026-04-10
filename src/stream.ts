@@ -86,7 +86,7 @@ export interface TokenUsageUpdate {
   readonly inputTokens: number;
   readonly outputTokens: number;
   readonly cacheReadTokens: number;
-  readonly cacheWriteTokens: number;
+  readonly cacheCreationTokens: number;
   readonly thinkingTokens: number;
 }
 
@@ -302,7 +302,7 @@ export function convertNotificationToStreamMessage(
         inputTokens: tu.inputTokens,
         outputTokens: tu.outputTokens,
         cacheReadTokens: tu.cacheReadTokens,
-        cacheWriteTokens: tu.cacheCreationTokens,
+        cacheCreationTokens: tu.cacheCreationTokens,
         thinkingTokens: tu.thinkingTokens,
       };
     }
