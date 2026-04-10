@@ -146,6 +146,6 @@ export const DocumentSourceSchema = z
     name: z.string().optional(),
     mime: z.string().optional(),
   })
-  .strict();
+  .passthrough();
 
 export type DocumentSource = z.infer<typeof DocumentSourceSchema>;

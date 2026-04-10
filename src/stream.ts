@@ -60,6 +60,7 @@ export interface ToolUse {
 export interface ToolResult {
   readonly type: 'tool_result';
   readonly toolUseId: string;
+  readonly toolName: string;
   readonly content: string | unknown[];
   readonly isError: boolean;
 }
@@ -271,6 +272,7 @@ export function convertNotificationToStreamMessage(
       return {
         type: 'tool_result',
         toolUseId: notification.toolUseId,
+        toolName: '',
         content: normalizeToolResultContent(notification.content),
         isError: Boolean(notification.isError),
       };
@@ -452,15 +454,38 @@ export class StreamStateTracker {
   /** Last-seen token usage update (to attach to TurnComplete). */
   private lastTokenUsage: TokenUsageUpdate | null = null;
 
+  /** Maps toolUseId → toolName from tool_use messages. */
+  private toolNameMap = new Map<string, string>();
+
   /**
-   * Process a DroidMessage and return any additional messages that should be
-   * emitted (e.g. TurnComplete sentinel).
+   * Look up the tool name for a given toolUseId.
+   * Returns an empty string if the toolUseId is unknown.
+   */
+  private getToolName(toolUseId: string): string {
+    return this.toolNameMap.get(toolUseId) ?? '';
+  }
+
+  /**
+   * Process a DroidMessage: enrich it if needed (e.g. add toolName to
+   * tool_result) and return any additional messages to emit (e.g. TurnComplete).
    *
    * @param message - The DroidMessage to process.
-   * @returns An array of additional messages to emit (may be empty).
+   * @returns The (possibly enriched) message and an array of additional messages.
    */
-  processMessage(message: DroidMessage): DroidMessage[] {
+  processMessage(message: DroidMessage): {
+    message: DroidMessage;
+    additional: DroidMessage[];
+  } {
     const additional: DroidMessage[] = [];
+
+    if (message.type === 'tool_use') {
+      this.toolNameMap.set(message.toolUseId, message.toolName);
+    }
+
+    // Enrich tool_result with toolName from prior tool_use
+    if (message.type === 'tool_result') {
+      message = { ...message, toolName: this.getToolName(message.toolUseId) };
+    }
 
     if (message.type === 'token_usage_update') {
       this.lastTokenUsage = message;
@@ -482,15 +507,7 @@ export class StreamStateTracker {
       // (initial idle does NOT emit TurnComplete)
     }
 
-    return additional;
-  }
-
-  /**
-   * Reset the tracker for a new turn/stream call.
-   */
-  reset(): void {
-    this.hasBeenNonIdle = false;
-    this.lastTokenUsage = null;
+    return { message, additional };
   }
 }
 

@@ -95,10 +95,12 @@ describe('DroidMessage types', () => {
     const msg: ToolResult = {
       type: 'tool_result',
       toolUseId: 'tu-1',
+      toolName: 'read_file',
       content: 'file contents here',
       isError: false,
     };
     expect(msg.type).toBe('tool_result');
+    expect(msg.toolName).toBe('read_file');
     expect(msg.content).toBe('file contents here');
     expect(msg.isError).toBe(false);
   });
@@ -344,7 +346,13 @@ describe('DroidMessage types', () => {
         text: 'hmm',
       },
       { type: 'tool_use', toolName: 'x', toolInput: {}, toolUseId: 'tu1' },
-      { type: 'tool_result', toolUseId: 'tu1', content: '', isError: false },
+      {
+        type: 'tool_result',
+        toolUseId: 'tu1',
+        toolName: 'x',
+        content: '',
+        isError: false,
+      },
       {
         type: 'tool_progress',
         toolUseId: 'tu1',
@@ -1138,16 +1146,16 @@ describe('StreamStateTracker', () => {
         type: 'working_state_changed',
         state: DroidWorkingState.StreamingAssistantMessage,
       });
-      expect(r1).toEqual([]);
+      expect(r1.additional).toEqual([]);
 
       // Go idle
       const r2 = tracker.processMessage({
         type: 'working_state_changed',
         state: DroidWorkingState.Idle,
       });
-      expect(r2).toHaveLength(1);
-      expect(r2[0].type).toBe('turn_complete');
-      expect((r2[0] as TurnComplete).tokenUsage).toBeNull();
+      expect(r2.additional).toHaveLength(1);
+      expect(r2.additional[0].type).toBe('turn_complete');
+      expect((r2.additional[0] as TurnComplete).tokenUsage).toBeNull();
     });
 
     it('does NOT emit TurnComplete for initial idle', () => {
@@ -1155,7 +1163,7 @@ describe('StreamStateTracker', () => {
         type: 'working_state_changed',
         state: DroidWorkingState.Idle,
       });
-      expect(result).toEqual([]);
+      expect(result.additional).toEqual([]);
     });
 
     it('does NOT emit TurnComplete for non-idle → non-idle transitions', () => {
@@ -1167,7 +1175,7 @@ describe('StreamStateTracker', () => {
         type: 'working_state_changed',
         state: DroidWorkingState.ExecutingTool,
       });
-      expect(result).toEqual([]);
+      expect(result.additional).toEqual([]);
     });
 
     it('emits TurnComplete after multiple non-idle states', () => {
@@ -1184,8 +1192,8 @@ describe('StreamStateTracker', () => {
         type: 'working_state_changed',
         state: DroidWorkingState.Idle,
       });
-      expect(result).toHaveLength(1);
-      expect(result[0].type).toBe('turn_complete');
+      expect(result.additional).toHaveLength(1);
+      expect(result.additional[0].type).toBe('turn_complete');
     });
 
     it('can emit TurnComplete again after reset', () => {
@@ -1200,14 +1208,14 @@ describe('StreamStateTracker', () => {
       });
 
       // Reset for second turn
-      tracker.reset();
+      tracker = new StreamStateTracker();
 
       // Initial idle after reset should NOT emit TurnComplete
       const r1 = tracker.processMessage({
         type: 'working_state_changed',
         state: DroidWorkingState.Idle,
       });
-      expect(r1).toEqual([]);
+      expect(r1.additional).toEqual([]);
 
       // Go non-idle then idle again
       tracker.processMessage({
@@ -1218,8 +1226,8 @@ describe('StreamStateTracker', () => {
         type: 'working_state_changed',
         state: DroidWorkingState.Idle,
       });
-      expect(r2).toHaveLength(1);
-      expect(r2[0].type).toBe('turn_complete');
+      expect(r2.additional).toHaveLength(1);
+      expect(r2.additional[0].type).toBe('turn_complete');
     });
   });
 
@@ -1244,8 +1252,8 @@ describe('StreamStateTracker', () => {
         state: DroidWorkingState.Idle,
       });
 
-      expect(result).toHaveLength(1);
-      const tc = result[0] as TurnComplete;
+      expect(result.additional).toHaveLength(1);
+      const tc = result.additional[0] as TurnComplete;
       expect(tc.type).toBe('turn_complete');
       expect(tc.tokenUsage).not.toBeNull();
       expect(tc.tokenUsage!.inputTokens).toBe(100);
@@ -1282,7 +1290,7 @@ describe('StreamStateTracker', () => {
         state: DroidWorkingState.Idle,
       });
 
-      const tc = result[0] as TurnComplete;
+      const tc = result.additional[0] as TurnComplete;
       expect(tc.tokenUsage!.inputTokens).toBe(200);
       expect(tc.tokenUsage!.outputTokens).toBe(100);
     });
@@ -1297,7 +1305,7 @@ describe('StreamStateTracker', () => {
         state: DroidWorkingState.Idle,
       });
 
-      const tc = result[0] as TurnComplete;
+      const tc = result.additional[0] as TurnComplete;
       expect(tc.tokenUsage).toBeNull();
     });
 
@@ -1321,7 +1329,7 @@ describe('StreamStateTracker', () => {
       });
 
       // Reset
-      tracker.reset();
+      tracker = new StreamStateTracker();
 
       // Second turn without token usage
       tracker.processMessage({
@@ -1333,13 +1341,75 @@ describe('StreamStateTracker', () => {
         state: DroidWorkingState.Idle,
       });
 
-      const tc = result[0] as TurnComplete;
+      const tc = result.additional[0] as TurnComplete;
       expect(tc.tokenUsage).toBeNull();
     });
   });
 
+  describe('tool name tracking', () => {
+    it('enriches tool_result with toolName from prior tool_use', () => {
+      tracker.processMessage({
+        type: 'tool_use',
+        toolName: 'read_file',
+        toolInput: { path: '/tmp/test' },
+        toolUseId: 'tu-1',
+      });
+      const { message } = tracker.processMessage({
+        type: 'tool_result',
+        toolUseId: 'tu-1',
+        toolName: '',
+        content: 'file contents',
+        isError: false,
+      });
+      expect(message.type).toBe('tool_result');
+      expect((message as ToolResult).toolName).toBe('read_file');
+    });
+
+    it('enriches tool_results from multiple tool_use mappings', () => {
+      tracker.processMessage({
+        type: 'tool_use',
+        toolName: 'read_file',
+        toolInput: {},
+        toolUseId: 'tu-1',
+      });
+      tracker.processMessage({
+        type: 'tool_use',
+        toolName: 'write_file',
+        toolInput: {},
+        toolUseId: 'tu-2',
+      });
+      const r1 = tracker.processMessage({
+        type: 'tool_result',
+        toolUseId: 'tu-1',
+        toolName: '',
+        content: '',
+        isError: false,
+      });
+      const r2 = tracker.processMessage({
+        type: 'tool_result',
+        toolUseId: 'tu-2',
+        toolName: '',
+        content: '',
+        isError: false,
+      });
+      expect((r1.message as ToolResult).toolName).toBe('read_file');
+      expect((r2.message as ToolResult).toolName).toBe('write_file');
+    });
+
+    it('returns empty string toolName for unknown toolUseId', () => {
+      const { message } = tracker.processMessage({
+        type: 'tool_result',
+        toolUseId: 'unknown-id',
+        toolName: '',
+        content: '',
+        isError: false,
+      });
+      expect((message as ToolResult).toolName).toBe('');
+    });
+  });
+
   describe('non-working-state messages pass through', () => {
-    it('returns empty array for non-state-change messages', () => {
+    it('returns empty additional array for non-state-change messages', () => {
       const textDelta: DroidMessage = {
         type: 'assistant_text_delta',
         messageId: 'm1',
@@ -1347,27 +1417,27 @@ describe('StreamStateTracker', () => {
         text: 'hello',
       };
       const result = tracker.processMessage(textDelta);
-      expect(result).toEqual([]);
+      expect(result.additional).toEqual([]);
     });
 
-    it('returns empty array for tool_use messages', () => {
+    it('returns empty additional array for tool_use messages', () => {
       const result = tracker.processMessage({
         type: 'tool_use',
         toolName: 'read_file',
         toolInput: {},
         toolUseId: 'tu-1',
       });
-      expect(result).toEqual([]);
+      expect(result.additional).toEqual([]);
     });
 
-    it('returns empty array for error messages', () => {
+    it('returns empty additional array for error messages', () => {
       const result = tracker.processMessage({
         type: 'error',
         message: 'err',
         errorType: 'Error',
         timestamp: 't',
       });
-      expect(result).toEqual([]);
+      expect(result.additional).toEqual([]);
     });
   });
 
@@ -1387,15 +1457,15 @@ describe('StreamStateTracker', () => {
         type: 'working_state_changed',
         state: DroidWorkingState.Idle,
       });
-      expect(r2).toEqual([]);
+      expect(r2.additional).toEqual([]);
 
       // Tracker 1 goes idle — SHOULD emit TurnComplete
       const r1 = tracker1.processMessage({
         type: 'working_state_changed',
         state: DroidWorkingState.Idle,
       });
-      expect(r1).toHaveLength(1);
-      expect(r1[0].type).toBe('turn_complete');
+      expect(r1.additional).toHaveLength(1);
+      expect(r1.additional[0].type).toBe('turn_complete');
     });
 
     it('simulates multi-turn session with reset between turns', () => {
@@ -1416,11 +1486,13 @@ describe('StreamStateTracker', () => {
         type: 'working_state_changed',
         state: DroidWorkingState.Idle,
       });
-      expect(turn1Result).toHaveLength(1);
-      expect((turn1Result[0] as TurnComplete).tokenUsage!.inputTokens).toBe(50);
+      expect(turn1Result.additional).toHaveLength(1);
+      expect(
+        (turn1Result.additional[0] as TurnComplete).tokenUsage!.inputTokens
+      ).toBe(50);
 
       // Reset between turns
-      tracker.reset();
+      tracker = new StreamStateTracker();
 
       // Turn 2
       tracker.processMessage({
@@ -1439,10 +1511,10 @@ describe('StreamStateTracker', () => {
         type: 'working_state_changed',
         state: DroidWorkingState.Idle,
       });
-      expect(turn2Result).toHaveLength(1);
-      expect((turn2Result[0] as TurnComplete).tokenUsage!.inputTokens).toBe(
-        200
-      );
+      expect(turn2Result.additional).toHaveLength(1);
+      expect(
+        (turn2Result.additional[0] as TurnComplete).tokenUsage!.inputTokens
+      ).toBe(200);
     });
   });
 
@@ -1465,8 +1537,8 @@ describe('StreamStateTracker', () => {
         type: 'working_state_changed',
         state: DroidWorkingState.Idle,
       });
-      expect(result).toHaveLength(1);
-      expect(result[0].type).toBe('turn_complete');
+      expect(result.additional).toHaveLength(1);
+      expect(result.additional[0].type).toBe('turn_complete');
     });
 
     it('handles WaitingForToolConfirmation as non-idle', () => {
@@ -1478,8 +1550,8 @@ describe('StreamStateTracker', () => {
         type: 'working_state_changed',
         state: DroidWorkingState.Idle,
       });
-      expect(result).toHaveLength(1);
-      expect(result[0].type).toBe('turn_complete');
+      expect(result.additional).toHaveLength(1);
+      expect(result.additional[0].type).toBe('turn_complete');
     });
 
     it('handles CompactingConversation as non-idle', () => {
@@ -1491,8 +1563,8 @@ describe('StreamStateTracker', () => {
         type: 'working_state_changed',
         state: DroidWorkingState.Idle,
       });
-      expect(result).toHaveLength(1);
-      expect(result[0].type).toBe('turn_complete');
+      expect(result.additional).toHaveLength(1);
+      expect(result.additional[0].type).toBe('turn_complete');
     });
 
     it('multiple idle transitions after non-idle only emit first TurnComplete (no duplicate)', () => {
@@ -1506,14 +1578,14 @@ describe('StreamStateTracker', () => {
         type: 'working_state_changed',
         state: DroidWorkingState.Idle,
       });
-      expect(r1).toHaveLength(1);
+      expect(r1.additional).toHaveLength(1);
 
       // Second idle → no TurnComplete (hasBeenNonIdle is reset after emission)
       const r2 = tracker.processMessage({
         type: 'working_state_changed',
         state: DroidWorkingState.Idle,
       });
-      expect(r2).toHaveLength(0);
+      expect(r2.additional).toHaveLength(0);
     });
   });
 });

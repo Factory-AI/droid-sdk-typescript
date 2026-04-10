@@ -537,14 +537,15 @@ describe('message content block schemas', () => {
     expect(DocumentSourceSchema.parse(doc).type).toBe('base64');
   });
 
-  it('DocumentSourceSchema rejects extra fields (strict)', () => {
+  it('DocumentSourceSchema preserves extra fields (passthrough)', () => {
     const doc = {
       type: 'base64',
       mediaType: 'application/pdf',
       data: 'abc',
       extra: 'field',
     };
-    expect(() => DocumentSourceSchema.parse(doc)).toThrow();
+    const parsed = DocumentSourceSchema.parse(doc);
+    expect((parsed as Record<string, unknown>).extra).toBe('field');
   });
 });
 
