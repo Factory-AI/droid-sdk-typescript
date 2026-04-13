@@ -735,6 +735,128 @@ describe('query()', () => {
     });
   });
 
+  // =========================================================================
+  // abortSignal support
+  // =========================================================================
+  describe('abortSignal', () => {
+    it('aborts the query when signal fires', async () => {
+      const transport = new InMemoryTransport();
+      await transport.connect();
+
+      // Only respond to init and addUserMessage, then stream without completing
+      const originalSend = transport.send.bind(transport);
+      transport.send = (message: object) => {
+        originalSend(message);
+        const msg = message as Record<string, unknown>;
+        const method = msg['method'] as string;
+        const id = msg['id'] as string;
+
+        if (method === DroidServerMethod.INITIALIZE_SESSION) {
+          queueMicrotask(() => {
+            transport.injectMessage(
+              makeSuccessResponse(id, {
+                sessionId: 'sess-abort-signal',
+                session: {},
+                settings: { modelId: 'test', reasoningEffort: 'medium' },
+              })
+            );
+          });
+        } else if (method === DroidServerMethod.ADD_USER_MESSAGE) {
+          queueMicrotask(() => {
+            transport.injectMessage(makeSuccessResponse(id, {}));
+
+            transport.injectMessage(
+              makeNotification(
+                SessionNotificationType.DROID_WORKING_STATE_CHANGED,
+                { newState: DroidWorkingState.StreamingAssistantMessage }
+              )
+            );
+
+            transport.injectMessage(
+              makeNotification(SessionNotificationType.ASSISTANT_TEXT_DELTA, {
+                messageId: 'msg-1',
+                blockIndex: 0,
+                textDelta: 'Hello',
+              })
+            );
+          });
+        }
+      };
+
+      const controller = new AbortController();
+
+      const q = query({
+        prompt: 'Long task',
+        transport,
+        abortSignal: controller.signal,
+      });
+
+      const messages: DroidMessage[] = [];
+      for await (const msg of q) {
+        messages.push(msg);
+        if (msg.type === 'assistant_text_delta') {
+          controller.abort();
+        }
+      }
+
+      expect(messages.length).toBeGreaterThanOrEqual(1);
+      expect(transport.isConnected).toBe(false);
+    });
+
+    it('terminates immediately when signal is already aborted', async () => {
+      const transport = new InMemoryTransport();
+      await transport.connect();
+
+      const controller = new AbortController();
+      controller.abort(); // Already aborted
+
+      const q = query({
+        prompt: 'Test',
+        transport,
+        abortSignal: controller.signal,
+      });
+
+      const messages: DroidMessage[] = [];
+      try {
+        for await (const msg of q) {
+          messages.push(msg);
+        }
+      } catch {
+        // Expected — abort during init causes a ConnectionError
+      }
+
+      // No messages should be yielded since the generator exits immediately
+      expect(messages).toHaveLength(0);
+
+      // No RPC requests should have been sent
+      expect(transport.sentMessages).toHaveLength(0);
+    });
+
+    it('does not interfere when signal is never aborted', async () => {
+      const transport = new InMemoryTransport();
+      await transport.connect();
+
+      simulateQueryLifecycle(transport, 'sess-signal-noop');
+
+      const controller = new AbortController();
+
+      const q = query({
+        prompt: 'Test',
+        transport,
+        abortSignal: controller.signal,
+      });
+
+      const messages: DroidMessage[] = [];
+      for await (const msg of q) {
+        messages.push(msg);
+      }
+
+      // Should complete normally with turn_complete
+      expect(messages[messages.length - 1].type).toBe('turn_complete');
+      expect(transport.isConnected).toBe(false);
+    });
+  });
+
   describe('permission and ask-user handlers', () => {
     it('invokes permissionHandler when set', async () => {
       const transport = new InMemoryTransport();

@@ -152,6 +152,9 @@ export interface CreateSessionOptions {
    * When provided, `execPath`, `execArgs`, `env`, and `cwd` (for transport) are ignored.
    */
   transport?: DroidClientTransport;
+
+  /** AbortSignal for external cancellation. When aborted, the session is closed. */
+  abortSignal?: AbortSignal;
 }
 
 /**
@@ -183,6 +186,9 @@ export interface ResumeSessionOptions {
    * An already-connected transport to use instead of spawning a process.
    */
   transport?: DroidClientTransport;
+
+  /** AbortSignal for external cancellation. When aborted, the session is closed. */
+  abortSignal?: AbortSignal;
 }
 
 /**
@@ -651,8 +657,10 @@ export async function createSession(
 
   try {
     const initResult = await client.initializeSession(initParams);
+    const session = new DroidSession(client, initResult.sessionId, initResult);
+    wireAbortSignal(options.abortSignal, () => void session.close());
 
-    return new DroidSession(client, initResult.sessionId, initResult);
+    return session;
   } catch (error) {
     // Clean up on init failure
     try {
@@ -722,7 +730,10 @@ export async function resumeSession(
 
   try {
     const loadResult = await client.loadSession(loadParams);
-    return new DroidSession(client, sessionId, loadResult);
+    const session = new DroidSession(client, sessionId, loadResult);
+    wireAbortSignal(options.abortSignal, () => void session.close());
+
+    return session;
   } catch (error) {
     // Clean up on load failure
     try {
@@ -737,6 +748,22 @@ export async function resumeSession(
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
+
+/**
+ * Wire an AbortSignal to invoke a callback on abort.
+ * Handles both already-aborted signals and future aborts.
+ */
+function wireAbortSignal(
+  signal: AbortSignal | undefined,
+  onAbort: () => void
+): void {
+  if (!signal) return;
+  if (signal.aborted) {
+    onAbort();
+  } else {
+    signal.addEventListener('abort', () => onAbort(), { once: true });
+  }
+}
 
 /**
  * Extract the inner notification payload from a JSON-RPC notification.
