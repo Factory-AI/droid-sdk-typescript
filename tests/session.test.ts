@@ -1047,6 +1047,33 @@ describe('DroidSession', () => {
     });
   });
 
+  describe('renameSession()', () => {
+    it('delegates renameSession to client', async () => {
+      const transport = new InMemoryTransport();
+      await transport.connect();
+
+      setupFullResponder(transport, 'sess-rename-001', {
+        [DroidServerMethod.RENAME_SESSION]: (id) => {
+          queueMicrotask(() => {
+            transport.injectMessage(
+              makeSuccessResponse(id, {
+                success: true,
+              })
+            );
+          });
+        },
+      });
+
+      const session = await createSession({ transport });
+
+      const result = await session.renameSession({ title: 'My New Title' });
+
+      expect(result.success).toBe(true);
+
+      await session.close();
+    });
+  });
+
   describe('listSkills()', () => {
     it('delegates listSkills to client', async () => {
       const transport = new InMemoryTransport();
@@ -1500,6 +1527,9 @@ describe('DroidSession', () => {
       ).rejects.toThrow(ConnectionError);
       await expect(session.compactSession()).rejects.toThrow(ConnectionError);
       await expect(session.forkSession()).rejects.toThrow(ConnectionError);
+      await expect(session.renameSession({ title: 'test' })).rejects.toThrow(
+        ConnectionError
+      );
     });
   });
 

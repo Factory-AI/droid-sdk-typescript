@@ -132,6 +132,8 @@ import {
   CompactSessionResultSchema,
   ForkSessionRequestParamsSchema,
   ForkSessionResultSchema,
+  RenameSessionRequestParamsSchema,
+  RenameSessionResultSchema,
 } from '../src/schemas/index.js';
 
 // ============================================================
@@ -139,9 +141,9 @@ import {
 // ============================================================
 
 describe('enums', () => {
-  it('DroidServerMethod has all 23 methods', () => {
+  it('DroidServerMethod has all 24 methods', () => {
     const values = Object.values(DroidServerMethod);
-    expect(values).toHaveLength(23);
+    expect(values).toHaveLength(24);
     expect(values).toContain('droid.initialize_session');
     expect(values).toContain('droid.load_session');
     expect(values).toContain('droid.add_user_message');
@@ -165,6 +167,7 @@ describe('enums', () => {
     expect(values).toContain('droid.execute_rewind');
     expect(values).toContain('droid.compact_session');
     expect(values).toContain('droid.fork_session');
+    expect(values).toContain('droid.rename_session');
   });
 
   it('DroidClientMethod has all 3 methods', () => {
@@ -1475,5 +1478,34 @@ describe('ForkSession schemas', () => {
 
   it('ForkSessionResultSchema rejects missing newSessionId', () => {
     expect(() => ForkSessionResultSchema.parse({})).toThrow();
+  });
+});
+
+describe('RenameSession schemas', () => {
+  it('RenameSessionRequestParamsSchema parses valid params', () => {
+    const result = RenameSessionRequestParamsSchema.parse({
+      title: 'My Session',
+    });
+    expect(result.title).toBe('My Session');
+  });
+
+  it('RenameSessionRequestParamsSchema rejects missing title', () => {
+    expect(() => RenameSessionRequestParamsSchema.parse({})).toThrow();
+  });
+
+  it('RenameSessionRequestParamsSchema preserves unknown fields', () => {
+    const data = { title: 'test', futureOption: true };
+    const result = RenameSessionRequestParamsSchema.parse(data);
+    expect(result.title).toBe('test');
+    expect((result as Record<string, unknown>)['futureOption']).toBe(true);
+  });
+
+  it('RenameSessionResultSchema parses valid result', () => {
+    const result = RenameSessionResultSchema.parse({ success: true });
+    expect(result.success).toBe(true);
+  });
+
+  it('RenameSessionResultSchema rejects missing success', () => {
+    expect(() => RenameSessionResultSchema.parse({})).toThrow();
   });
 });

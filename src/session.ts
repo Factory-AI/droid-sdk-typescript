@@ -44,6 +44,8 @@ import type {
   ExecuteRewindRequestParams,
   ExecuteRewindResult,
   ForkSessionResult,
+  RenameSessionRequestParams,
+  RenameSessionResult,
   GetRewindInfoRequestParams,
   GetRewindInfoResult,
   InitializeSessionRequestParams,
@@ -548,6 +550,18 @@ export class DroidSession {
   async forkSession(): Promise<ForkSessionResult> {
     this._ensureNotClosed();
     return this._client.forkSession();
+  }
+
+  /**
+   * Rename the current session.
+   *
+   * @param params - Object with the new `title` for the session.
+   */
+  async renameSession(
+    params: RenameSessionRequestParams
+  ): Promise<RenameSessionResult> {
+    this._ensureNotClosed();
+    return this._client.renameSession(params);
   }
 
   // ------------------------------------------------------------------
