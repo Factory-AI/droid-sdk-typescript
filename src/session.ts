@@ -46,6 +46,8 @@ import type {
   ForkSessionResult,
   RenameSessionRequestParams,
   RenameSessionResult,
+  ListSessionsRequestParams,
+  ListSessionsResult,
   GetRewindInfoRequestParams,
   GetRewindInfoResult,
   InitializeSessionRequestParams,
@@ -562,6 +564,18 @@ export class DroidSession {
   ): Promise<RenameSessionResult> {
     this._ensureNotClosed();
     return this._client.renameSession(params);
+  }
+
+  /**
+   * List sessions.
+   *
+   * @param params - Optional cwd filter and cursor for pagination.
+   */
+  async listSessions(
+    params?: ListSessionsRequestParams
+  ): Promise<ListSessionsResult> {
+    this._ensureNotClosed();
+    return this._client.listSessions(params);
   }
 
   // ------------------------------------------------------------------

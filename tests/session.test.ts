@@ -1074,6 +1074,43 @@ describe('DroidSession', () => {
     });
   });
 
+  describe('listSessions()', () => {
+    it('delegates listSessions to client', async () => {
+      const transport = new InMemoryTransport();
+      await transport.connect();
+
+      setupFullResponder(transport, 'sess-list-001', {
+        [DroidServerMethod.LIST_SESSIONS]: (id) => {
+          queueMicrotask(() => {
+            transport.injectMessage(
+              makeSuccessResponse(id, {
+                sessions: [
+                  {
+                    sessionId: 'sess-001',
+                    cwd: '/test',
+                    title: 'Test Session',
+                    messageCount: 3,
+                  },
+                ],
+                nextCursor: 'cursor-abc',
+              })
+            );
+          });
+        },
+      });
+
+      const session = await createSession({ transport });
+
+      const result = await session.listSessions({ cwd: '/test' });
+
+      expect(result.sessions).toHaveLength(1);
+      expect(result.sessions[0].sessionId).toBe('sess-001');
+      expect(result.nextCursor).toBe('cursor-abc');
+
+      await session.close();
+    });
+  });
+
   describe('listSkills()', () => {
     it('delegates listSkills to client', async () => {
       const transport = new InMemoryTransport();
@@ -1530,6 +1567,7 @@ describe('DroidSession', () => {
       await expect(session.renameSession({ title: 'test' })).rejects.toThrow(
         ConnectionError
       );
+      await expect(session.listSessions()).rejects.toThrow(ConnectionError);
     });
   });
 

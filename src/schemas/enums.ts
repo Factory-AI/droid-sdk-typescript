@@ -34,6 +34,7 @@ export enum DroidServerMethod {
   COMPACT_SESSION = 'droid.compact_session',
   FORK_SESSION = 'droid.fork_session',
   RENAME_SESSION = 'droid.rename_session',
+  LIST_SESSIONS = 'droid.list_sessions',
 }
 
 /** Droid client methods (server → client communication). */

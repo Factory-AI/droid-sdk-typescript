@@ -134,6 +134,9 @@ import {
   ForkSessionResultSchema,
   RenameSessionRequestParamsSchema,
   RenameSessionResultSchema,
+  ListSessionsRequestParamsSchema,
+  ListSessionsResultSchema,
+  SessionInfoSchema,
 } from '../src/schemas/index.js';
 
 // ============================================================
@@ -141,9 +144,9 @@ import {
 // ============================================================
 
 describe('enums', () => {
-  it('DroidServerMethod has all 24 methods', () => {
+  it('DroidServerMethod has all 25 methods', () => {
     const values = Object.values(DroidServerMethod);
-    expect(values).toHaveLength(24);
+    expect(values).toHaveLength(25);
     expect(values).toContain('droid.initialize_session');
     expect(values).toContain('droid.load_session');
     expect(values).toContain('droid.add_user_message');
@@ -168,6 +171,7 @@ describe('enums', () => {
     expect(values).toContain('droid.compact_session');
     expect(values).toContain('droid.fork_session');
     expect(values).toContain('droid.rename_session');
+    expect(values).toContain('droid.list_sessions');
   });
 
   it('DroidClientMethod has all 3 methods', () => {
@@ -1507,5 +1511,88 @@ describe('RenameSession schemas', () => {
 
   it('RenameSessionResultSchema rejects missing success', () => {
     expect(() => RenameSessionResultSchema.parse({})).toThrow();
+  });
+});
+
+describe('ListSessions schemas', () => {
+  it('ListSessionsRequestParamsSchema parses valid params with cwd and cursor', () => {
+    const result = ListSessionsRequestParamsSchema.parse({
+      cwd: '/my/project',
+      cursor: 'abc123',
+    });
+    expect(result.cwd).toBe('/my/project');
+    expect(result.cursor).toBe('abc123');
+  });
+
+  it('ListSessionsRequestParamsSchema parses empty params', () => {
+    const result = ListSessionsRequestParamsSchema.parse({});
+    expect(result.cwd).toBeUndefined();
+    expect(result.cursor).toBeUndefined();
+  });
+
+  it('ListSessionsRequestParamsSchema preserves unknown fields', () => {
+    const data = { cwd: '/test', futureOption: true };
+    const result = ListSessionsRequestParamsSchema.parse(data);
+    expect(result.cwd).toBe('/test');
+    expect((result as Record<string, unknown>)['futureOption']).toBe(true);
+  });
+
+  it('SessionInfoSchema parses valid session info', () => {
+    const data = {
+      sessionId: 'sess-001',
+      cwd: '/my/project',
+      title: 'My Session',
+      createdAt: '2025-01-01T00:00:00.000Z',
+      updatedAt: '2025-01-02T00:00:00.000Z',
+      messageCount: 5,
+      isFavorite: true,
+      isCurrentProject: false,
+    };
+    const result = SessionInfoSchema.parse(data);
+    expect(result.sessionId).toBe('sess-001');
+    expect(result.cwd).toBe('/my/project');
+    expect(result.title).toBe('My Session');
+    expect(result.messageCount).toBe(5);
+    expect(result.isFavorite).toBe(true);
+    expect(result.isCurrentProject).toBe(false);
+  });
+
+  it('SessionInfoSchema parses minimal session info', () => {
+    const data = {
+      sessionId: 'sess-002',
+      cwd: '/test',
+      messageCount: 0,
+    };
+    const result = SessionInfoSchema.parse(data);
+    expect(result.sessionId).toBe('sess-002');
+    expect(result.title).toBeUndefined();
+    expect(result.isFavorite).toBeUndefined();
+  });
+
+  it('SessionInfoSchema rejects missing required fields', () => {
+    expect(() => SessionInfoSchema.parse({})).toThrow();
+    expect(() => SessionInfoSchema.parse({ sessionId: 'x' })).toThrow();
+  });
+
+  it('ListSessionsResultSchema parses valid result', () => {
+    const data = {
+      sessions: [{ sessionId: 'sess-001', cwd: '/test', messageCount: 3 }],
+      nextCursor: 'cursor-next',
+    };
+    const result = ListSessionsResultSchema.parse(data);
+    expect(result.sessions).toHaveLength(1);
+    expect(result.sessions[0].sessionId).toBe('sess-001');
+    expect(result.nextCursor).toBe('cursor-next');
+  });
+
+  it('ListSessionsResultSchema parses result without nextCursor', () => {
+    const data = { sessions: [] };
+    const result = ListSessionsResultSchema.parse(data);
+    expect(result.sessions).toHaveLength(0);
+    expect(result.nextCursor).toBeUndefined();
+  });
+
+  it('ListSessionsResultSchema rejects missing sessions', () => {
+    expect(() => ListSessionsResultSchema.parse({})).toThrow();
   });
 });

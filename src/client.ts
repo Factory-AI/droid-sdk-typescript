@@ -35,6 +35,8 @@ import type {
   ForkSessionResult,
   RenameSessionRequestParams,
   RenameSessionResult,
+  ListSessionsRequestParams,
+  ListSessionsResult,
   GetRewindInfoRequestParams,
   GetRewindInfoResult,
   InitializeSessionRequestParams,
@@ -71,6 +73,7 @@ import {
   ExecuteRewindResultSchema,
   ForkSessionResultSchema,
   RenameSessionResultSchema,
+  ListSessionsResultSchema,
   GetRewindInfoResultSchema,
   InitializeSessionResultSchema,
   InterruptSessionResultSchema,
@@ -651,6 +654,24 @@ export class DroidClient {
       DroidServerMethod.RENAME_SESSION,
       params,
       RenameSessionResultSchema
+    );
+  }
+
+  /**
+   * List sessions.
+   *
+   * Sends `droid.list_sessions` with optional cwd filter and cursor.
+   * Does not require an active session.
+   */
+  async listSessions(
+    params?: ListSessionsRequestParams
+  ): Promise<ListSessionsResult> {
+    this._ensureNotClosed();
+
+    return this._rpc(
+      DroidServerMethod.LIST_SESSIONS,
+      params ?? {},
+      ListSessionsResultSchema
     );
   }
 

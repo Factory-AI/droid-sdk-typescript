@@ -537,6 +537,18 @@ export type CompactSessionRequestParams = z.infer<
   typeof CompactSessionRequestParamsSchema
 >;
 
+/** Parameters for droid.list_sessions request. */
+export const ListSessionsRequestParamsSchema = z
+  .object({
+    cwd: z.string().optional(),
+    cursor: z.string().optional(),
+  })
+  .passthrough();
+
+export type ListSessionsRequestParams = z.infer<
+  typeof ListSessionsRequestParamsSchema
+>;
+
 /** Parameters for droid.rename_session request. */
 export const RenameSessionRequestParamsSchema = z
   .object({
@@ -747,7 +759,14 @@ export const RenameSessionRequestSchema = JsonRpcRequestSchema.extend({
 
 export type RenameSessionRequest = z.infer<typeof RenameSessionRequestSchema>;
 
-/** Discriminated union over all 24 client→server request types. */
+export const ListSessionsRequestSchema = JsonRpcRequestSchema.extend({
+  method: z.literal(DroidServerMethod.LIST_SESSIONS),
+  params: ListSessionsRequestParamsSchema,
+});
+
+export type ListSessionsRequest = z.infer<typeof ListSessionsRequestSchema>;
+
+/** Discriminated union over all 25 client→server request types. */
 export const ClientRequestSchema = z.discriminatedUnion('method', [
   InitializeSessionRequestSchema,
   LoadSessionRequestSchema,
@@ -773,6 +792,7 @@ export const ClientRequestSchema = z.discriminatedUnion('method', [
   CompactSessionRequestSchema,
   ForkSessionRequestSchema,
   RenameSessionRequestSchema,
+  ListSessionsRequestSchema,
 ]);
 
 export type ClientRequest = z.infer<typeof ClientRequestSchema>;
@@ -1011,6 +1031,32 @@ export const RenameSessionResultSchema = z
 
 export type RenameSessionResult = z.infer<typeof RenameSessionResultSchema>;
 
+/** Session info returned by droid.list_sessions. */
+export const SessionInfoSchema = z
+  .object({
+    sessionId: z.string(),
+    cwd: z.string(),
+    title: z.string().optional(),
+    createdAt: z.string().optional(),
+    updatedAt: z.string().optional(),
+    messageCount: z.number(),
+    isFavorite: z.boolean().optional(),
+    isCurrentProject: z.boolean().optional(),
+  })
+  .passthrough();
+
+export type SessionInfo = z.infer<typeof SessionInfoSchema>;
+
+/** Result for droid.list_sessions response. */
+export const ListSessionsResultSchema = z
+  .object({
+    sessions: z.array(SessionInfoSchema),
+    nextCursor: z.string().optional(),
+  })
+  .passthrough();
+
+export type ListSessionsResult = z.infer<typeof ListSessionsResultSchema>;
+
 // ---------------------------------------------------------------------------
 // Response schemas (union of success | failure)
 // ---------------------------------------------------------------------------
@@ -1240,3 +1286,10 @@ export const RenameSessionResponseSchema = z.union([
 ]);
 
 export type RenameSessionResponse = z.infer<typeof RenameSessionResponseSchema>;
+
+export const ListSessionsResponseSchema = z.union([
+  JsonRpcResponseSuccessSchema.extend({ result: ListSessionsResultSchema }),
+  JsonRpcResponseFailureSchema,
+]);
+
+export type ListSessionsResponse = z.infer<typeof ListSessionsResponseSchema>;

@@ -1377,6 +1377,7 @@ describe('DroidClient', () => {
       await expect(client.renameSession({ title: 'test' })).rejects.toThrow(
         ConnectionError
       );
+      await expect(client.listSessions()).rejects.toThrow(ConnectionError);
     });
 
     it('close() is idempotent', async () => {
@@ -1580,6 +1581,65 @@ describe('DroidClient', () => {
 
       const result = await promise;
       expect(result.success).toBe(true);
+    });
+  });
+
+  describe('listSessions', () => {
+    it('sends correct request and returns parsed result without session', async () => {
+      const promise = client.listSessions({ cwd: '/my/project' });
+
+      await vi.waitFor(() => {
+        expect(transport.sentMessages.length).toBe(1);
+      });
+
+      const sent = transport.sentMessages[0] as Record<string, unknown>;
+      expect(sent['method']).toBe(DroidServerMethod.LIST_SESSIONS);
+      expect((sent['params'] as Record<string, unknown>)['cwd']).toBe(
+        '/my/project'
+      );
+
+      const requestId = sent['id'] as string;
+      transport.injectMessage(
+        makeSuccessResponse(requestId, {
+          sessions: [
+            {
+              sessionId: 'sess-001',
+              cwd: '/my/project',
+              title: 'Test Session',
+              messageCount: 3,
+            },
+          ],
+          nextCursor: 'cursor-abc',
+        })
+      );
+
+      const result = await promise;
+      expect(result.sessions).toHaveLength(1);
+      expect(result.sessions[0].sessionId).toBe('sess-001');
+      expect(result.sessions[0].title).toBe('Test Session');
+      expect(result.nextCursor).toBe('cursor-abc');
+    });
+
+    it('sends empty params when called without arguments', async () => {
+      const promise = client.listSessions();
+
+      await vi.waitFor(() => {
+        expect(transport.sentMessages.length).toBe(1);
+      });
+
+      const sent = transport.sentMessages[0] as Record<string, unknown>;
+      expect(sent['method']).toBe(DroidServerMethod.LIST_SESSIONS);
+
+      const requestId = sent['id'] as string;
+      transport.injectMessage(
+        makeSuccessResponse(requestId, {
+          sessions: [],
+        })
+      );
+
+      const result = await promise;
+      expect(result.sessions).toHaveLength(0);
+      expect(result.nextCursor).toBeUndefined();
     });
   });
 
