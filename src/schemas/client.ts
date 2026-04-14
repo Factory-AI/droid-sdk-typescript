@@ -537,6 +537,17 @@ export type CompactSessionRequestParams = z.infer<
   typeof CompactSessionRequestParamsSchema
 >;
 
+/** Parameters for droid.rename_session request. */
+export const RenameSessionRequestParamsSchema = z
+  .object({
+    title: z.string(),
+  })
+  .passthrough();
+
+export type RenameSessionRequestParams = z.infer<
+  typeof RenameSessionRequestParamsSchema
+>;
+
 /** Parameters for droid.fork_session request (empty). */
 export const ForkSessionRequestParamsSchema = z.object({}).passthrough();
 
@@ -729,7 +740,14 @@ export const ForkSessionRequestSchema = JsonRpcRequestSchema.extend({
 
 export type ForkSessionRequest = z.infer<typeof ForkSessionRequestSchema>;
 
-/** Discriminated union over all 23 client→server request types. */
+export const RenameSessionRequestSchema = JsonRpcRequestSchema.extend({
+  method: z.literal(DroidServerMethod.RENAME_SESSION),
+  params: RenameSessionRequestParamsSchema,
+});
+
+export type RenameSessionRequest = z.infer<typeof RenameSessionRequestSchema>;
+
+/** Discriminated union over all 24 client→server request types. */
 export const ClientRequestSchema = z.discriminatedUnion('method', [
   InitializeSessionRequestSchema,
   LoadSessionRequestSchema,
@@ -754,6 +772,7 @@ export const ClientRequestSchema = z.discriminatedUnion('method', [
   ExecuteRewindRequestSchema,
   CompactSessionRequestSchema,
   ForkSessionRequestSchema,
+  RenameSessionRequestSchema,
 ]);
 
 export type ClientRequest = z.infer<typeof ClientRequestSchema>;
@@ -983,6 +1002,15 @@ export const ForkSessionResultSchema = z
 
 export type ForkSessionResult = z.infer<typeof ForkSessionResultSchema>;
 
+/** Result for droid.rename_session response. */
+export const RenameSessionResultSchema = z
+  .object({
+    success: z.boolean(),
+  })
+  .passthrough();
+
+export type RenameSessionResult = z.infer<typeof RenameSessionResultSchema>;
+
 // ---------------------------------------------------------------------------
 // Response schemas (union of success | failure)
 // ---------------------------------------------------------------------------
@@ -1205,3 +1233,10 @@ export const ForkSessionResponseSchema = z.union([
 ]);
 
 export type ForkSessionResponse = z.infer<typeof ForkSessionResponseSchema>;
+
+export const RenameSessionResponseSchema = z.union([
+  JsonRpcResponseSuccessSchema.extend({ result: RenameSessionResultSchema }),
+  JsonRpcResponseFailureSchema,
+]);
+
+export type RenameSessionResponse = z.infer<typeof RenameSessionResponseSchema>;

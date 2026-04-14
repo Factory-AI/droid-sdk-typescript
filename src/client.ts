@@ -33,6 +33,8 @@ import type {
   ExecuteRewindRequestParams,
   ExecuteRewindResult,
   ForkSessionResult,
+  RenameSessionRequestParams,
+  RenameSessionResult,
   GetRewindInfoRequestParams,
   GetRewindInfoResult,
   InitializeSessionRequestParams,
@@ -68,6 +70,7 @@ import {
   CompactSessionResultSchema,
   ExecuteRewindResultSchema,
   ForkSessionResultSchema,
+  RenameSessionResultSchema,
   GetRewindInfoResultSchema,
   InitializeSessionResultSchema,
   InterruptSessionResultSchema,
@@ -630,6 +633,24 @@ export class DroidClient {
       DroidServerMethod.FORK_SESSION,
       {},
       ForkSessionResultSchema
+    );
+  }
+
+  /**
+   * Rename the current session.
+   *
+   * Sends `droid.rename_session` with the new title.
+   */
+  async renameSession(
+    params: RenameSessionRequestParams
+  ): Promise<RenameSessionResult> {
+    this._ensureNotClosed();
+    this._ensureSession();
+
+    return this._rpc(
+      DroidServerMethod.RENAME_SESSION,
+      params,
+      RenameSessionResultSchema
     );
   }
 

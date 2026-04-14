@@ -1374,6 +1374,9 @@ describe('DroidClient', () => {
       ).rejects.toThrow(ConnectionError);
       await expect(client.compactSession({})).rejects.toThrow(ConnectionError);
       await expect(client.forkSession()).rejects.toThrow(ConnectionError);
+      await expect(client.renameSession({ title: 'test' })).rejects.toThrow(
+        ConnectionError
+      );
     });
 
     it('close() is idempotent', async () => {
@@ -1550,6 +1553,36 @@ describe('DroidClient', () => {
     });
   });
 
+  describe('renameSession', () => {
+    beforeEach(async () => {
+      await initializeTestSession(client, transport);
+    });
+
+    it('sends correct request and returns parsed result', async () => {
+      const promise = client.renameSession({ title: 'New Session Title' });
+
+      await vi.waitFor(() => {
+        expect(transport.sentMessages.length).toBe(2);
+      });
+
+      const sent = transport.sentMessages[1] as Record<string, unknown>;
+      expect(sent['method']).toBe(DroidServerMethod.RENAME_SESSION);
+      expect((sent['params'] as Record<string, unknown>)['title']).toBe(
+        'New Session Title'
+      );
+
+      const requestId = sent['id'] as string;
+      transport.injectMessage(
+        makeSuccessResponse(requestId, {
+          success: true,
+        })
+      );
+
+      const result = await promise;
+      expect(result.success).toBe(true);
+    });
+  });
+
   // ===================================================================
   // #24 — Client _rpc() Zod parse failure
   // ===================================================================
@@ -1692,6 +1725,10 @@ describe('DroidClient', () => {
       await expect(client.compactSession({})).rejects.toThrow(SessionError);
 
       await expect(client.forkSession()).rejects.toThrow(SessionError);
+
+      await expect(client.renameSession({ title: 'test' })).rejects.toThrow(
+        SessionError
+      );
     });
   });
 });

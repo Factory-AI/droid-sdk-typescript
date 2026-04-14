@@ -33,6 +33,7 @@ export enum DroidServerMethod {
   EXECUTE_REWIND = 'droid.execute_rewind',
   COMPACT_SESSION = 'droid.compact_session',
   FORK_SESSION = 'droid.fork_session',
+  RENAME_SESSION = 'droid.rename_session',
 }
 
 /** Droid client methods (server → client communication). */
