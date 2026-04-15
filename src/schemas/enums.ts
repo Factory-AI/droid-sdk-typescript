@@ -24,6 +24,7 @@ export enum DroidServerMethod {
   REMOVE_MCP_SERVER = 'droid.remove_mcp_server',
   LIST_MCP_REGISTRY = 'droid.list_mcp_registry',
   LIST_MCP_TOOLS = 'droid.list_mcp_tools',
+  LIST_TOOLS = 'droid.list_tools',
   LIST_MCP_SERVERS = 'droid.list_mcp_servers',
   TOGGLE_MCP_TOOL = 'droid.toggle_mcp_tool',
   SUBMIT_MCP_AUTH_CODE = 'droid.submit_mcp_auth_code',

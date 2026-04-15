@@ -52,6 +52,8 @@ import type {
   InitializeSessionResult,
   ListMcpServersResult,
   ListMcpToolsResult,
+  ListToolsRequestParams,
+  ListToolsResult,
   ListSkillsResult,
   LoadSessionRequestParams,
   LoadSessionResult,
@@ -130,6 +132,9 @@ export interface CreateSessionOptions {
 
   /** Additional tool IDs to enable. */
   enabledToolIds?: string[];
+
+  /** Tool IDs to disable. */
+  disabledToolIds?: string[];
 
   /** Session tags for tracking and filtering. The SDK tag is always appended automatically. */
   tags?: SessionTag[];
@@ -489,6 +494,16 @@ export class DroidSession {
   }
 
   /**
+   * List available built-in CLI tools.
+   */
+  async listTools(
+    params: ListToolsRequestParams = {}
+  ): Promise<ListToolsResult> {
+    this._ensureNotClosed();
+    return this._client.listTools(params);
+  }
+
+  /**
    * Authenticate an MCP server (OAuth flow).
    */
   async authenticateMcpServer(
@@ -665,6 +680,9 @@ export async function createSession(
     }),
     ...(options.enabledToolIds !== undefined && {
       enabledToolIds: options.enabledToolIds,
+    }),
+    ...(options.disabledToolIds !== undefined && {
+      disabledToolIds: options.disabledToolIds,
     }),
     tags: [...(options.tags ?? []), SDK_TAG],
   };

@@ -45,6 +45,8 @@ import type {
   ListMcpRegistryResult,
   ListMcpServersResult,
   ListMcpToolsResult,
+  ListToolsRequestParams,
+  ListToolsResult,
   ListSkillsResult,
   LoadSessionRequestParams,
   LoadSessionResult,
@@ -78,6 +80,7 @@ import {
   ListMcpRegistryResultSchema,
   ListMcpServersResultSchema,
   ListMcpToolsResultSchema,
+  ListToolsResultSchema,
   ListSkillsResultSchema,
   LoadSessionResultSchema,
   RemoveMcpServerResultSchema,
@@ -494,6 +497,22 @@ export class DroidClient {
       DroidServerMethod.LIST_MCP_TOOLS,
       {},
       ListMcpToolsResultSchema
+    );
+  }
+
+  /**
+   * List the available built-in CLI tools with their current allow/block state.
+   */
+  async listTools(
+    params: ListToolsRequestParams = {}
+  ): Promise<ListToolsResult> {
+    this._ensureNotClosed();
+    this._ensureSession();
+
+    return this._rpc(
+      DroidServerMethod.LIST_TOOLS,
+      params,
+      ListToolsResultSchema
     );
   }
 

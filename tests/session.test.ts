@@ -235,6 +235,7 @@ function setupFullResponder(
       method === DroidServerMethod.TOGGLE_MCP_SERVER ||
       method === DroidServerMethod.LIST_MCP_SERVERS ||
       method === DroidServerMethod.LIST_MCP_TOOLS ||
+      method === DroidServerMethod.LIST_TOOLS ||
       method === DroidServerMethod.AUTHENTICATE_MCP_SERVER ||
       method === DroidServerMethod.LIST_SKILLS
     ) {
@@ -252,6 +253,8 @@ function setupFullResponder(
             })
           );
         } else if (method === DroidServerMethod.LIST_MCP_TOOLS) {
+          transport.injectMessage(makeSuccessResponse(id, { tools: [] }));
+        } else if (method === DroidServerMethod.LIST_TOOLS) {
           transport.injectMessage(makeSuccessResponse(id, { tools: [] }));
         } else if (method === DroidServerMethod.LIST_SKILLS) {
           transport.injectMessage(makeSuccessResponse(id, { skills: [] }));
@@ -721,6 +724,22 @@ describe('DroidSession', () => {
       await session.close();
     });
 
+    it('delegates listTools to client', async () => {
+      const transport = new InMemoryTransport();
+      await transport.connect();
+
+      setupFullResponder(transport, 'sess-tools-001');
+
+      const session = await createSession({ transport });
+
+      const result = await session.listTools({ disabledToolIds: ['Execute'] });
+
+      expect(result).toBeDefined();
+      expect(result.tools).toBeDefined();
+
+      await session.close();
+    });
+
     it('delegates authenticateMcpServer to client', async () => {
       const transport = new InMemoryTransport();
       await transport.connect();
@@ -749,6 +768,7 @@ describe('DroidSession', () => {
 
       await expect(session.listMcpServers()).rejects.toThrow(ConnectionError);
       await expect(session.listMcpTools()).rejects.toThrow(ConnectionError);
+      await expect(session.listTools()).rejects.toThrow(ConnectionError);
     });
   });
 
@@ -1731,6 +1751,7 @@ describe('DroidSession', () => {
           },
         ],
         enabledToolIds: ['tool-x', 'tool-y'],
+        disabledToolIds: ['Execute'],
       });
 
       const initMsg = transport.sentMessages.find(
@@ -1756,6 +1777,7 @@ describe('DroidSession', () => {
         },
       ]);
       expect(params['enabledToolIds']).toEqual(['tool-x', 'tool-y']);
+      expect(params['disabledToolIds']).toEqual(['Execute']);
 
       await session.close();
     });

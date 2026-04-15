@@ -225,6 +225,7 @@ describe('query()', () => {
         cwd: '/my/project',
         machineId: 'my-machine',
         modelId: 'claude-test',
+        disabledToolIds: ['Execute'],
         transport,
       });
 
@@ -244,6 +245,7 @@ describe('query()', () => {
       expect(params['cwd']).toBe('/my/project');
       expect(params['machineId']).toBe('my-machine');
       expect(params['modelId']).toBe('claude-test');
+      expect(params['disabledToolIds']).toEqual(['Execute']);
     });
 
     it('sends the prompt as user message', async () => {

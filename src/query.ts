@@ -78,6 +78,9 @@ export interface QueryOptions {
   /** Additional tool IDs to enable. */
   enabledToolIds?: string[];
 
+  /** Tool IDs to disable. */
+  disabledToolIds?: string[];
+
   /** Session tags for tracking and filtering. The SDK tag is always appended automatically. */
   tags?: SessionTag[];
 
@@ -343,6 +346,9 @@ export function query(options: QueryOptions): DroidQuery {
       }),
       ...(options.enabledToolIds !== undefined && {
         enabledToolIds: options.enabledToolIds,
+      }),
+      ...(options.disabledToolIds !== undefined && {
+        disabledToolIds: options.disabledToolIds,
       }),
       tags: [...(options.tags ?? []), SDK_TAG],
     };

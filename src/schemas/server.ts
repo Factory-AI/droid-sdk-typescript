@@ -33,6 +33,7 @@ import {
   JsonRpcRequestSchema,
   JsonRpcResponseFailureSchema,
   JsonRpcResponseSuccessSchema,
+  ToolSelectionOverridesSchema,
 } from './shared.js';
 
 // ---------------------------------------------------------------------------
@@ -93,6 +94,7 @@ export const SettingsUpdatedPayloadSchema = z
     reasoningEffort: z.nativeEnum(ReasoningEffort).optional(),
     specModeModelId: z.string().optional(),
     specModeReasoningEffort: z.nativeEnum(ReasoningEffort).optional(),
+    ...ToolSelectionOverridesSchema.shape,
   })
   .passthrough();
 
