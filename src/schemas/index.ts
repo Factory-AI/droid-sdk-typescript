@@ -1,7 +1,3 @@
-/**
- * Schema barrel file — re-exports all public schemas, types, enums, and constants.
- */
-
 // --- Enums ---
 export {
   AutonomyLevel,

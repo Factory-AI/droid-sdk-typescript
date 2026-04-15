@@ -1,9 +1,3 @@
-/**
- * Server→client schemas: notification payloads, permission requests, and ask-user requests.
- *
- * Ported from: packages/common/src/droid/schemas/cli.ts
- */
-
 import { z } from 'zod';
 
 import { TokenUsageSchema } from './client.js';
@@ -26,7 +20,7 @@ import {
   McpStatusSummarySchema,
   ToolConfirmationListItemSchema,
 } from './mcp.js';
-import { FactoryDroidMessageSchema } from './messages.js';
+import { FactoryDroidMessageSchema, ToolUseBlockSchema } from './messages.js';
 import { MissionFeatureSchema, ProgressLogEntrySchema } from './mission.js';
 import {
   JsonRpcNotificationSchema,
@@ -36,20 +30,12 @@ import {
   ToolSelectionOverridesSchema,
 } from './shared.js';
 
-// ---------------------------------------------------------------------------
-// Supporting types for notification payloads
-// ---------------------------------------------------------------------------
 
-/** Tool use block (from ToolUseSchema in sessionV2/messages). */
-export const ToolUseSchema = z
-  .object({
-    type: z.literal('tool_use'),
-    id: z.string(),
-    input: z.record(z.unknown()),
-    name: z.string(),
-    thoughtSignature: z.string().optional(),
-  })
-  .passthrough();
+/**
+ * Tool use block — re-exports ToolUseBlockSchema from messages.ts
+ * since the shape is identical (type, id, input, name, thoughtSignature).
+ */
+export const ToolUseSchema = ToolUseBlockSchema;
 
 export type ToolUse = z.infer<typeof ToolUseSchema>;
 
@@ -102,9 +88,6 @@ export type SettingsUpdatedPayload = z.infer<
   typeof SettingsUpdatedPayloadSchema
 >;
 
-// ---------------------------------------------------------------------------
-// 20 notification payload types
-// ---------------------------------------------------------------------------
 
 /** Tool result notification. */
 export const ToolResultNotificationSchema = z
@@ -369,9 +352,6 @@ export type McpAuthCompletedNotification = z.infer<
   typeof McpAuthCompletedNotificationSchema
 >;
 
-// ---------------------------------------------------------------------------
-// SessionNotification discriminated union
-// ---------------------------------------------------------------------------
 
 /** List of all session notification schemas (for discriminatedUnion). */
 export const SessionNotificationSchemaList = [
@@ -408,12 +388,23 @@ export type SessionNotificationPayload = z.infer<
 >;
 
 /** Parameters for session notification (wraps the discriminated union). */
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-export const SessionNotificationParamsSchema: z.ZodType<any> = z
+const _SessionNotificationParamsSchema = z
   .object({
     notification: SessionNotificationPayloadSchema,
   })
   .passthrough();
+
+/* eslint-disable @typescript-eslint/consistent-type-assertions -- Zod workaround for deep type inference */
+export const SessionNotificationParamsSchema: z.ZodType<
+  SessionNotificationParams,
+  z.ZodTypeDef,
+  unknown
+> = _SessionNotificationParamsSchema as z.ZodType<
+  SessionNotificationParams,
+  z.ZodTypeDef,
+  unknown
+>;
+/* eslint-enable @typescript-eslint/consistent-type-assertions */
 
 export type SessionNotificationParams = {
   notification: SessionNotificationPayload;
@@ -421,21 +412,28 @@ export type SessionNotificationParams = {
 };
 
 /** Full session notification with JSON-RPC envelope. */
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-export const SessionNotificationSchema: z.ZodType<any> =
-  JsonRpcNotificationSchema.extend({
-    method: z.literal(DroidClientMethod.SESSION_NOTIFICATION),
-    params: SessionNotificationParamsSchema,
-  });
+const _SessionNotificationSchema = JsonRpcNotificationSchema.extend({
+  method: z.literal(DroidClientMethod.SESSION_NOTIFICATION),
+  params: SessionNotificationParamsSchema,
+});
+
+/* eslint-disable @typescript-eslint/consistent-type-assertions -- Zod workaround for deep type inference */
+export const SessionNotificationSchema: z.ZodType<
+  SessionNotification,
+  z.ZodTypeDef,
+  unknown
+> = _SessionNotificationSchema as z.ZodType<
+  SessionNotification,
+  z.ZodTypeDef,
+  unknown
+>;
+/* eslint-enable @typescript-eslint/consistent-type-assertions */
 
 export type SessionNotification = z.output<typeof JsonRpcNotificationSchema> & {
   method: 'droid.session_notification';
   params: SessionNotificationParams;
 };
 
-// ---------------------------------------------------------------------------
-// Tool confirmation details
-// ---------------------------------------------------------------------------
 
 export const EditToolConfirmationDetailsSchema = z
   .object({
@@ -603,9 +601,6 @@ export const ToolConfirmationInfoSchema = z
 
 export type ToolConfirmationInfo = z.infer<typeof ToolConfirmationInfoSchema>;
 
-// ---------------------------------------------------------------------------
-// RequestPermissionRequest (server → client)
-// ---------------------------------------------------------------------------
 
 /** Parameters for droid.request_permission request. */
 export const RequestPermissionRequestParamsSchema = z
@@ -652,9 +647,6 @@ export type RequestPermissionResponse = z.infer<
   typeof RequestPermissionResponseSchema
 >;
 
-// ---------------------------------------------------------------------------
-// AskUserRequest (server → client)
-// ---------------------------------------------------------------------------
 
 /** Parameters for droid.ask_user request. */
 export const AskUserRequestParamsSchema = z
@@ -705,17 +697,25 @@ export const AskUserResponseSchema = z.union([
 
 export type AskUserResponse = z.infer<typeof AskUserResponseSchema>;
 
-// ---------------------------------------------------------------------------
-// CliRequestOrNotification discriminated union
-// ---------------------------------------------------------------------------
 
 /** Union over all 3 server → client methods. */
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-export const CliRequestOrNotificationSchema: z.ZodType<any> = z.union([
+const _CliRequestOrNotificationSchema = z.union([
   SessionNotificationSchema,
   RequestPermissionRequestSchema,
   AskUserRequestSchema,
 ]);
+
+/* eslint-disable @typescript-eslint/consistent-type-assertions -- Zod workaround for deep type inference */
+export const CliRequestOrNotificationSchema: z.ZodType<
+  CliRequestOrNotification,
+  z.ZodTypeDef,
+  unknown
+> = _CliRequestOrNotificationSchema as z.ZodType<
+  CliRequestOrNotification,
+  z.ZodTypeDef,
+  unknown
+>;
+/* eslint-enable @typescript-eslint/consistent-type-assertions */
 
 export type CliRequestOrNotification =
   | SessionNotification

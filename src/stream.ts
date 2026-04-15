@@ -1,14 +1,5 @@
-/**
- * Typed stream message interfaces and notification-to-stream converter.
- *
- * Defines 22 DroidMessage types as TypeScript interfaces with a discriminated
- * `type` field, plus a notification converter and working-state tracker for
- * TurnComplete emission.
- *
- * Reference: Python SDK stream.py
- */
-
 import type {
+  ContentBlock,
   McpServerStatusInfo,
   McpStatusSummary,
   MissionFeature,
@@ -28,11 +19,7 @@ import {
 import { SessionNotificationPayloadSchema } from './schemas/server.js';
 import type { SessionNotificationPayload } from './schemas/server.js';
 
-// ---------------------------------------------------------------------------
-// 22 DroidMessage interfaces — discriminated on `type`
-// ---------------------------------------------------------------------------
 
-/** A delta of assistant-generated text (streaming token). */
 export interface AssistantTextDelta {
   readonly type: 'assistant_text_delta';
   readonly messageId: string;
@@ -40,7 +27,6 @@ export interface AssistantTextDelta {
   readonly text: string;
 }
 
-/** A delta of assistant thinking/reasoning text. */
 export interface ThinkingTextDelta {
   readonly type: 'thinking_text_delta';
   readonly messageId: string;
@@ -48,7 +34,6 @@ export interface ThinkingTextDelta {
   readonly text: string;
 }
 
-/** A tool invocation issued by the assistant (from create_message). */
 export interface ToolUse {
   readonly type: 'tool_use';
   readonly toolName: string;
@@ -56,7 +41,6 @@ export interface ToolUse {
   readonly toolUseId: string;
 }
 
-/** The result returned from a tool execution. */
 export interface ToolResult {
   readonly type: 'tool_result';
   readonly toolUseId: string;
@@ -65,7 +49,6 @@ export interface ToolResult {
   readonly isError: boolean;
 }
 
-/** A streaming progress update from a tool execution. */
 export interface ToolProgress {
   readonly type: 'tool_progress';
   readonly toolUseId: string;
@@ -74,13 +57,11 @@ export interface ToolProgress {
   readonly update: ToolProgressUpdate;
 }
 
-/** The droid working state has changed. */
 export interface WorkingStateChanged {
   readonly type: 'working_state_changed';
   readonly state: DroidWorkingState;
 }
 
-/** Updated token usage counters for the session. */
 export interface TokenUsageUpdate {
   readonly type: 'token_usage_update';
   readonly inputTokens: number;
@@ -90,16 +71,14 @@ export interface TokenUsageUpdate {
   readonly thinkingTokens: number;
 }
 
-/** A full assistant message was created (may contain tool_use blocks). */
 export interface CreateMessage {
   readonly type: 'create_message';
   readonly messageId: string;
   readonly role: string;
-  readonly content: unknown[];
+  readonly content: ContentBlock[];
   readonly parentId?: string;
 }
 
-/** A permission request was resolved. */
 export interface PermissionResolved {
   readonly type: 'permission_resolved';
   readonly requestId: string;
@@ -107,63 +86,53 @@ export interface PermissionResolved {
   readonly selectedOption: ToolConfirmationOutcome;
 }
 
-/** Session settings were updated. */
 export interface SettingsUpdated {
   readonly type: 'settings_updated';
   readonly settings: SettingsUpdatedPayload;
 }
 
-/** The session title was updated. */
 export interface SessionTitleUpdated {
   readonly type: 'session_title_updated';
   readonly title: string;
 }
 
-/** MCP server status changed. */
 export interface McpStatusChanged {
   readonly type: 'mcp_status_changed';
   readonly servers: McpServerStatusInfo[];
   readonly summary: McpStatusSummary;
 }
 
-/** Mission state changed. */
 export interface MissionStateChanged {
   readonly type: 'mission_state_changed';
   readonly state: MissionState;
 }
 
-/** Mission features changed. */
 export interface MissionFeaturesChanged {
   readonly type: 'mission_features_changed';
   readonly features: MissionFeature[];
 }
 
-/** Mission progress entry. */
 export interface MissionProgressEntry {
   readonly type: 'mission_progress_entry';
   readonly progressLog: ProgressLogEntry[];
 }
 
-/** Mission heartbeat. */
 export interface MissionHeartbeat {
   readonly type: 'mission_heartbeat';
   readonly timestamp: string;
 }
 
-/** A mission worker started. */
 export interface MissionWorkerStarted {
   readonly type: 'mission_worker_started';
   readonly workerSessionId: string;
 }
 
-/** A mission worker completed. */
 export interface MissionWorkerCompleted {
   readonly type: 'mission_worker_completed';
   readonly workerSessionId: string;
   readonly exitCode: number;
 }
 
-/** MCP authentication is required. */
 export interface McpAuthRequired {
   readonly type: 'mcp_auth_required';
   readonly serverName: string;
@@ -172,7 +141,6 @@ export interface McpAuthRequired {
   readonly state: string;
 }
 
-/** MCP authentication completed. */
 export interface McpAuthCompleted {
   readonly type: 'mcp_auth_completed';
   readonly serverName: string;
@@ -180,7 +148,6 @@ export interface McpAuthCompleted {
   readonly message: string;
 }
 
-/** An error event from the droid process. */
 export interface ErrorEvent {
   readonly type: 'error';
   readonly message: string;
@@ -194,11 +161,7 @@ export interface TurnComplete {
   readonly tokenUsage: TokenUsageUpdate | null;
 }
 
-// ---------------------------------------------------------------------------
-// DroidMessage union
-// ---------------------------------------------------------------------------
 
-/** Discriminated union of all 22 stream message types. */
 export type DroidMessage =
   | AssistantTextDelta
   | ThinkingTextDelta
@@ -223,24 +186,7 @@ export type DroidMessage =
   | ErrorEvent
   | TurnComplete;
 
-// ---------------------------------------------------------------------------
-// Converter: notification → DroidMessage(s)
-// ---------------------------------------------------------------------------
 
-/**
- * Convert a server session notification payload to the corresponding
- * DroidMessage(s).
- *
- * Accepts a raw object and validates it through SessionNotificationPayloadSchema.
- * For `create_message` notifications containing tool_use content blocks,
- * a list of ToolUse messages is returned (one per tool_use block), followed
- * by a single CreateMessage. For all other notification types a single
- * DroidMessage is returned, or `null` if the notification type is unknown
- * or fails validation.
- *
- * @param raw - A raw notification payload from `SessionNotification.params.notification`.
- * @returns A single DroidMessage, an array of DroidMessages, or `null` for unknown/invalid types.
- */
 export function convertNotificationToStreamMessage(
   raw: Record<string, unknown>
 ): DroidMessage | DroidMessage[] | null {
@@ -311,8 +257,7 @@ export function convertNotificationToStreamMessage(
       const msg = notification.message;
       const messages: DroidMessage[] = [];
 
-      // Extract ToolUse messages from tool_use content blocks
-      if (msg.content && Array.isArray(msg.content)) {
+        if (msg.content && Array.isArray(msg.content)) {
         for (const block of msg.content) {
           if (block.type === 'tool_use') {
             messages.push({
@@ -325,8 +270,7 @@ export function convertNotificationToStreamMessage(
         }
       }
 
-      // Always emit CreateMessage
-      messages.push({
+        messages.push({
         type: 'create_message',
         messageId: msg.id,
         role: msg.role,
@@ -431,47 +375,22 @@ export function convertNotificationToStreamMessage(
   }
 }
 
-// ---------------------------------------------------------------------------
-// Working state tracker for TurnComplete emission
-// ---------------------------------------------------------------------------
 
 /**
- * Tracks working state transitions to detect when an agent turn completes
- * (transitions from a non-idle state back to idle).
- *
- * Each `stream()` call should create a fresh StreamStateTracker so that
- * multi-turn sessions track state independently.
- *
- * Rules:
- * - TurnComplete is emitted when state goes non-idle → idle
- * - Initial idle does NOT emit TurnComplete
- * - TurnComplete carries the last-seen TokenUsageUpdate (or null)
+ * Tracks working state to detect turn completion (non-idle → idle transition).
+ * Create a fresh instance per `stream()` call.
  */
 export class StreamStateTracker {
-  /** Whether we have ever seen a non-idle state. */
   private hasBeenNonIdle = false;
 
-  /** Last-seen token usage update (to attach to TurnComplete). */
   private lastTokenUsage: TokenUsageUpdate | null = null;
 
-  /** Maps toolUseId → toolName from tool_use messages. */
   private toolNameMap = new Map<string, string>();
 
-  /**
-   * Look up the tool name for a given toolUseId.
-   * Returns an empty string if the toolUseId is unknown.
-   */
   private getToolName(toolUseId: string): string {
     return this.toolNameMap.get(toolUseId) ?? '';
   }
 
-  /**
-   * Process a DroidMessage: enrich it if needed (e.g. add toolName to
-   * tool_result) and return any additional messages to emit (e.g. TurnComplete).
-   *
-   * @param message - The DroidMessage to process.
-   * @returns The (possibly enriched) message and an array of additional messages.
-   */
   processMessage(message: DroidMessage): {
     message: DroidMessage;
     additional: DroidMessage[];
@@ -495,25 +414,18 @@ export class StreamStateTracker {
       if (message.state !== DroidWorkingState.Idle) {
         this.hasBeenNonIdle = true;
       } else if (this.hasBeenNonIdle) {
-        // Non-idle → Idle transition: emit TurnComplete
         additional.push({
           type: 'turn_complete',
           tokenUsage: this.lastTokenUsage,
         });
-        // Reset so that subsequent idle→idle does NOT emit duplicate TurnComplete
         this.hasBeenNonIdle = false;
       }
-      // If state is Idle but we were never non-idle, do nothing
-      // (initial idle does NOT emit TurnComplete)
     }
 
     return { message, additional };
   }
 }
 
-// ---------------------------------------------------------------------------
-// Helpers
-// ---------------------------------------------------------------------------
 
 function normalizeToolResultContent(content: unknown): string | unknown[] {
   if (content == null) {

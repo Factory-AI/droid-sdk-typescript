@@ -109,7 +109,7 @@ function wireTransport(
 ): void {
   const originalSend = transport.send.bind(transport);
 
-  transport.send = (message: object) => {
+  transport.send = (message: Record<string, unknown>) => {
     originalSend(message);
     const msg = message as Record<string, unknown>;
     const method = msg['method'] as string;

@@ -1,11 +1,3 @@
-/**
- * ProcessTransport — subprocess-based transport for the Factory Droid SDK.
- *
- * Spawns `droid exec --input-format stream-jsonrpc --output-format stream-jsonrpc`
- * as a child process and communicates via newline-delimited JSON (JSONL) over
- * stdin/stdout.
- */
-
 import { type ChildProcess, spawn } from 'node:child_process';
 import * as readline from 'node:readline';
 
@@ -17,11 +9,10 @@ import type {
   ProcessTransportOptions,
 } from './types.js';
 
-function isObject(value: unknown): value is object {
-  return typeof value === 'object' && value !== null;
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
 
-/** Default arguments for `droid exec`. */
 const DEFAULT_EXEC_ARGS = [
   'exec',
   '--input-format',
@@ -30,21 +21,8 @@ const DEFAULT_EXEC_ARGS = [
   'stream-jsonrpc',
 ];
 
-/** Default grace period in milliseconds before escalating SIGTERM → SIGKILL. */
 const DEFAULT_GRACE_PERIOD_MS = 5_000;
 
-/**
- * Transport that communicates via JSONL over stdin/stdout of a spawned
- * `droid exec` child process.
- *
- * Key behaviors:
- * - JSONL framing (one JSON object per newline-terminated line)
- * - Write serialization via a promise chain to prevent interleaving
- * - Process lifecycle management (SIGTERM → grace period → SIGKILL)
- * - Reconnection after close via `connect()`
- * - Non-JSON stdout lines are silently skipped
- * - Fires `onError` with `ProcessExitError` on abnormal exit
- */
 export class ProcessTransport implements DroidClientTransport {
   private readonly execPath: string;
   private readonly execArgs: string[];
@@ -57,13 +35,10 @@ export class ProcessTransport implements DroidClientTransport {
   private messageHandler: MessageCallback | null = null;
   private errorHandler: ErrorCallback | null = null;
 
-  /**
-   * Sticky error from a process error or unexpected exit. Once set,
-   * all subsequent `send()` calls throw immediately.
-   */
+  /** Once set, all subsequent `send()` calls throw immediately. */
   private processError: Error | null = null;
 
-  /** Promise-chain serializer for stdin writes. */
+  /** Serializes stdin writes to prevent interleaving. */
   private writeChain: Promise<void> = Promise.resolve();
 
   private _isConnected = false;
@@ -80,9 +55,6 @@ export class ProcessTransport implements DroidClientTransport {
       (options.gracePeriod ?? DEFAULT_GRACE_PERIOD_MS / 1_000) * 1_000;
   }
 
-  // -----------------------------------------------------------------------
-  // DroidClientTransport interface
-  // -----------------------------------------------------------------------
 
   get isConnected(): boolean {
     return this._isConnected;
@@ -95,7 +67,6 @@ export class ProcessTransport implements DroidClientTransport {
       });
     }
 
-    // Reset state for (re)connection
     this.processError = null;
     this.isClosing = false;
     this.writeChain = Promise.resolve();
@@ -123,7 +94,7 @@ export class ProcessTransport implements DroidClientTransport {
     this.setupHandlers();
   }
 
-  send(message: object): void {
+  send(message: Record<string, unknown>): void {
     if (this.processError) {
       throw this.processError;
     }
@@ -264,13 +235,9 @@ export class ProcessTransport implements DroidClientTransport {
       });
     }
 
-    // Reset closing flag so reconnection via connect() is possible
     this.isClosing = false;
   }
 
-  // -----------------------------------------------------------------------
-  // Private helpers
-  // -----------------------------------------------------------------------
 
   private setupHandlers(): void {
     const proc = this.childProcess;
@@ -293,17 +260,15 @@ export class ProcessTransport implements DroidClientTransport {
       if (trimmed.startsWith('{') || trimmed.startsWith('[')) {
         try {
           const parsed: unknown = JSON.parse(trimmed);
-          if (this.messageHandler && isObject(parsed)) {
+          if (this.messageHandler && isRecord(parsed)) {
             this.messageHandler(parsed);
           }
         } catch {
           // Malformed JSON — skip silently
         }
       }
-      // Non-JSON lines (e.g. debug output from the subprocess) are silently skipped
     });
 
-    // Handle spawn errors (ENOENT etc.)
     proc.on('error', (error) => {
       this.processError = new ConnectionError(
         `Failed to start droid process: ${error.message}`,
@@ -318,7 +283,6 @@ export class ProcessTransport implements DroidClientTransport {
       }
     });
 
-    // Handle process exit
     proc.on('exit', (code, signal) => {
       if (this.readlineInterface) {
         this.readlineInterface.close();

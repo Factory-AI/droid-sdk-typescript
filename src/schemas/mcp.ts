@@ -1,9 +1,3 @@
-/**
- * MCP entity schemas for the Factory Droid protocol.
- *
- * Ported from: packages/common/src/droid/schemas/mcp.ts
- */
-
 import { z } from 'zod';
 
 import {
@@ -13,9 +7,6 @@ import {
   ToolConfirmationOutcome,
 } from './enums.js';
 
-// ---------------------------------------------------------------------------
-// MCP server config field schemas
-// ---------------------------------------------------------------------------
 
 /** Stdio MCP server configuration fields. */
 export const McpStdioServerConfigFieldsSchema = z.object({
@@ -46,9 +37,6 @@ export type McpSseServerConfigFields = z.infer<
   typeof McpSseServerConfigFieldsSchema
 >;
 
-// ---------------------------------------------------------------------------
-// MCP server status and summary
-// ---------------------------------------------------------------------------
 
 /** MCP server status information. */
 export const McpServerStatusInfoSchema = z
@@ -79,9 +67,6 @@ export const McpStatusSummarySchema = z
 
 export type McpStatusSummary = z.infer<typeof McpStatusSummarySchema>;
 
-// ---------------------------------------------------------------------------
-// MCP registry server
-// ---------------------------------------------------------------------------
 
 /** MCP registry server entity. */
 export const McpRegistryServerSchema = z
@@ -102,9 +87,6 @@ export const McpRegistryServerSchema = z
 
 export type McpRegistryServer = z.infer<typeof McpRegistryServerSchema>;
 
-// ---------------------------------------------------------------------------
-// MCP tool info
-// ---------------------------------------------------------------------------
 
 /** JSON Schema subset for MCP tool input parameters. */
 export const McpToolInputSchemaSchema = z
@@ -131,9 +113,6 @@ export const McpToolInfoSchema = z
 
 export type McpToolInfo = z.infer<typeof McpToolInfoSchema>;
 
-// ---------------------------------------------------------------------------
-// Tool confirmation list item
-// ---------------------------------------------------------------------------
 
 /** Selectable list item for tool confirmation prompts. */
 export const ToolConfirmationListItemSchema = z

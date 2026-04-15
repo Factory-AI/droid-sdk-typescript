@@ -30,7 +30,7 @@ import type {
  */
 export class InMemoryTransport implements DroidClientTransport {
   /** All messages passed to `send()`, in order. */
-  readonly sentMessages: object[] = [];
+  readonly sentMessages: Record<string, unknown>[] = [];
 
   private messageHandler: MessageCallback | null = null;
   private errorHandler: ErrorCallback | null = null;
@@ -44,7 +44,7 @@ export class InMemoryTransport implements DroidClientTransport {
     this._isConnected = true;
   }
 
-  send(message: object): void {
+  send(message: Record<string, unknown>): void {
     if (!this._isConnected) {
       throw new Error('InMemoryTransport is not connected');
     }
@@ -71,7 +71,7 @@ export class InMemoryTransport implements DroidClientTransport {
    * Inject a message as if it were received from the droid process.
    * Fires the registered `onMessage` handler.
    */
-  injectMessage(message: object): void {
+  injectMessage(message: Record<string, unknown>): void {
     if (this.messageHandler) {
       this.messageHandler(message);
     }
