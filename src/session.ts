@@ -150,6 +150,7 @@ export class DroidSession {
       }
 
       if (msg.type === 'turn_complete' && msg.tokenUsage) {
+        // Prefer the final synthesized token usage when available.
         lastTokenUsage = msg.tokenUsage;
       }
     }

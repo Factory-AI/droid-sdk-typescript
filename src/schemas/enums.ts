@@ -75,6 +75,10 @@ export enum ToolConfirmationOutcome {
   ProceedAutoRunLow = 'proceed_auto_run_low',
   ProceedAutoRunMedium = 'proceed_auto_run_medium',
   ProceedAutoRunHigh = 'proceed_auto_run_high',
+  ProceedNewSession = 'proceed_new_session',
+  ProceedNewSessionLow = 'proceed_new_session_low',
+  ProceedNewSessionMedium = 'proceed_new_session_medium',
+  ProceedNewSessionHigh = 'proceed_new_session_high',
   ProceedEdit = 'proceed_edit',
   Cancel = 'cancel',
 }

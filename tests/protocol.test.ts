@@ -21,6 +21,7 @@ import {
   FACTORY_PROTOCOL_VERSION,
   JSONRPC_VERSION,
   LEGACY_FACTORY_API_VERSION,
+  ToolConfirmationOutcome,
 } from '../src/schemas/index.js';
 import { InMemoryTransport } from './helpers.js';
 
@@ -442,6 +443,28 @@ describe('ProtocolEngine', () => {
         expect(response['result']).toEqual({
           selectedOption: 'proceed_once',
           comment: 'Looks good, implement it.',
+        });
+      });
+
+      it('supports new-session outcomes in permission handler', async () => {
+        engine.setPermissionHandler(
+          () => 'proceed_new_session_high' as ToolConfirmationOutcome
+        );
+
+        transport.injectMessage(
+          makeServerRequest('perm-6', DroidClientMethod.REQUEST_PERMISSION, {
+            toolUses: [],
+            options: [],
+          })
+        );
+
+        await vi.waitFor(() => {
+          expect(transport.sentMessages).toHaveLength(1);
+        });
+
+        const response = transport.sentMessages[0] as Record<string, unknown>;
+        expect(response['result']).toEqual({
+          selectedOption: 'proceed_new_session_high',
         });
       });
     });
