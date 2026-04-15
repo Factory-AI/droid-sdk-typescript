@@ -201,6 +201,8 @@ export interface SessionInitOptions {
   autonomyLevel?: AutonomyLevel;
   interactionMode?: DroidInteractionMode;
   reasoningEffort?: ReasoningEffort;
+  specModeModelId?: string;
+  specModeReasoningEffort?: ReasoningEffort;
   mcpServers?: McpServerConfig[];
   enabledToolIds?: string[];
   disabledToolIds?: string[];
@@ -222,6 +224,12 @@ export function buildInitParams(
     }),
     ...(options.reasoningEffort !== undefined && {
       reasoningEffort: options.reasoningEffort,
+    }),
+    ...(options.specModeModelId !== undefined && {
+      specModeModelId: options.specModeModelId,
+    }),
+    ...(options.specModeReasoningEffort !== undefined && {
+      specModeReasoningEffort: options.specModeReasoningEffort,
     }),
     ...(options.mcpServers !== undefined && {
       mcpServers: options.mcpServers,

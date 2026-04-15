@@ -23,9 +23,9 @@ import {
 import type {
   AskUserRequestParams,
   AskUserResult,
+  RequestPermissionHandlerResult,
   RequestPermissionRequestParams,
   RequestPermissionResult,
-  RequestPermissionSelection,
 } from './schemas/server.js';
 import { JsonRpcMessageSchema, type JsonRpcError } from './schemas/shared.js';
 import type { DroidClientTransport } from './types.js';
@@ -33,7 +33,7 @@ import type { DroidClientTransport } from './types.js';
 
 export type PermissionHandler = (
   params: RequestPermissionRequestParams
-) => RequestPermissionSelection | Promise<RequestPermissionSelection>;
+) => RequestPermissionHandlerResult | Promise<RequestPermissionHandlerResult>;
 
 export type AskUserHandler = (
   params: AskUserRequestParams
@@ -332,10 +332,14 @@ export class ProtocolEngine {
 
     try {
       const parsedParams = RequestPermissionRequestParamsSchema.parse(params);
-      const selectedOption = await Promise.resolve(handler(parsedParams));
+      const selection = await Promise.resolve(handler(parsedParams));
+      const result =
+        typeof selection === 'string'
+          ? { selectedOption: selection }
+          : selection;
       this._sendResponse(
         requestId,
-        RequestPermissionResultSchema.parse({ selectedOption })
+        RequestPermissionResultSchema.parse(result)
       );
     } catch (exc) {
       const errorMessage = exc instanceof Error ? exc.message : String(exc);

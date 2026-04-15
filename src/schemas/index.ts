@@ -520,6 +520,7 @@ export type {
   RequestPermissionRequest,
   RequestPermissionRequestParams,
   RequestPermissionResponse,
+  RequestPermissionHandlerResult,
   RequestPermissionResult,
   RequestPermissionSelection,
   SessionNotification,

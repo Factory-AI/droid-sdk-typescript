@@ -794,6 +794,9 @@ describe('convertNotificationToStreamMessage', () => {
         {
           settings: {
             modelId: 'claude-opus-4',
+            interactionMode: 'spec',
+            specModeModelId: 'claude-spec',
+            specModeReasoningEffort: 'high',
             enabledToolIds: ['Read'],
             disabledToolIds: ['Execute'],
           },
@@ -805,6 +808,9 @@ describe('convertNotificationToStreamMessage', () => {
       expect(result.type).toBe('settings_updated');
       expect(result.settings).toEqual({
         modelId: 'claude-opus-4',
+        interactionMode: 'spec',
+        specModeModelId: 'claude-spec',
+        specModeReasoningEffort: 'high',
         enabledToolIds: ['Read'],
         disabledToolIds: ['Execute'],
       });

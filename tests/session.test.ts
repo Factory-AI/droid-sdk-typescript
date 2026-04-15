@@ -766,6 +766,38 @@ describe('DroidSession', () => {
 
       await session.close();
     });
+
+    it('enterSpecMode() delegates spec settings to client', async () => {
+      const transport = new InMemoryTransport();
+      await transport.connect();
+
+      setupFullResponder(transport, 'sess-settings-spec-001');
+
+      const session = await createSession({ transport });
+
+      const result = await session.enterSpecMode({
+        specModeModelId: 'claude-spec',
+        specModeReasoningEffort: ReasoningEffort.High,
+      });
+
+      expect(result).toBeDefined();
+
+      const settingsMsg = transport.sentMessages.find(
+        (m) =>
+          (m as Record<string, unknown>)['method'] ===
+          DroidServerMethod.UPDATE_SESSION_SETTINGS
+      );
+      expect(settingsMsg).toBeDefined();
+
+      const params = (settingsMsg as Record<string, unknown>)[
+        'params'
+      ] as Record<string, unknown>;
+      expect(params['interactionMode']).toBe(DroidInteractionMode.Spec);
+      expect(params['specModeModelId']).toBe('claude-spec');
+      expect(params['specModeReasoningEffort']).toBe(ReasoningEffort.High);
+
+      await session.close();
+    });
   });
 
   describe('DroidResult structure (VAL-API-013)', () => {
@@ -1660,7 +1692,9 @@ describe('DroidSession', () => {
         modelId: 'claude-test-model',
         reasoningEffort: ReasoningEffort.High,
         autonomyLevel: AutonomyLevel.High,
-        interactionMode: DroidInteractionMode.Auto,
+        interactionMode: DroidInteractionMode.Spec,
+        specModeModelId: 'claude-spec-model',
+        specModeReasoningEffort: ReasoningEffort.Max,
         mcpServers: [
           {
             name: 'test-mcp',
@@ -1686,7 +1720,9 @@ describe('DroidSession', () => {
       expect(params['modelId']).toBe('claude-test-model');
       expect(params['reasoningEffort']).toBe(ReasoningEffort.High);
       expect(params['autonomyLevel']).toBe(AutonomyLevel.High);
-      expect(params['interactionMode']).toBe(DroidInteractionMode.Auto);
+      expect(params['interactionMode']).toBe(DroidInteractionMode.Spec);
+      expect(params['specModeModelId']).toBe('claude-spec-model');
+      expect(params['specModeReasoningEffort']).toBe(ReasoningEffort.Max);
       expect(params['mcpServers']).toEqual([
         {
           name: 'test-mcp',

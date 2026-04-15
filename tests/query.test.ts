@@ -10,11 +10,13 @@ import { describe, expect, it } from 'vitest';
 import { query } from '../src/query.js';
 import {
   DroidClientMethod,
+  DroidInteractionMode,
   DroidServerMethod,
   DroidWorkingState,
   FACTORY_PROTOCOL_VERSION,
   JSONRPC_VERSION,
   LEGACY_FACTORY_API_VERSION,
+  ReasoningEffort,
   SessionNotificationType,
 } from '../src/schemas/index.js';
 import type { DroidMessage } from '../src/stream.js';
@@ -203,6 +205,9 @@ describe('query()', () => {
         cwd: '/my/project',
         machineId: 'my-machine',
         modelId: 'claude-test',
+        interactionMode: DroidInteractionMode.Spec,
+        specModeModelId: 'claude-spec',
+        specModeReasoningEffort: ReasoningEffort.High,
         enabledToolIds: ['Read'],
         disabledToolIds: ['Execute'],
         transport,
@@ -223,6 +228,9 @@ describe('query()', () => {
       expect(params['cwd']).toBe('/my/project');
       expect(params['machineId']).toBe('my-machine');
       expect(params['modelId']).toBe('claude-test');
+      expect(params['interactionMode']).toBe(DroidInteractionMode.Spec);
+      expect(params['specModeModelId']).toBe('claude-spec');
+      expect(params['specModeReasoningEffort']).toBe(ReasoningEffort.High);
       expect(params['enabledToolIds']).toEqual(['Read']);
       expect(params['disabledToolIds']).toEqual(['Execute']);
     });

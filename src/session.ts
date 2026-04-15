@@ -43,6 +43,7 @@ import type {
   UpdateSessionSettingsRequestParams,
   UpdateSessionSettingsResult,
 } from './schemas/client.js';
+import { DroidInteractionMode } from './schemas/enums.js';
 import type { Base64ImageSource, DocumentSource } from './schemas/messages.js';
 import type { DroidMessage, TokenUsageUpdate } from './stream.js';
 
@@ -178,6 +179,19 @@ export class DroidSession {
   ): Promise<UpdateSessionSettingsResult> {
     this._ensureNotClosed();
     return this._client.updateSessionSettings(params);
+  }
+
+  async enterSpecMode(
+    params: Pick<
+      UpdateSessionSettingsRequestParams,
+      'specModeModelId' | 'specModeReasoningEffort'
+    > = {}
+  ): Promise<UpdateSessionSettingsResult> {
+    this._ensureNotClosed();
+    return this._client.updateSessionSettings({
+      interactionMode: DroidInteractionMode.Spec,
+      ...params,
+    });
   }
 
   async addMcpServer(
