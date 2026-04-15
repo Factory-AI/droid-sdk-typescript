@@ -92,8 +92,8 @@ import { SessionNotificationParamsSchema } from './schemas/server.js';
 import type {
   AskUserRequestParams,
   AskUserResult,
+  RequestPermissionHandlerResult,
   RequestPermissionRequestParams,
-  RequestPermissionSelection,
 } from './schemas/server.js';
 import type { DroidClientTransport } from './types.js';
 
@@ -510,7 +510,7 @@ export class DroidClient {
 
   private _dispatchPermissionRequest(
     params: RequestPermissionRequestParams
-  ): RequestPermissionSelection | Promise<RequestPermissionSelection> {
+  ): RequestPermissionHandlerResult | Promise<RequestPermissionHandlerResult> {
     const handler = this._permissionHandler;
     if (handler == null) {
       return 'cancel';

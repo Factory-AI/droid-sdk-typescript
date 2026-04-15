@@ -770,6 +770,28 @@ describe('client request params schemas', () => {
     expect(result.reasoningEffort).toBe('high');
   });
 
+  it('spec-mode request params parse valid input', () => {
+    const initResult = InitializeSessionRequestParamsSchema.parse({
+      machineId: 'm1',
+      cwd: '/tmp',
+      interactionMode: DroidInteractionMode.Spec,
+      specModeModelId: 'claude-spec',
+      specModeReasoningEffort: ReasoningEffort.High,
+    });
+    expect(initResult.interactionMode).toBe(DroidInteractionMode.Spec);
+    expect(initResult.specModeModelId).toBe('claude-spec');
+    expect(initResult.specModeReasoningEffort).toBe(ReasoningEffort.High);
+
+    const updateResult = UpdateSessionSettingsRequestParamsSchema.parse({
+      interactionMode: DroidInteractionMode.Spec,
+      specModeModelId: 'claude-spec',
+      specModeReasoningEffort: ReasoningEffort.Max,
+    });
+    expect(updateResult.interactionMode).toBe(DroidInteractionMode.Spec);
+    expect(updateResult.specModeModelId).toBe('claude-spec');
+    expect(updateResult.specModeReasoningEffort).toBe(ReasoningEffort.Max);
+  });
+
   it('ToggleMcpServerRequestParams parses valid input', () => {
     const params = { serverName: 'srv', enabled: true, settingsLevel: 'user' };
     expect(ToggleMcpServerRequestParamsSchema.parse(params).enabled).toBe(true);
@@ -1242,10 +1264,13 @@ describe('server→client request schemas', () => {
   });
 
   it('RequestPermissionResultSchema parses valid result', () => {
-    const result = { selectedOption: 'proceed_once' };
-    expect(RequestPermissionResultSchema.parse(result).selectedOption).toBe(
-      'proceed_once'
-    );
+    const result = {
+      selectedOption: 'proceed_once',
+      comment: 'Looks good, continue.',
+    };
+    const parsed = RequestPermissionResultSchema.parse(result);
+    expect(parsed.selectedOption).toBe('proceed_once');
+    expect(parsed.comment).toBe('Looks good, continue.');
   });
 
   it('RequestPermissionResultSchema rejects invalid outcome', () => {

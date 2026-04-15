@@ -420,6 +420,30 @@ describe('ProtocolEngine', () => {
           selectedOption: 'proceed_always',
         });
       });
+
+      it('supports permission handler results with comments', async () => {
+        engine.setPermissionHandler(() => ({
+          selectedOption: 'proceed_once',
+          comment: 'Looks good, implement it.',
+        }));
+
+        transport.injectMessage(
+          makeServerRequest('perm-5', DroidClientMethod.REQUEST_PERMISSION, {
+            toolUses: [],
+            options: [],
+          })
+        );
+
+        await vi.waitFor(() => {
+          expect(transport.sentMessages).toHaveLength(1);
+        });
+
+        const response = transport.sentMessages[0] as Record<string, unknown>;
+        expect(response['result']).toEqual({
+          selectedOption: 'proceed_once',
+          comment: 'Looks good, implement it.',
+        });
+      });
     });
 
     describe('ask-user requests', () => {

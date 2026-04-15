@@ -630,10 +630,18 @@ export type RequestPermissionSelection =
   | ToolConfirmationOutcome
   | `${ToolConfirmationOutcome}`;
 
+export type RequestPermissionHandlerResult =
+  | RequestPermissionSelection
+  | {
+      selectedOption: RequestPermissionSelection;
+      comment?: string;
+    };
+
 /** Result for droid.request_permission response. */
 export const RequestPermissionResultSchema = z
   .object({
     selectedOption: z.nativeEnum(ToolConfirmationOutcome),
+    comment: z.string().optional(),
   })
   .strict();
 
