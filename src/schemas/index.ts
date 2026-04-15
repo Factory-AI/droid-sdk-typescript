@@ -1,4 +1,3 @@
-// --- Enums ---
 export {
   AutonomyLevel,
   AutonomyMode,
@@ -29,7 +28,6 @@ export {
   ToolConfirmationType,
 } from './enums.js';
 
-// --- Constants ---
 export {
   COMPACTION_TIMEOUT,
   DEFAULT_REQUEST_TIMEOUT,
@@ -43,20 +41,22 @@ export {
   SESSION_INIT_TIMEOUT,
 } from './constants.js';
 
-// --- Shared (JSON-RPC base) ---
 export {
   BaseNotificationSchema,
   BaseRequestSchema,
   BaseResponseFailureSchema,
   BaseResponseSuccessSchema,
+  JsonArraySchema,
   JsonRpcEnvelopeSchema,
   JsonRpcErrorSchema,
+  JsonObjectSchema,
   JsonRpcMessageSchema,
   JsonRpcNotificationSchema,
   JsonRpcRequestSchema,
   JsonRpcResponseFailureSchema,
   JsonRpcResponseSchema,
   JsonRpcResponseSuccessSchema,
+  JsonValueSchema,
   TraceContextMetaSchema,
 } from './shared.js';
 
@@ -65,6 +65,9 @@ export type {
   BaseRequest,
   BaseResponseFailure,
   BaseResponseSuccess,
+  JsonArray,
+  JsonObject,
+  JsonPrimitive,
   JsonRpcEnvelope,
   JsonRpcError,
   JsonRpcMessage,
@@ -73,10 +76,10 @@ export type {
   JsonRpcResponse,
   JsonRpcResponseFailure,
   JsonRpcResponseSuccess,
+  JsonValue,
   TraceContextMeta,
 } from './shared.js';
 
-// --- Messages (content blocks) ---
 export {
   Base64ImageSourceSchema,
   ContentBlockSchema,
@@ -105,7 +108,6 @@ export type {
   ToolUseBlock,
 } from './messages.js';
 
-// --- MCP ---
 export {
   McpHttpServerConfigFieldsSchema,
   McpRegistryServerSchema,
@@ -130,7 +132,6 @@ export type {
   ToolConfirmationListItem,
 } from './mcp.js';
 
-// --- Mission ---
 export {
   DiscoveredIssueSchema,
   DismissalRecordSchema,
@@ -186,7 +187,6 @@ export type {
   WorkerStartedEntry,
 } from './mission.js';
 
-// --- Client (request/response) ---
 export {
   AddMcpServerRequestParamsSchema,
   AddMcpServerRequestSchema,
@@ -433,7 +433,6 @@ export type {
   WorkerStateInfo,
 } from './client.js';
 
-// --- Server (notifications, permission, ask-user) ---
 export {
   AskUserCollectedAnswerSchema,
   AskUserConfirmationDetailsSchema,
@@ -522,6 +521,7 @@ export type {
   RequestPermissionRequestParams,
   RequestPermissionResponse,
   RequestPermissionResult,
+  RequestPermissionSelection,
   SessionNotification,
   SessionNotificationParams,
   SessionNotificationPayload,

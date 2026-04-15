@@ -74,7 +74,6 @@ async function sendAndWait(
 }
 
 async function main(): Promise<void> {
-  // --- Setup: transport + client + session ---
   console.log('=== Creating session ===');
   const transport = new ProcessTransport({ cwd: process.cwd() });
   await transport.connect();
@@ -87,16 +86,13 @@ async function main(): Promise<void> {
   });
   console.log(`Session ID: ${initResult.sessionId}\n`);
 
-  // Auto-approve all tool executions
   client.setPermissionHandler(() => 'proceed_once');
 
-  // --- Turn 1: simple text ---
   const userMsgId1 = uuid();
   console.log(`=== Turn 1: "hello" (msgId: ${userMsgId1.slice(0, 12)}...) ===`);
   await sendAndWait(client, 'Say "hello" and nothing else.', userMsgId1);
   console.log('\n');
 
-  // --- Turn 2: create a file (triggers snapshot capture) ---
   const userMsgId2 = uuid();
   console.log(
     `=== Turn 2: create file (msgId: ${userMsgId2.slice(0, 12)}...) ===`
@@ -109,7 +105,6 @@ async function main(): Promise<void> {
   );
   console.log('\n');
 
-  // --- getRewindInfo ---
   console.log(`=== getRewindInfo (msgId: ${userMsgId2.slice(0, 12)}...) ===`);
   try {
     const rewindInfo = await client.getRewindInfo({ messageId: userMsgId2 });
@@ -131,7 +126,6 @@ async function main(): Promise<void> {
   }
   console.log();
 
-  // --- executeRewind ---
   console.log(
     `=== executeRewind (to msgId: ${userMsgId1.slice(0, 12)}...) ===`
   );
@@ -154,7 +148,6 @@ async function main(): Promise<void> {
   }
   console.log();
 
-  // --- Cleanup ---
   console.log('=== Closing ===');
   await client.close();
   console.log('Done.');

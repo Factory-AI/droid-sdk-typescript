@@ -55,7 +55,6 @@ export class ProcessTransport implements DroidClientTransport {
       (options.gracePeriod ?? DEFAULT_GRACE_PERIOD_MS / 1_000) * 1_000;
   }
 
-
   get isConnected(): boolean {
     return this._isConnected;
   }
@@ -238,7 +237,6 @@ export class ProcessTransport implements DroidClientTransport {
     this.isClosing = false;
   }
 
-
   private setupHandlers(): void {
     const proc = this.childProcess;
     if (!proc || !proc.stdout) {
@@ -256,8 +254,8 @@ export class ProcessTransport implements DroidClientTransport {
         return;
       }
 
-      // Only attempt to parse lines that look like JSON objects / arrays
-      if (trimmed.startsWith('{') || trimmed.startsWith('[')) {
+      // Protocol messages are JSON objects, not JSON-RPC batch arrays.
+      if (trimmed.startsWith('{')) {
         try {
           const parsed: unknown = JSON.parse(trimmed);
           if (this.messageHandler && isRecord(parsed)) {

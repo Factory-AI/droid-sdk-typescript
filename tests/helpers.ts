@@ -63,10 +63,6 @@ export class InMemoryTransport implements DroidClientTransport {
     this._isConnected = false;
   }
 
-  // -----------------------------------------------------------------------
-  // Test control methods
-  // -----------------------------------------------------------------------
-
   /**
    * Inject a message as if it were received from the droid process.
    * Fires the registered `onMessage` handler.

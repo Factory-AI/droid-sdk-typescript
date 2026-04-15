@@ -6,6 +6,7 @@ import {
   SettingsLevel,
   ToolConfirmationOutcome,
 } from './enums.js';
+import { JsonObjectSchema } from './shared.js';
 
 
 /** Stdio MCP server configuration fields. */
@@ -92,7 +93,7 @@ export type McpRegistryServer = z.infer<typeof McpRegistryServerSchema>;
 export const McpToolInputSchemaSchema = z
   .object({
     type: z.string().optional(),
-    properties: z.record(z.unknown()).optional(),
+    properties: JsonObjectSchema.optional(),
     required: z.array(z.string()).optional(),
   })
   .passthrough();

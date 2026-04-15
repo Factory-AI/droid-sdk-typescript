@@ -23,10 +23,12 @@ import {
 import { FactoryDroidMessageSchema, ToolUseBlockSchema } from './messages.js';
 import { MissionFeatureSchema, ProgressLogEntrySchema } from './mission.js';
 import {
+  JsonObjectSchema,
   JsonRpcNotificationSchema,
   JsonRpcRequestSchema,
   JsonRpcResponseFailureSchema,
   JsonRpcResponseSuccessSchema,
+  JsonValueSchema,
   ToolSelectionOverridesSchema,
 } from './shared.js';
 
@@ -59,7 +61,7 @@ export const ToolProgressUpdateSchema = z
     text: z.string().optional(),
     error: z.string().optional(),
     timestamp: z.number().optional(),
-    parameters: z.record(z.unknown()).optional(),
+    parameters: JsonObjectSchema.optional(),
     valueSnippet: z.string().optional(),
     subagentSessionId: z.string().optional(),
   })
@@ -95,7 +97,7 @@ export const ToolResultNotificationSchema = z
     type: z.literal(SessionNotificationType.TOOL_RESULT),
     messageId: z.string(),
     toolUseId: z.string(),
-    content: z.unknown().optional(),
+    content: JsonValueSchema.optional(),
     isError: z.boolean().optional(),
     id: z.string().optional(),
   })
@@ -623,6 +625,10 @@ export const RequestPermissionRequestSchema = JsonRpcRequestSchema.extend({
 export type RequestPermissionRequest = z.infer<
   typeof RequestPermissionRequestSchema
 >;
+
+export type RequestPermissionSelection =
+  | ToolConfirmationOutcome
+  | `${ToolConfirmationOutcome}`;
 
 /** Result for droid.request_permission response. */
 export const RequestPermissionResultSchema = z

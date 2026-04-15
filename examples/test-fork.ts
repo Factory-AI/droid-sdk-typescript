@@ -15,7 +15,6 @@ async function main(): Promise<void> {
   const session = await createSession({ cwd: process.cwd() });
   console.log(`Session created: ${session.sessionId}\n`);
 
-  // Send a message to populate the session
   console.log('=== Sending message ===');
   console.log('Prompt: "Say hello and nothing else"\n');
 
@@ -28,7 +27,6 @@ async function main(): Promise<void> {
     }
   }
 
-  // Fork the session
   console.log('=== Forking session ===');
   const forkResult = await session.forkSession();
   console.log(`Original session: ${session.sessionId}`);

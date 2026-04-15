@@ -1,50 +1,17 @@
 import { DroidClient } from './client.js';
-import type {
-  ClientPermissionHandler,
-  ClientAskUserHandler,
-} from './client.js';
 import {
   MessageBridge,
   buildInitParams,
-  createTransport,
-  setupClientHandlers,
+  closeQuietly,
+  createConfiguredClient,
   wireAbortSignal,
 } from './helpers.js';
-import type { McpServerConfig, SessionTag } from './schemas/client.js';
-import type {
-  AutonomyLevel,
-  DroidInteractionMode,
-  ReasoningEffort,
-} from './schemas/enums.js';
+import type { CreateSessionOptions } from './session.js';
 import type { DroidMessage } from './stream.js';
 import type { DroidClientTransport } from './types.js';
 
-export interface QueryOptions {
+export interface QueryOptions extends CreateSessionOptions {
   prompt: string;
-  cwd?: string;
-  machineId?: string;
-  modelId?: string;
-  autonomyLevel?: AutonomyLevel;
-  interactionMode?: DroidInteractionMode;
-  reasoningEffort?: ReasoningEffort;
-  mcpServers?: McpServerConfig[];
-  enabledToolIds?: string[];
-  disabledToolIds?: string[];
-  /** The SDK tag is always appended automatically. */
-  tags?: SessionTag[];
-  execPath?: string;
-  execArgs?: string[];
-  env?: Record<string, string>;
-  permissionHandler?: ClientPermissionHandler;
-  askUserHandler?: ClientAskUserHandler;
-
-  /**
-   * When provided, `execPath`, `execArgs`, `env`, and `cwd` (for transport) are ignored.
-   * The transport will still be closed when the query completes.
-   */
-  transport?: DroidClientTransport;
-
-  abortSignal?: AbortSignal;
 }
 
 export interface DroidQuery extends AsyncGenerator<
@@ -126,9 +93,9 @@ export function query(options: QueryOptions): DroidQuery {
   > {
     if (aborted) return;
 
-    transport = await createTransport(options);
-    client = new DroidClient({ transport });
-    setupClientHandlers(client, options);
+    const configuredClient = await createConfiguredClient(options);
+    transport = configuredClient.transport;
+    client = configuredClient.client;
     client.onNotification(bridge.notificationHandler);
 
     const initParams = buildInitParams(options);
@@ -152,21 +119,10 @@ export function query(options: QueryOptions): DroidQuery {
     try {
       yield* generator;
     } finally {
-      if (client) {
-        try {
-          await client.close();
-        } catch {
-          // Best-effort cleanup
-        }
-        client = null;
-      } else if (transport) {
-        try {
-          await transport.close();
-        } catch {
-          // Best-effort cleanup
-        }
-      }
+      const closer = client ?? transport;
+      client = null;
       transport = null;
+      await closeQuietly(closer);
     }
   }
 
@@ -181,13 +137,10 @@ export function query(options: QueryOptions): DroidQuery {
     () => {
       aborted = true;
       bridge.signalDone();
-      if (client) {
-        void client.close().catch(() => {});
-        client = null;
-      } else if (transport) {
-        void transport.close().catch(() => {});
-      }
+      const closer = client ?? transport;
+      client = null;
       transport = null;
+      void closeQuietly(closer);
     }
   );
 

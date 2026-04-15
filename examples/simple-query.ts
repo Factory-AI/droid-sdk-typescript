@@ -23,7 +23,6 @@ async function main(): Promise<void> {
   for await (const msg of stream) {
     switch (msg.type) {
       case 'assistant_text_delta':
-        // Stream text to stdout as it arrives
         process.stdout.write(msg.text);
         break;
 

@@ -13,10 +13,6 @@ import {
   ProcessExitError,
 } from '../src/errors.js';
 
-// ---------------------------------------------------------------------------
-// VAL-ERROR-001: Error classes have correct inheritance and names
-// ---------------------------------------------------------------------------
-
 describe('Error hierarchy — inheritance and names', () => {
   describe('ConnectionError', () => {
     it('extends Error', () => {
@@ -178,10 +174,6 @@ describe('Error hierarchy — inheritance and names', () => {
   });
 });
 
-// ---------------------------------------------------------------------------
-// VAL-ERROR-002: Error classes carry expected metadata
-// ---------------------------------------------------------------------------
-
 describe('Error metadata fields', () => {
   describe('ConnectionError metadata', () => {
     it('has cwd and execPath with provided values', () => {
@@ -337,10 +329,6 @@ describe('Error metadata fields', () => {
   });
 });
 
-// ---------------------------------------------------------------------------
-// Timeout constants
-// ---------------------------------------------------------------------------
-
 describe('Timeout constants', () => {
   it('DEFAULT_REQUEST_TIMEOUT is 30000', () => {
     expect(DEFAULT_REQUEST_TIMEOUT).toBe(30_000);
@@ -365,10 +353,6 @@ describe('Timeout constants', () => {
     expect(SESSION_INIT_TIMEOUT).toBeLessThan(MCP_AUTH_TIMEOUT);
   });
 });
-
-// ---------------------------------------------------------------------------
-// Stack trace and error behavior
-// ---------------------------------------------------------------------------
 
 describe('Error behavior', () => {
   it('errors produce stack traces', () => {
@@ -398,7 +382,6 @@ describe('Error behavior', () => {
       cwd: '/home',
       execPath: '/bin/droid',
     });
-    // TypeScript enforces readonly, but we can verify the value stays
     expect(err.cwd).toBe('/home');
     expect(err.execPath).toBe('/bin/droid');
   });

@@ -1,7 +1,6 @@
 import { describe, it, expect } from 'vitest';
 
 import {
-  // Enums
   AutonomyLevel,
   AutonomyMode,
   DecompSessionType,
@@ -29,7 +28,6 @@ import {
   SkillLocation,
   ToolConfirmationOutcome,
   ToolConfirmationType,
-  // Constants
   JSONRPC_VERSION,
   LEGACY_FACTORY_API_VERSION,
   FACTORY_PROTOCOL_VERSION,
@@ -38,7 +36,6 @@ import {
   DEFAULT_REQUEST_TIMEOUT,
   SESSION_INIT_TIMEOUT,
   MCP_AUTH_TIMEOUT,
-  // Shared schemas
   JsonRpcEnvelopeSchema,
   JsonRpcRequestSchema,
   JsonRpcResponseSuccessSchema,
@@ -46,7 +43,6 @@ import {
   JsonRpcNotificationSchema,
   JsonRpcErrorSchema,
   TraceContextMetaSchema,
-  // Messages schemas
   TextBlockSchema,
   ImageBlockSchema,
   ThinkingBlockSchema,
@@ -55,19 +51,16 @@ import {
   ContentBlockSchema,
   FactoryDroidMessageSchema,
   DocumentSourceSchema,
-  // MCP schemas
   McpServerStatusInfoSchema,
   McpStatusSummarySchema,
   McpRegistryServerSchema,
   McpToolInfoSchema,
   McpToolInputSchemaSchema,
   ToolConfirmationListItemSchema,
-  // Mission schemas
   MissionFeatureSchema,
   ProgressLogEntrySchema,
   DiscoveredIssueSchema,
   HandoffSchema,
-  // Client schemas
   InitializeSessionRequestParamsSchema,
   LoadSessionRequestParamsSchema,
   AddUserMessageRequestParamsSchema,
@@ -83,6 +76,7 @@ import {
   RemoveMcpServerRequestParamsSchema,
   ListMcpRegistryRequestParamsSchema,
   ListMcpToolsRequestParamsSchema,
+  ListToolsRequestParamsSchema,
   ListMcpServersRequestParamsSchema,
   ToggleMcpToolRequestParamsSchema,
   ListSkillsRequestParamsSchema,
@@ -92,7 +86,6 @@ import {
   TokenUsageSchema,
   SessionSettingsSchema,
   ClientRequestSchema,
-  // Server schemas
   AssistantTextDeltaNotificationSchema,
   ThinkingTextDeltaNotificationSchema,
   ToolResultNotificationSchema,
@@ -118,7 +111,6 @@ import {
   RequestPermissionResultSchema,
   AskUserRequestParamsSchema,
   AskUserResultSchema,
-  // Rewind / Compact / Fork schemas
   COMPACTION_TIMEOUT,
   REWIND_TIMEOUT,
   RewindFileSnapshotSchema,
@@ -135,10 +127,6 @@ import {
   RenameSessionRequestParamsSchema,
   RenameSessionResultSchema,
 } from '../src/schemas/index.js';
-
-// ============================================================
-// Enums
-// ============================================================
 
 describe('enums', () => {
   it('DroidServerMethod has all 25 methods', () => {
@@ -327,10 +315,6 @@ describe('enums', () => {
   });
 });
 
-// ============================================================
-// Constants
-// ============================================================
-
 describe('constants', () => {
   it('JSONRPC_VERSION is 2.0', () => {
     expect(JSONRPC_VERSION).toBe('2.0');
@@ -358,10 +342,6 @@ describe('constants', () => {
     expect(MCP_AUTH_TIMEOUT).toBe(300_000);
   });
 });
-
-// ============================================================
-// Shared (JSON-RPC envelope)
-// ============================================================
 
 const envelope = {
   jsonrpc: '2.0' as const,
@@ -458,10 +438,6 @@ describe('shared JSON-RPC schemas', () => {
   });
 });
 
-// ============================================================
-// Messages (content blocks)
-// ============================================================
-
 describe('message content block schemas', () => {
   it('TextBlockSchema parses valid text block', () => {
     const block = { type: 'text', text: 'Hello world' };
@@ -553,10 +529,6 @@ describe('message content block schemas', () => {
   });
 });
 
-// ============================================================
-// MCP schemas
-// ============================================================
-
 describe('MCP schemas', () => {
   it('McpServerStatusInfoSchema parses valid status', () => {
     const info = {
@@ -642,10 +614,6 @@ describe('MCP schemas', () => {
   });
 });
 
-// ============================================================
-// Mission schemas
-// ============================================================
-
 describe('mission schemas', () => {
   it('MissionFeatureSchema parses valid feature', () => {
     const feature = {
@@ -727,10 +695,6 @@ describe('mission schemas', () => {
   });
 });
 
-// ============================================================
-// Client request params schemas (all 19)
-// ============================================================
-
 describe('client request params schemas', () => {
   it('InitializeSessionRequestParams parses valid input', () => {
     const params = { machineId: 'm1', cwd: '/home/user' };
@@ -742,6 +706,28 @@ describe('client request params schemas', () => {
   it('InitializeSessionRequestParams rejects missing required fields', () => {
     expect(() =>
       InitializeSessionRequestParamsSchema.parse({ machineId: 'm1' })
+    ).toThrow();
+  });
+
+  it('request schemas reject invalid interaction settings', () => {
+    expect(() =>
+      InitializeSessionRequestParamsSchema.parse({
+        machineId: 'm1',
+        cwd: '/tmp',
+        interactionMode: 'invalid-mode',
+      })
+    ).toThrow();
+
+    expect(() =>
+      UpdateSessionSettingsRequestParamsSchema.parse({
+        autonomyLevel: 'invalid-level',
+      })
+    ).toThrow();
+
+    expect(() =>
+      ListToolsRequestParamsSchema.parse({
+        interactionMode: 'invalid-mode',
+      })
     ).toThrow();
   });
 
@@ -882,10 +868,6 @@ describe('client request params schemas', () => {
   });
 });
 
-// ============================================================
-// Client result schemas
-// ============================================================
-
 describe('client result schemas', () => {
   it('InitializeSessionResultSchema parses valid result', () => {
     const result = {
@@ -932,6 +914,18 @@ describe('client result schemas', () => {
     expect(result.disabledToolIds).toEqual(['Execute']);
   });
 
+  it('SessionSettingsSchema tolerates unknown interaction settings from the server', () => {
+    const result = SessionSettingsSchema.parse({
+      modelId: 'claude-3',
+      reasoningEffort: 'high',
+      interactionMode: 'future-mode',
+      autonomyLevel: 'future-level',
+    });
+
+    expect(result.interactionMode).toBeUndefined();
+    expect(result.autonomyLevel).toBeUndefined();
+  });
+
   it('result schemas accept extra fields (passthrough)', () => {
     const result = {
       sessionId: 's-1',
@@ -942,10 +936,6 @@ describe('client result schemas', () => {
     expect(() => InitializeSessionResultSchema.parse(result)).not.toThrow();
   });
 });
-
-// ============================================================
-// ClientRequestSchema discriminated union
-// ============================================================
 
 describe('ClientRequestSchema discriminated union', () => {
   it('parses an initialize_session request', () => {
@@ -983,10 +973,6 @@ describe('ClientRequestSchema discriminated union', () => {
     expect(() => ClientRequestSchema.parse(req)).toThrow();
   });
 });
-
-// ============================================================
-// Server notification schemas (all 20)
-// ============================================================
 
 describe('server notification schemas', () => {
   it('AssistantTextDeltaNotificationSchema parses valid notification', () => {
@@ -1219,10 +1205,6 @@ describe('server notification schemas', () => {
   });
 });
 
-// ============================================================
-// SessionNotificationPayloadSchema (discriminated union)
-// ============================================================
-
 describe('SessionNotificationPayloadSchema', () => {
   it('discriminates by type field', () => {
     const delta = {
@@ -1241,10 +1223,6 @@ describe('SessionNotificationPayloadSchema', () => {
     ).toThrow();
   });
 });
-
-// ============================================================
-// Server→client request schemas (permission, ask-user)
-// ============================================================
 
 describe('server→client request schemas', () => {
   it('RequestPermissionRequestParamsSchema parses valid params', () => {
@@ -1306,10 +1284,6 @@ describe('server→client request schemas', () => {
     expect(AskUserResultSchema.parse(result).cancelled).toBe(true);
   });
 });
-
-// ============================================================
-// Rewind / Compact / Fork constants and schemas
-// ============================================================
 
 describe('rewind/compact/fork constants', () => {
   it('COMPACTION_TIMEOUT is 240 seconds', () => {

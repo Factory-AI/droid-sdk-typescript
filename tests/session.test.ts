@@ -30,10 +30,6 @@ import type { DroidResult } from '../src/session.js';
 import type { DroidMessage } from '../src/stream.js';
 import { InMemoryTransport } from './helpers.js';
 
-// ---------------------------------------------------------------------------
-// Helpers
-// ---------------------------------------------------------------------------
-
 function makeSuccessResponse(
   id: string,
   result: Record<string, unknown> = {}
@@ -266,10 +262,6 @@ function setupFullResponder(
   };
 }
 
-// ---------------------------------------------------------------------------
-// Tests: createSession
-// ---------------------------------------------------------------------------
-
 describe('createSession()', () => {
   describe('VAL-API-002: returns functional session', () => {
     it('returns DroidSession with valid sessionId and initResult', async () => {
@@ -303,7 +295,6 @@ describe('createSession()', () => {
         modelId: 'claude-test',
       });
 
-      // Check that initializeSession was called with correct params
       const initMsg = transport.sentMessages.find(
         (m) =>
           (m as Record<string, unknown>)['method'] ===
@@ -322,7 +313,6 @@ describe('createSession()', () => {
       const transport = new InMemoryTransport();
       await transport.connect();
 
-      // Set up transport to return error for init
       const originalSend = transport.send.bind(transport);
       transport.send = (message: Record<string, unknown>) => {
         originalSend(message);
@@ -341,15 +331,10 @@ describe('createSession()', () => {
 
       await expect(createSession({ transport })).rejects.toThrow();
 
-      // Transport should be closed on failure
       expect(transport.isConnected).toBe(false);
     });
   });
 });
-
-// ---------------------------------------------------------------------------
-// Tests: resumeSession
-// ---------------------------------------------------------------------------
 
 describe('resumeSession()', () => {
   describe('VAL-API-003: loads existing session', () => {
@@ -394,7 +379,6 @@ describe('resumeSession()', () => {
       const transport = new InMemoryTransport();
       await transport.connect();
 
-      // Set up transport to return ENTITY_NOT_FOUND error
       const originalSend = transport.send.bind(transport);
       transport.send = (message: Record<string, unknown>) => {
         originalSend(message);
@@ -419,15 +403,10 @@ describe('resumeSession()', () => {
         resumeSession('non-existent-session', { transport })
       ).rejects.toThrow(SessionNotFoundError);
 
-      // Transport should be cleaned up
       expect(transport.isConnected).toBe(false);
     });
   });
 });
-
-// ---------------------------------------------------------------------------
-// Tests: DroidSession
-// ---------------------------------------------------------------------------
 
 describe('DroidSession', () => {
   describe('stream() (VAL-API-004)', () => {
@@ -444,16 +423,13 @@ describe('DroidSession', () => {
         messages.push(msg);
       }
 
-      // Should have messages including text deltas and turn_complete
       expect(messages.length).toBeGreaterThanOrEqual(3);
 
-      // Text delta should be present
       const textDeltas = messages.filter(
         (m) => m.type === 'assistant_text_delta'
       );
       expect(textDeltas.length).toBeGreaterThanOrEqual(1);
 
-      // Last message should be turn_complete
       expect(messages[messages.length - 1].type).toBe('turn_complete');
 
       await session.close();
@@ -467,21 +443,18 @@ describe('DroidSession', () => {
 
       const session = await createSession({ transport });
 
-      // First turn
       const msgs1: DroidMessage[] = [];
       for await (const msg of session.stream('First message')) {
         msgs1.push(msg);
       }
       expect(msgs1[msgs1.length - 1].type).toBe('turn_complete');
 
-      // Second turn
       const msgs2: DroidMessage[] = [];
       for await (const msg of session.stream('Second message')) {
         msgs2.push(msg);
       }
       expect(msgs2[msgs2.length - 1].type).toBe('turn_complete');
 
-      // Both turns should have sent addUserMessage
       const addMsgCalls = transport.sentMessages.filter(
         (m) =>
           (m as Record<string, unknown>)['method'] ===
@@ -504,14 +477,12 @@ describe('DroidSession', () => {
 
       const result = await session.send('Write hello');
 
-      // DroidResult structure (VAL-API-013)
       expect(result).toBeDefined();
       expect(typeof result.text).toBe('string');
       expect(result.text).toBe('Hello world');
       expect(Array.isArray(result.messages)).toBe(true);
       expect(result.messages.length).toBeGreaterThanOrEqual(3);
 
-      // Token usage should be present
       expect(result.tokenUsage).toBeDefined();
       expect(result.tokenUsage!.inputTokens).toBe(100);
       expect(result.tokenUsage!.outputTokens).toBe(50);
@@ -523,7 +494,6 @@ describe('DroidSession', () => {
       const transport = new InMemoryTransport();
       await transport.connect();
 
-      // Custom responder that sends multiple deltas
       const originalSend = transport.send.bind(transport);
       transport.send = (message: Record<string, unknown>) => {
         originalSend(message);
@@ -604,10 +574,8 @@ describe('DroidSession', () => {
 
       await session.close();
 
-      // Transport should be closed
       expect(transport.isConnected).toBe(false);
 
-      // Calling methods after close should throw
       await expect(session.send('test')).rejects.toThrow(ConnectionError);
     });
 
@@ -620,8 +588,8 @@ describe('DroidSession', () => {
       const session = await createSession({ transport });
 
       await session.close();
-      await session.close(); // Second call should not throw
-      await session.close(); // Third call should not throw
+      await session.close();
+      await session.close();
     });
   });
 
@@ -644,7 +612,6 @@ describe('DroidSession', () => {
       expect(result).toBeDefined();
       expect((result as Record<string, unknown>).success).toBe(true);
 
-      // Verify the correct method was called
       const mcpMsg = transport.sentMessages.find(
         (m) =>
           (m as Record<string, unknown>)['method'] ===
@@ -785,7 +752,6 @@ describe('DroidSession', () => {
 
       expect(result).toBeDefined();
 
-      // Verify the correct method was called
       const settingsMsg = transport.sentMessages.find(
         (m) =>
           (m as Record<string, unknown>)['method'] ===
@@ -813,11 +779,9 @@ describe('DroidSession', () => {
 
       const result: DroidResult = await session.send('Test');
 
-      // Verify structure
       expect(typeof result.text).toBe('string');
       expect(Array.isArray(result.messages)).toBe(true);
 
-      // tokenUsage should be present or null (present in our mock)
       expect(result.tokenUsage).not.toBeNull();
       if (result.tokenUsage) {
         expect(typeof result.tokenUsage.inputTokens).toBe('number');
@@ -834,7 +798,6 @@ describe('DroidSession', () => {
       const transport = new InMemoryTransport();
       await transport.connect();
 
-      // Set up responder without token usage
       const originalSend = transport.send.bind(transport);
       transport.send = (message: Record<string, unknown>) => {
         originalSend(message);
@@ -1126,22 +1089,18 @@ describe('DroidSession', () => {
         notifications.push(n);
       });
 
-      // Inject a notification
       transport.injectMessage(
         makeNotification(SessionNotificationType.SESSION_TITLE_UPDATED, {
           title: 'New Title',
         })
       );
 
-      // Allow microtask to propagate
       await new Promise((resolve) => setTimeout(resolve, 10));
 
       expect(notifications.length).toBe(1);
 
-      // Unsubscribe
       unsub();
 
-      // New notification should not be received
       transport.injectMessage(
         makeNotification(SessionNotificationType.SESSION_TITLE_UPDATED, {
           title: 'Another Title',
@@ -1160,8 +1119,6 @@ describe('DroidSession', () => {
       const transport = new InMemoryTransport();
       await transport.connect();
 
-      // Wire addUserMessage to send streaming state + one delta,
-      // then send Idle after a delay (simulating close racing with the stream)
       const originalSend = transport.send.bind(transport);
       transport.send = (message: Record<string, unknown>) => {
         originalSend(message);
@@ -1198,7 +1155,6 @@ describe('DroidSession', () => {
               })
             );
 
-            // Send Idle so the stream completes
             transport.injectMessage(
               makeNotification(
                 SessionNotificationType.DROID_WORKING_STATE_CHANGED,
@@ -1215,17 +1171,13 @@ describe('DroidSession', () => {
       for await (const msg of session.stream('test')) {
         messages.push(msg);
         if (msg.type === 'assistant_text_delta') {
-          // Close session mid-stream — this won't terminate the current generator
-          // but marks the session as closed for future use
           await session.close();
         }
       }
 
-      // Stream completed (turn_complete was emitted)
       expect(messages[messages.length - 1].type).toBe('turn_complete');
       expect(transport.isConnected).toBe(false);
 
-      // Session is now closed — subsequent calls throw
       await expect(session.send('test')).rejects.toThrow(ConnectionError);
     });
   });
@@ -1290,7 +1242,6 @@ describe('DroidSession', () => {
       const msgsA: DroidMessage[] = [];
       const msgsB: DroidMessage[] = [];
 
-      // Start both streams concurrently
       const promiseA = (async () => {
         for await (const msg of session.stream('A')) {
           msgsA.push(msg);
@@ -1305,7 +1256,6 @@ describe('DroidSession', () => {
 
       await Promise.all([promiseA, promiseB]);
 
-      // Both should have received messages and completed with turn_complete
       expect(msgsA.length).toBeGreaterThan(0);
       expect(msgsB.length).toBeGreaterThan(0);
       expect(msgsA[msgsA.length - 1].type).toBe('turn_complete');
@@ -1338,7 +1288,6 @@ describe('DroidSession', () => {
             );
           });
         } else if (method === DroidServerMethod.ADD_USER_MESSAGE) {
-          // Don't respond — inject a transport error instead
           setTimeout(() => {
             transport.injectError(new Error('process crashed'));
           }, 10);
@@ -1347,10 +1296,9 @@ describe('DroidSession', () => {
 
       const session = await createSession({ transport });
 
-      // The stream should throw because addUserMessage fails with transport error
       await expect(async () => {
         for await (const _msg of session.stream('test')) {
-          // should not yield
+          void _msg;
         }
       }).rejects.toThrow(ConnectionError);
     });
@@ -1365,7 +1313,6 @@ describe('DroidSession', () => {
 
       const session = await createSession({ transport });
 
-      // First turn: break early after first message
       for await (const msg of session.stream('test')) {
         if (
           msg.type === 'working_state_changed' ||
@@ -1375,12 +1322,10 @@ describe('DroidSession', () => {
         }
       }
 
-      // Session should still be usable for a second turn
       const result = await session.send('second turn');
       expect(result.text).toBe('Hello world');
       expect(result.messages.length).toBeGreaterThanOrEqual(3);
 
-      // Verify two addUserMessage requests were sent
       const addMsgCalls = transport.sentMessages.filter(
         (m) =>
           (m as Record<string, unknown>)['method'] ===
@@ -1466,13 +1411,11 @@ describe('DroidSession', () => {
 
       const session = await createSession({ transport });
 
-      // Turn 1
       const result1 = await session.send('first');
       expect(result1.tokenUsage).not.toBeNull();
       expect(result1.tokenUsage!.inputTokens).toBe(100);
       expect(result1.tokenUsage!.outputTokens).toBe(50);
 
-      // Turn 2
       const result2 = await session.send('second');
       expect(result2.tokenUsage).not.toBeNull();
       expect(result2.tokenUsage!.inputTokens).toBe(200);
@@ -1494,7 +1437,7 @@ describe('DroidSession', () => {
 
       await expect(async () => {
         for await (const _msg of session.stream('test')) {
-          // should not reach here
+          void _msg;
         }
       }).rejects.toThrow(ConnectionError);
     });
@@ -1553,9 +1496,6 @@ describe('DroidSession', () => {
     });
   });
 
-  // =========================================================================
-  // #14 — Double interrupt is idempotent
-  // =========================================================================
   describe('double interrupt', () => {
     it('calling interrupt() twice in rapid succession is safe', async () => {
       const transport = new InMemoryTransport();
@@ -1565,12 +1505,10 @@ describe('DroidSession', () => {
 
       const session = await createSession({ transport });
 
-      // Start a stream so the agent is in a non-idle state
       let streamComplete = false;
       const streamPromise = (async () => {
         for await (const msg of session.stream('test')) {
           if (msg.type === 'assistant_text_delta') {
-            // Fire two interrupts in rapid succession
             await Promise.all([session.interrupt(), session.interrupt()]);
           }
         }
@@ -1584,9 +1522,6 @@ describe('DroidSession', () => {
     });
   });
 
-  // =========================================================================
-  // #15 — session.send() while session.stream() active
-  // =========================================================================
   describe('concurrent send() and stream()', () => {
     it('concurrent stream() and send() both complete without error', async () => {
       const transport = new InMemoryTransport();
@@ -1607,10 +1542,8 @@ describe('DroidSession', () => {
         session.send('B'),
       ]);
 
-      // stream() completed with turn_complete
       expect(msgsA[msgsA.length - 1].type).toBe('turn_complete');
 
-      // send() completed with text
       expect(resultB.text.length).toBeGreaterThan(0);
       expect(resultB.messages[resultB.messages.length - 1].type).toBe(
         'turn_complete'
@@ -1620,9 +1553,6 @@ describe('DroidSession', () => {
     });
   });
 
-  // =========================================================================
-  // #16 — Error recovery between turns
-  // =========================================================================
   describe('error recovery between turns', () => {
     it('session recovers after a protocol error on the first turn', async () => {
       const transport = new InMemoryTransport();
@@ -1634,14 +1564,12 @@ describe('DroidSession', () => {
         [DroidServerMethod.ADD_USER_MESSAGE]: (id) => {
           addUserMessageCount++;
           if (addUserMessageCount === 1) {
-            // First call: respond with a protocol error
             queueMicrotask(() => {
               transport.injectMessage(
                 makeErrorResponse(id, -32603, 'Internal server error')
               );
             });
           } else {
-            // Second call: respond normally with streaming
             queueMicrotask(() => {
               transport.injectMessage(makeSuccessResponse(id, {}));
 
@@ -1673,14 +1601,12 @@ describe('DroidSession', () => {
 
       const session = await createSession({ transport });
 
-      // First send: protocol error
       await expect(async () => {
         for await (const _msg of session.stream('first')) {
-          // should throw
+          void _msg;
         }
       }).rejects.toThrow();
 
-      // Second send: should succeed — session recovered
       const result = await session.send('second');
       expect(result.text).toBe('Recovered');
       expect(result.messages.length).toBeGreaterThan(0);
@@ -1689,9 +1615,6 @@ describe('DroidSession', () => {
     });
   });
 
-  // =========================================================================
-  // #17 — stream() with images/files
-  // =========================================================================
   describe('stream() with images/files', () => {
     it('passes images array in addUserMessage RPC params', async () => {
       const transport = new InMemoryTransport();
@@ -1704,10 +1627,9 @@ describe('DroidSession', () => {
       for await (const _msg of session.stream('Look at this', {
         images: [{ type: 'base64', data: 'abc123', mediaType: 'image/png' }],
       })) {
-        // consume
+        void _msg;
       }
 
-      // Find the addUserMessage request
       const addMsg = transport.sentMessages.find(
         (m) =>
           (m as Record<string, unknown>)['method'] ===
@@ -1724,9 +1646,6 @@ describe('DroidSession', () => {
     });
   });
 
-  // =========================================================================
-  // #18 — createSession() with all options
-  // =========================================================================
   describe('createSession() with all options', () => {
     it('passes all session options to initializeSession RPC params', async () => {
       const transport = new InMemoryTransport();
@@ -1783,9 +1702,6 @@ describe('DroidSession', () => {
     });
   });
 
-  // =========================================================================
-  // SDK_TAG auto-injection
-  // =========================================================================
   describe('SDK_TAG auto-injection', () => {
     it('injects SDK_TAG when no user tags are provided', async () => {
       const transport = new InMemoryTransport();
@@ -1835,9 +1751,6 @@ describe('DroidSession', () => {
     });
   });
 
-  // =========================================================================
-  // abortSignal support
-  // =========================================================================
   describe('abortSignal', () => {
     it('closes session when signal fires', async () => {
       const transport = new InMemoryTransport();
@@ -1856,10 +1769,8 @@ describe('DroidSession', () => {
 
       controller.abort();
 
-      // Give the abort listener a tick to run
       await new Promise((resolve) => setTimeout(resolve, 10));
 
-      // Session should be closed
       expect(transport.isConnected).toBe(false);
       await expect(session.send('test')).rejects.toThrow(ConnectionError);
     });
@@ -1871,14 +1782,13 @@ describe('DroidSession', () => {
       setupInitResponder(transport, 'sess-pre-aborted');
 
       const controller = new AbortController();
-      controller.abort(); // Already aborted
+      controller.abort();
 
       const session = await createSession({
         transport,
         abortSignal: controller.signal,
       });
 
-      // Give the close a tick to run (void session.close() is async)
       await new Promise((resolve) => setTimeout(resolve, 10));
 
       expect(transport.isConnected).toBe(false);
@@ -1931,9 +1841,6 @@ describe('DroidSession', () => {
     });
   });
 
-  // =========================================================================
-  // #25 — Concurrent send() + updateSessionSettings()
-  // =========================================================================
   describe('concurrent send() + updateSettings()', () => {
     it('both resolve without error when called concurrently', async () => {
       const transport = new InMemoryTransport();
@@ -1951,7 +1858,6 @@ describe('DroidSession', () => {
       expect(sendResult.text).toBe('Hello world');
       expect(settingsResult).toBeDefined();
 
-      // Verify both methods were called
       const sentMethods = transport.sentMessages.map(
         (m) => (m as Record<string, unknown>)['method']
       );
@@ -1962,9 +1868,6 @@ describe('DroidSession', () => {
     });
   });
 
-  // =========================================================================
-  // #14 — Double interrupt is idempotent
-  // =========================================================================
   describe('double interrupt', () => {
     it('calling interrupt() twice in rapid succession is safe', async () => {
       const transport = new InMemoryTransport();
@@ -1974,12 +1877,10 @@ describe('DroidSession', () => {
 
       const session = await createSession({ transport });
 
-      // Start a stream so the agent is in a non-idle state
       let streamComplete = false;
       const streamPromise = (async () => {
         for await (const msg of session.stream('test')) {
           if (msg.type === 'assistant_text_delta') {
-            // Fire two interrupts in rapid succession
             await Promise.all([session.interrupt(), session.interrupt()]);
           }
         }
@@ -1993,9 +1894,6 @@ describe('DroidSession', () => {
     });
   });
 
-  // =========================================================================
-  // #15 — session.send() while session.stream() active
-  // =========================================================================
   describe('concurrent send() and stream()', () => {
     it('concurrent stream() and send() both complete without error', async () => {
       const transport = new InMemoryTransport();
@@ -2016,10 +1914,8 @@ describe('DroidSession', () => {
         session.send('B'),
       ]);
 
-      // stream() completed with turn_complete
       expect(msgsA[msgsA.length - 1].type).toBe('turn_complete');
 
-      // send() completed with text
       expect(resultB.text.length).toBeGreaterThan(0);
       expect(resultB.messages[resultB.messages.length - 1].type).toBe(
         'turn_complete'
@@ -2029,9 +1925,6 @@ describe('DroidSession', () => {
     });
   });
 
-  // =========================================================================
-  // #16 — Error recovery between turns
-  // =========================================================================
   describe('error recovery between turns', () => {
     it('session recovers after a protocol error on the first turn', async () => {
       const transport = new InMemoryTransport();
@@ -2043,14 +1936,12 @@ describe('DroidSession', () => {
         [DroidServerMethod.ADD_USER_MESSAGE]: (id) => {
           addUserMessageCount++;
           if (addUserMessageCount === 1) {
-            // First call: respond with a protocol error
             queueMicrotask(() => {
               transport.injectMessage(
                 makeErrorResponse(id, -32603, 'Internal server error')
               );
             });
           } else {
-            // Second call: respond normally with streaming
             queueMicrotask(() => {
               transport.injectMessage(makeSuccessResponse(id, {}));
 
@@ -2062,14 +1953,11 @@ describe('DroidSession', () => {
               );
 
               transport.injectMessage(
-                makeNotification(
-                  SessionNotificationType.ASSISTANT_TEXT_DELTA,
-                  {
-                    messageId: 'msg-2',
-                    blockIndex: 0,
-                    textDelta: 'Recovered',
-                  }
-                )
+                makeNotification(SessionNotificationType.ASSISTANT_TEXT_DELTA, {
+                  messageId: 'msg-2',
+                  blockIndex: 0,
+                  textDelta: 'Recovered',
+                })
               );
 
               transport.injectMessage(
@@ -2085,14 +1973,12 @@ describe('DroidSession', () => {
 
       const session = await createSession({ transport });
 
-      // First send: protocol error
       await expect(async () => {
         for await (const _msg of session.stream('first')) {
-          // should throw
+          void _msg;
         }
       }).rejects.toThrow();
 
-      // Second send: should succeed — session recovered
       const result = await session.send('second');
       expect(result.text).toBe('Recovered');
       expect(result.messages.length).toBeGreaterThan(0);
@@ -2101,9 +1987,6 @@ describe('DroidSession', () => {
     });
   });
 
-  // =========================================================================
-  // #17 — stream() with images/files
-  // =========================================================================
   describe('stream() with images/files', () => {
     it('passes images array in addUserMessage RPC params', async () => {
       const transport = new InMemoryTransport();
@@ -2114,14 +1997,11 @@ describe('DroidSession', () => {
       const session = await createSession({ transport });
 
       for await (const _msg of session.stream('Look at this', {
-        images: [
-          { type: 'base64', data: 'abc123', mediaType: 'image/png' },
-        ],
+        images: [{ type: 'base64', data: 'abc123', mediaType: 'image/png' }],
       })) {
-        // consume
+        void _msg;
       }
 
-      // Find the addUserMessage request
       const addMsg = transport.sentMessages.find(
         (m) =>
           (m as Record<string, unknown>)['method'] ===
@@ -2138,9 +2018,6 @@ describe('DroidSession', () => {
     });
   });
 
-  // =========================================================================
-  // #18 — createSession() with all options
-  // =========================================================================
   describe('createSession() with all options', () => {
     it('passes all session options to initializeSession RPC params', async () => {
       const transport = new InMemoryTransport();
@@ -2195,9 +2072,6 @@ describe('DroidSession', () => {
     });
   });
 
-  // =========================================================================
-  // #25 — Concurrent send() + updateSessionSettings()
-  // =========================================================================
   describe('concurrent send() + updateSettings()', () => {
     it('both resolve without error when called concurrently', async () => {
       const transport = new InMemoryTransport();
@@ -2215,14 +2089,11 @@ describe('DroidSession', () => {
       expect(sendResult.text).toBe('Hello world');
       expect(settingsResult).toBeDefined();
 
-      // Verify both methods were called
       const sentMethods = transport.sentMessages.map(
         (m) => (m as Record<string, unknown>)['method']
       );
       expect(sentMethods).toContain(DroidServerMethod.ADD_USER_MESSAGE);
-      expect(sentMethods).toContain(
-        DroidServerMethod.UPDATE_SESSION_SETTINGS
-      );
+      expect(sentMethods).toContain(DroidServerMethod.UPDATE_SESSION_SETTINGS);
 
       await session.close();
     });

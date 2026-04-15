@@ -22,6 +22,7 @@ import {
 import { Base64ImageSourceSchema, DocumentSourceSchema } from './messages.js';
 import { MissionFeatureSchema, ProgressLogEntrySchema } from './mission.js';
 import {
+  JsonObjectSchema,
   type JsonRpcResponseFailure,
   JsonRpcRequestSchema,
   JsonRpcResponseFailureSchema,
@@ -149,7 +150,7 @@ export const AvailableModelConfigSchema = z
     tier: z.string().optional(),
     tokenMultiplier: z.number().optional(),
     promoLabel: z.string().optional(),
-    featureFlag: z.record(z.unknown()).optional(),
+    featureFlag: JsonObjectSchema.optional(),
     usesUSBasedInference: z.boolean().optional(),
   })
   .passthrough();
@@ -218,11 +219,8 @@ export const InitializeSessionRequestParamsSchema = z
     sessionId: z.string().optional(),
     mcpServers: z.array(McpServerConfigSchema).optional(),
     autonomyMode: z.nativeEnum(AutonomyMode).optional(),
-    interactionMode: z
-      .nativeEnum(DroidInteractionMode)
-      .optional()
-      .catch(undefined),
-    autonomyLevel: z.nativeEnum(AutonomyLevel).optional().catch(undefined),
+    interactionMode: z.nativeEnum(DroidInteractionMode).optional(),
+    autonomyLevel: z.nativeEnum(AutonomyLevel).optional(),
     modelId: z.string().optional(),
     reasoningEffort: z.nativeEnum(ReasoningEffort).optional(),
     specModeModelId: z.string().optional(),
@@ -293,11 +291,8 @@ export const UpdateSessionSettingsRequestParamsSchema = z
     modelId: z.string().optional(),
     reasoningEffort: z.nativeEnum(ReasoningEffort).optional(),
     autonomyMode: z.nativeEnum(AutonomyMode).optional(),
-    interactionMode: z
-      .nativeEnum(DroidInteractionMode)
-      .optional()
-      .catch(undefined),
-    autonomyLevel: z.nativeEnum(AutonomyLevel).optional().catch(undefined),
+    interactionMode: z.nativeEnum(DroidInteractionMode).optional(),
+    autonomyLevel: z.nativeEnum(AutonomyLevel).optional(),
     specModeModelId: z.string().nullable().optional(),
     specModeReasoningEffort: z
       .nativeEnum(ReasoningEffort)
@@ -433,11 +428,8 @@ export const ListToolsRequestParamsSchema = z
   .object({
     modelId: z.string().optional(),
     autonomyMode: z.nativeEnum(AutonomyMode).optional(),
-    interactionMode: z
-      .nativeEnum(DroidInteractionMode)
-      .optional()
-      .catch(undefined),
-    autonomyLevel: z.nativeEnum(AutonomyLevel).optional().catch(undefined),
+    interactionMode: z.nativeEnum(DroidInteractionMode).optional(),
+    autonomyLevel: z.nativeEnum(AutonomyLevel).optional(),
     specModeModelId: z.string().nullable().optional(),
     skipPermissionsUnsafe: z.boolean().optional(),
     ...ToolSelectionOverridesSchema.shape,
@@ -821,7 +813,7 @@ export type MissionSnapshot = z.infer<typeof MissionSnapshotSchema>;
 export const InitializeSessionResultSchema = z
   .object({
     sessionId: z.string(),
-    session: z.record(z.unknown()),
+    session: JsonObjectSchema,
     mcpServers: z.array(McpServerConfigSchema).optional(),
     settings: SessionSettingsSchema,
     gitRepo: GitRepoInfoSchema.optional(),
@@ -836,13 +828,13 @@ export type InitializeSessionResult = z.infer<
 /** Result for droid.load_session response. */
 export const LoadSessionResultSchema = z
   .object({
-    session: z.record(z.unknown()),
+    session: JsonObjectSchema,
     mcpServers: z.array(McpServerConfigSchema).optional(),
-    pendingPermissions: z.array(z.record(z.unknown())).optional(),
-    pendingAskUserRequests: z.array(z.record(z.unknown())).optional(),
+    pendingPermissions: z.array(JsonObjectSchema).optional(),
+    pendingAskUserRequests: z.array(JsonObjectSchema).optional(),
     settings: SessionSettingsSchema,
     isAgentLoopInProgress: z.boolean().optional(),
-    queuedMessages: z.array(z.record(z.unknown())).optional(),
+    queuedMessages: z.array(JsonObjectSchema).optional(),
     gitRepo: GitRepoInfoSchema.optional(),
     cwd: z.string().optional(),
     callingSessionId: z.string().optional(),

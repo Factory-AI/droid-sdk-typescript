@@ -20,10 +20,6 @@ import {
 import type { DroidMessage } from '../src/stream.js';
 import { InMemoryTransport } from './helpers.js';
 
-// ---------------------------------------------------------------------------
-// Helpers
-// ---------------------------------------------------------------------------
-
 function makeSuccessResponse(
   id: string,
   result: Record<string, unknown> = {}
@@ -85,7 +81,6 @@ function simulateQueryLifecycle(
   sessionId: string,
   deltas: string[] = ['Hello', ' world']
 ): void {
-  // We need to intercept the sent messages and respond appropriately
   let _messageCount = 0;
 
   const originalSend = transport.send.bind(transport);
@@ -98,7 +93,6 @@ function simulateQueryLifecycle(
     _messageCount++;
 
     if (method === DroidServerMethod.INITIALIZE_SESSION) {
-      // Respond with sessionId
       queueMicrotask(() => {
         transport.injectMessage(
           makeSuccessResponse(id, {
@@ -112,11 +106,9 @@ function simulateQueryLifecycle(
         );
       });
     } else if (method === DroidServerMethod.ADD_USER_MESSAGE) {
-      // Respond to addUserMessage then send streaming notifications
       queueMicrotask(() => {
         transport.injectMessage(makeSuccessResponse(id, {}));
 
-        // Send working state change to non-idle
         transport.injectMessage(
           makeNotification(
             SessionNotificationType.DROID_WORKING_STATE_CHANGED,
@@ -124,7 +116,6 @@ function simulateQueryLifecycle(
           )
         );
 
-        // Send text deltas
         for (const delta of deltas) {
           transport.injectMessage(
             makeNotification(SessionNotificationType.ASSISTANT_TEXT_DELTA, {
@@ -135,7 +126,6 @@ function simulateQueryLifecycle(
           );
         }
 
-        // Send token usage
         transport.injectMessage(
           makeNotification(
             SessionNotificationType.SESSION_TOKEN_USAGE_CHANGED,
@@ -151,7 +141,6 @@ function simulateQueryLifecycle(
           )
         );
 
-        // Send working state change to idle (triggers TurnComplete)
         transport.injectMessage(
           makeNotification(
             SessionNotificationType.DROID_WORKING_STATE_CHANGED,
@@ -162,10 +151,6 @@ function simulateQueryLifecycle(
     }
   };
 }
-
-// ---------------------------------------------------------------------------
-// Tests
-// ---------------------------------------------------------------------------
 
 describe('query()', () => {
   describe('lifecycle (VAL-API-001)', () => {
@@ -186,30 +171,24 @@ describe('query()', () => {
         messages.push(msg);
       }
 
-      // Should have received messages: working_state_changed, text deltas, token_usage_update, working_state_changed (idle), turn_complete
       expect(messages.length).toBeGreaterThanOrEqual(5);
 
-      // First message should be working state change
       expect(messages[0].type).toBe('working_state_changed');
 
-      // Should contain text deltas
       const textDeltas = messages.filter(
         (m) => m.type === 'assistant_text_delta'
       );
       expect(textDeltas.length).toBe(2);
 
-      // Last message should be turn_complete
       const lastMsg = messages[messages.length - 1];
       expect(lastMsg.type).toBe('turn_complete');
 
-      // Transport should have been sent initializeSession and addUserMessage
       const sentMethods = transport.sentMessages.map(
         (m) => (m as Record<string, unknown>)['method']
       );
       expect(sentMethods).toContain(DroidServerMethod.INITIALIZE_SESSION);
       expect(sentMethods).toContain(DroidServerMethod.ADD_USER_MESSAGE);
 
-      // Transport should be closed after query completes
       expect(transport.isConnected).toBe(false);
     });
 
@@ -230,10 +209,9 @@ describe('query()', () => {
       });
 
       for await (const _msg of q) {
-        // consume all messages
+        void _msg;
       }
 
-      // Check that initializeSession was called with correct params
       const initMsg = transport.sentMessages.find(
         (m) =>
           (m as Record<string, unknown>)['method'] ===
@@ -261,10 +239,9 @@ describe('query()', () => {
       });
 
       for await (const _msg of q) {
-        // consume
+        void _msg;
       }
 
-      // Check addUserMessage was called with the prompt
       const addMsg = transport.sentMessages.find(
         (m) =>
           (m as Record<string, unknown>)['method'] ===
@@ -284,7 +261,6 @@ describe('query()', () => {
 
       let interruptResponseSent = false;
 
-      // Custom lifecycle that waits for interrupt
       const originalSend = transport.send.bind(transport);
       transport.send = (message: Record<string, unknown>) => {
         originalSend(message);
@@ -306,7 +282,6 @@ describe('query()', () => {
           queueMicrotask(() => {
             transport.injectMessage(makeSuccessResponse(id, {}));
 
-            // Start streaming
             transport.injectMessage(
               makeNotification(
                 SessionNotificationType.DROID_WORKING_STATE_CHANGED,
@@ -327,7 +302,6 @@ describe('query()', () => {
           queueMicrotask(() => {
             transport.injectMessage(makeSuccessResponse(id, {}));
 
-            // After interrupt, agent winds down
             transport.injectMessage(
               makeNotification(
                 SessionNotificationType.DROID_WORKING_STATE_CHANGED,
@@ -353,10 +327,8 @@ describe('query()', () => {
 
       expect(interruptResponseSent).toBe(true);
 
-      // Should have received turn_complete at the end
       expect(messages[messages.length - 1].type).toBe('turn_complete');
 
-      // Verify interrupt_session was sent
       const sentMethods = transport.sentMessages.map(
         (m) => (m as Record<string, unknown>)['method']
       );
@@ -369,7 +341,6 @@ describe('query()', () => {
       const transport = new InMemoryTransport();
       await transport.connect();
 
-      // Only respond to init and addUserMessage, then stream forever
       const originalSend = transport.send.bind(transport);
       transport.send = (message: Record<string, unknown>) => {
         originalSend(message);
@@ -419,10 +390,8 @@ describe('query()', () => {
         }
       }
 
-      // Generator should have terminated
       expect(messages.length).toBeGreaterThanOrEqual(1);
 
-      // Transport should be closed
       expect(transport.isConnected).toBe(false);
     });
   });
@@ -430,8 +399,6 @@ describe('query()', () => {
   describe('DroidQuery.sessionId (VAL-API-009)', () => {
     it('is null before initialization', () => {
       const transport = new InMemoryTransport();
-      // Don't connect or start — just create the query
-      // sessionId should be null since we haven't started iteration
       const q = query({
         prompt: 'Test',
         transport,
@@ -448,15 +415,12 @@ describe('query()', () => {
 
       const q = query({ prompt: 'Test', transport });
 
-      // Consume first message to trigger initialization
       const iterator = q[Symbol.asyncIterator]();
       const first = await iterator.next();
       expect(first.done).toBe(false);
 
-      // sessionId should now be set
       expect(q.sessionId).toBe('sess-id-test');
 
-      // Consume rest
       while (true) {
         const next = await iterator.next();
         if (next.done) break;
@@ -469,7 +433,6 @@ describe('query()', () => {
       const transport = new InMemoryTransport();
       await transport.connect();
 
-      // Set up lifecycle that never completes
       const originalSend = transport.send.bind(transport);
       transport.send = (message: Record<string, unknown>) => {
         originalSend(message);
@@ -498,7 +461,6 @@ describe('query()', () => {
               )
             );
 
-            // Send several deltas
             for (let i = 0; i < 10; i++) {
               transport.injectMessage(
                 makeNotification(SessionNotificationType.ASSISTANT_TEXT_DELTA, {
@@ -518,57 +480,43 @@ describe('query()', () => {
       for await (const _msg of q) {
         count++;
         if (count >= 3) {
-          break; // Early break
+          break;
         }
       }
 
-      // Give cleanup a tick
       await new Promise((resolve) => setTimeout(resolve, 10));
 
-      // Transport should be closed (no resource leak)
       expect(transport.isConnected).toBe(false);
     });
   });
 
-  // =========================================================================
-  // #13 — query().abort() before initialization
-  // =========================================================================
   describe('abort before initialization', () => {
     it('abort() during init terminates generator without hanging', async () => {
       const transport = new InMemoryTransport();
       await transport.connect();
 
-      // Transport that never responds to init (simulates slow startup)
       const originalSend = transport.send.bind(transport);
       transport.send = (message: Record<string, unknown>) => {
         originalSend(message);
-        // Never respond — init hangs
       };
 
       const q = query({ prompt: 'Test', transport });
 
-      // Abort after a short delay (init is pending)
       setTimeout(() => q.abort(), 50);
 
       const messages: DroidMessage[] = [];
-      // The for-await should terminate because abort() kills the transport
-      // which rejects the pending init request
       try {
         for await (const msg of q) {
           messages.push(msg);
         }
       } catch {
-        // Expected — abort during init causes a ConnectionError
+        void 0;
       }
 
-      // Transport should be closed
       expect(transport.isConnected).toBe(false);
     });
   });
 
-  // =========================================================================
-  // #21 — query() with askUserHandler
-  // =========================================================================
   describe('query() with askUserHandler', () => {
     it('invokes askUserHandler when server sends ASK_USER request', async () => {
       const transport = new InMemoryTransport();
@@ -605,9 +553,9 @@ describe('query()', () => {
               )
             );
 
-            // Server sends ASK_USER request
             transport.injectMessage(
               makeServerRequest('ask-q-1', DroidClientMethod.ASK_USER, {
+                toolCallId: 'tool-ask-1',
                 questions: [
                   {
                     index: 0,
@@ -619,17 +567,13 @@ describe('query()', () => {
               })
             );
 
-            // After handler responds, continue
             setTimeout(() => {
               transport.injectMessage(
-                makeNotification(
-                  SessionNotificationType.ASSISTANT_TEXT_DELTA,
-                  {
-                    messageId: 'msg-1',
-                    blockIndex: 0,
-                    textDelta: 'Using TypeScript.',
-                  }
-                )
+                makeNotification(SessionNotificationType.ASSISTANT_TEXT_DELTA, {
+                  messageId: 'msg-1',
+                  blockIndex: 0,
+                  textDelta: 'Using TypeScript.',
+                })
               );
 
               transport.injectMessage(
@@ -665,9 +609,10 @@ describe('query()', () => {
 
       expect(askHandlerCalled).toBe(true);
       expect(receivedParams).not.toBeNull();
-      expect((receivedParams as unknown as Record<string, unknown>)['questions']).toBeDefined();
+      expect(
+        (receivedParams as unknown as Record<string, unknown>)['questions']
+      ).toBeDefined();
 
-      // Verify response was sent back
       const askResponse = transport.sentMessages.find(
         (m) =>
           (m as Record<string, unknown>)['type'] === 'response' &&
@@ -678,7 +623,6 @@ describe('query()', () => {
         (askResponse['result'] as Record<string, unknown>)['cancelled']
       ).toBe(false);
 
-      // Stream should have completed
       expect(messages[messages.length - 1].type).toBe('turn_complete');
     });
   });
@@ -711,16 +655,35 @@ describe('query()', () => {
           queueMicrotask(() => {
             transport.injectMessage(makeSuccessResponse(id, {}));
 
-            // Send a permission request from the server
             transport.injectMessage(
               makeServerRequest(
                 'perm-req-1',
                 DroidClientMethod.REQUEST_PERMISSION,
-                { toolName: 'execute', command: 'rm -rf /' }
+                {
+                  toolUses: [
+                    {
+                      toolUse: {
+                        type: 'tool_use',
+                        id: 'tu-exec-1',
+                        name: 'execute',
+                        input: { command: 'rm -rf /' },
+                      },
+                      confirmationType: 'exec',
+                      details: {
+                        type: 'exec',
+                        fullCommand: 'rm -rf /',
+                        command: 'rm -rf /',
+                      },
+                    },
+                  ],
+                  options: [
+                    { label: 'Proceed once', value: 'proceed_once' },
+                    { label: 'Cancel', value: 'cancel' },
+                  ],
+                }
               )
             );
 
-            // After response, continue streaming
             setTimeout(() => {
               transport.injectMessage(
                 makeNotification(
@@ -749,7 +712,7 @@ describe('query()', () => {
       });
 
       for await (const _msg of q) {
-        // consume
+        void _msg;
       }
 
       expect(permissionCalled).toBe(true);

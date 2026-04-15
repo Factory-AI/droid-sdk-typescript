@@ -1,5 +1,6 @@
 import { z } from 'zod';
 
+import { JsonObjectSchema, JsonValueSchema } from './shared.js';
 
 /** Text content block. */
 export const TextBlockSchema = z
@@ -63,7 +64,7 @@ export const ToolUseBlockSchema = z
   .object({
     type: z.literal('tool_use'),
     id: z.string(),
-    input: z.record(z.unknown()),
+    input: JsonObjectSchema,
     name: z.string(),
     thoughtSignature: z.string().optional(),
   })
@@ -76,7 +77,7 @@ export const ToolResultBlockSchema = z
   .object({
     type: z.literal('tool_result'),
     toolUseId: z.string(),
-    content: z.union([z.string(), z.array(z.unknown())]).optional(),
+    content: z.union([z.string(), z.array(JsonValueSchema)]).optional(),
     isError: z.boolean().optional(),
     id: z.string().optional(),
   })
@@ -88,7 +89,7 @@ export type ToolResultBlock = z.infer<typeof ToolResultBlockSchema>;
 export const DocumentBlockSchema = z
   .object({
     type: z.literal('document'),
-    source: z.record(z.unknown()),
+    source: JsonObjectSchema,
     id: z.string().optional(),
   })
   .passthrough();
