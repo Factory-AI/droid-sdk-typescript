@@ -34,6 +34,7 @@ import {
   JsonRpcRequestSchema,
   JsonRpcResponseFailureSchema,
   JsonRpcResponseSuccessSchema,
+  ToolSelectionOverridesSchema,
 } from './shared.js';
 
 // ---------------------------------------------------------------------------
@@ -127,6 +128,7 @@ export const SessionSettingsSchema = z
     autonomyLevel: z.nativeEnum(AutonomyLevel).optional().catch(undefined),
     specModeModelId: z.string().optional(),
     specModeReasoningEffort: z.nativeEnum(ReasoningEffort).optional(),
+    ...ToolSelectionOverridesSchema.shape,
   })
   .passthrough();
 
@@ -242,7 +244,7 @@ export const InitializeSessionRequestParamsSchema = z
     decompSessionType: z.nativeEnum(DecompSessionType).optional(),
     decompMissionId: z.string().optional(),
     skipPermissionsUnsafe: z.boolean().optional(),
-    enabledToolIds: z.array(z.string()).optional(),
+    ...ToolSelectionOverridesSchema.shape,
     sessionLocation: z.string().optional(),
     sessionSource: SessionSourceSchema.optional(),
     tags: z.array(SessionTagSchema).optional(),
@@ -315,6 +317,7 @@ export const UpdateSessionSettingsRequestParamsSchema = z
       .nativeEnum(ReasoningEffort)
       .nullable()
       .optional(),
+    ...ToolSelectionOverridesSchema.shape,
   })
   .strict();
 
@@ -422,6 +425,42 @@ export const ListMcpToolsRequestParamsSchema = z.object({}).strict();
 
 export type ListMcpToolsRequestParams = z.infer<
   typeof ListMcpToolsRequestParamsSchema
+>;
+
+/** Tool catalog entry returned by droid.list_tools. */
+export const ExecToolInfoSchema = z
+  .object({
+    id: z.string(),
+    llmId: z.string(),
+    displayName: z.string(),
+    description: z.string(),
+    category: z.enum(['read', 'edit', 'execute', 'other']),
+    defaultAllowed: z.boolean(),
+    currentlyAllowed: z.boolean(),
+  })
+  .passthrough();
+
+export type ExecToolInfo = z.infer<typeof ExecToolInfoSchema>;
+
+/** Parameters for droid.list_tools. */
+export const ListToolsRequestParamsSchema = z
+  .object({
+    modelId: z.string().optional(),
+    autonomyMode: z.nativeEnum(AutonomyMode).optional(),
+    interactionMode: z
+      .nativeEnum(DroidInteractionMode)
+      .optional()
+      .catch(undefined),
+    autonomyLevel: z.nativeEnum(AutonomyLevel).optional().catch(undefined),
+    specModeModelId: z.string().nullable().optional(),
+    skipPermissionsUnsafe: z.boolean().optional(),
+    ...ToolSelectionOverridesSchema.shape,
+    depth: z.number().int().min(0).optional(),
+  })
+  .strict();
+
+export type ListToolsRequestParams = z.infer<
+  typeof ListToolsRequestParamsSchema
 >;
 
 /** Parameters for droid.list_mcp_servers request (empty). */
@@ -682,6 +721,13 @@ export const ListMcpToolsRequestSchema = JsonRpcRequestSchema.extend({
 
 export type ListMcpToolsRequest = z.infer<typeof ListMcpToolsRequestSchema>;
 
+export const ListToolsRequestSchema = JsonRpcRequestSchema.extend({
+  method: z.literal(DroidServerMethod.LIST_TOOLS),
+  params: ListToolsRequestParamsSchema,
+});
+
+export type ListToolsRequest = z.infer<typeof ListToolsRequestSchema>;
+
 export const ListMcpServersRequestSchema = JsonRpcRequestSchema.extend({
   method: z.literal(DroidServerMethod.LIST_MCP_SERVERS),
   params: ListMcpServersRequestParamsSchema,
@@ -747,7 +793,7 @@ export const RenameSessionRequestSchema = JsonRpcRequestSchema.extend({
 
 export type RenameSessionRequest = z.infer<typeof RenameSessionRequestSchema>;
 
-/** Discriminated union over all 24 client→server request types. */
+/** Discriminated union over all client→server request types. */
 export const ClientRequestSchema = z.discriminatedUnion('method', [
   InitializeSessionRequestSchema,
   LoadSessionRequestSchema,
@@ -764,6 +810,7 @@ export const ClientRequestSchema = z.discriminatedUnion('method', [
   RemoveMcpServerRequestSchema,
   ListMcpRegistryRequestSchema,
   ListMcpToolsRequestSchema,
+  ListToolsRequestSchema,
   ListMcpServersRequestSchema,
   ToggleMcpToolRequestSchema,
   ListSkillsRequestSchema,
@@ -927,6 +974,13 @@ export const ListMcpToolsResultSchema = z
   .passthrough();
 
 export type ListMcpToolsResult = z.infer<typeof ListMcpToolsResultSchema>;
+
+/** Result for droid.list_tools response. */
+export const ListToolsResultSchema = z
+  .object({ tools: z.array(ExecToolInfoSchema) })
+  .passthrough();
+
+export type ListToolsResult = z.infer<typeof ListToolsResultSchema>;
 
 /** Result for droid.list_mcp_servers response. */
 export const ListMcpServersResultSchema = z
@@ -1171,6 +1225,13 @@ export const ListMcpToolsResponseSchema = z.union([
 ]);
 
 export type ListMcpToolsResponse = z.infer<typeof ListMcpToolsResponseSchema>;
+
+export const ListToolsResponseSchema = z.union([
+  JsonRpcResponseSuccessSchema.extend({ result: ListToolsResultSchema }),
+  JsonRpcResponseFailureSchema,
+]);
+
+export type ListToolsResponse = z.infer<typeof ListToolsResponseSchema>;
 
 export const ListMcpServersResponseSchema = z.union([
   JsonRpcResponseSuccessSchema.extend({ result: ListMcpServersResultSchema }),

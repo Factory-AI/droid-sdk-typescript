@@ -244,6 +244,7 @@ describe('DroidClient', () => {
         sessionId: 'custom-session',
         workspaceId: 'ws-1',
         modelId: 'claude-3',
+        disabledToolIds: ['Execute'],
       });
 
       await vi.waitFor(() => {
@@ -255,17 +256,25 @@ describe('DroidClient', () => {
       expect(params['sessionId']).toBe('custom-session');
       expect(params['workspaceId']).toBe('ws-1');
       expect(params['modelId']).toBe('claude-3');
+      expect(params['disabledToolIds']).toEqual(['Execute']);
 
       const requestId = sent['id'] as string;
       transport.injectMessage(
         makeSuccessResponse(requestId, {
           sessionId: 'custom-session',
           session: {},
-          settings: { modelId: 'claude-3', reasoningEffort: 'medium' },
+          settings: {
+            modelId: 'claude-3',
+            reasoningEffort: 'medium',
+            enabledToolIds: ['Read'],
+            disabledToolIds: ['Execute'],
+          },
         })
       );
 
-      await initPromise;
+      const result = await initPromise;
+      expect(result.settings.enabledToolIds).toEqual(['Read']);
+      expect(result.settings.disabledToolIds).toEqual(['Execute']);
     });
   });
 
@@ -292,12 +301,19 @@ describe('DroidClient', () => {
       transport.injectMessage(
         makeSuccessResponse(requestId, {
           session: { id: 'existing-session' },
-          settings: { modelId: 'm', reasoningEffort: 'medium' },
+          settings: {
+            modelId: 'm',
+            reasoningEffort: 'medium',
+            enabledToolIds: ['Read'],
+            disabledToolIds: ['Execute'],
+          },
         })
       );
 
       const result = await loadPromise;
       expect(result.session).toBeDefined();
+      expect(result.settings.enabledToolIds).toEqual(['Read']);
+      expect(result.settings.disabledToolIds).toEqual(['Execute']);
       expect(client.sessionId).toBe('existing-session');
     });
 
@@ -509,6 +525,48 @@ describe('DroidClient', () => {
       expect(result.tools).toEqual([]);
     });
 
+    it('listTools sends correct request', async () => {
+      const promise = client.listTools({
+        modelId: 'gpt-5',
+        enabledToolIds: ['Read'],
+        disabledToolIds: ['Execute'],
+        depth: 1,
+      });
+
+      await vi.waitFor(() => {
+        expect(transport.sentMessages.length).toBe(2);
+      });
+
+      const sent = transport.sentMessages[1] as Record<string, unknown>;
+      expect(sent['method']).toBe(DroidServerMethod.LIST_TOOLS);
+      expect(sent['params']).toMatchObject({
+        modelId: 'gpt-5',
+        enabledToolIds: ['Read'],
+        disabledToolIds: ['Execute'],
+        depth: 1,
+      });
+
+      const requestId = sent['id'] as string;
+      transport.injectMessage(
+        makeSuccessResponse(requestId, {
+          tools: [
+            {
+              id: 'read-cli',
+              llmId: 'Read',
+              displayName: 'Read',
+              description: 'Read files',
+              category: 'read',
+              defaultAllowed: true,
+              currentlyAllowed: true,
+            },
+          ],
+        })
+      );
+
+      const result = await promise;
+      expect(result.tools[0]?.llmId).toBe('Read');
+    });
+
     it('listMcpRegistry sends correct request', async () => {
       const promise = client.listMcpRegistry();
 
@@ -679,6 +737,7 @@ describe('DroidClient', () => {
     it('updateSessionSettings sends correct request', async () => {
       const promise = client.updateSessionSettings({
         modelId: 'new-model',
+        disabledToolIds: ['Execute'],
       });
 
       await vi.waitFor(() => {
@@ -687,9 +746,10 @@ describe('DroidClient', () => {
 
       const sent = transport.sentMessages[1] as Record<string, unknown>;
       expect(sent['method']).toBe(DroidServerMethod.UPDATE_SESSION_SETTINGS);
-      expect((sent['params'] as Record<string, unknown>)['modelId']).toBe(
-        'new-model'
-      );
+      expect(sent['params']).toMatchObject({
+        modelId: 'new-model',
+        disabledToolIds: ['Execute'],
+      });
 
       const requestId = sent['id'] as string;
       transport.injectMessage(makeSuccessResponse(requestId, {}));

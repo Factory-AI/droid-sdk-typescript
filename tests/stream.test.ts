@@ -803,13 +803,23 @@ describe('convertNotificationToStreamMessage', () => {
     it('converts to SettingsUpdated', () => {
       const notification = makeNotification(
         SessionNotificationType.SETTINGS_UPDATED,
-        { settings: { modelId: 'claude-opus-4' } }
+        {
+          settings: {
+            modelId: 'claude-opus-4',
+            enabledToolIds: ['Read'],
+            disabledToolIds: ['Execute'],
+          },
+        }
       );
       const result = convertNotificationToStreamMessage(
         notification
       ) as SettingsUpdated;
       expect(result.type).toBe('settings_updated');
-      expect(result.settings).toEqual({ modelId: 'claude-opus-4' });
+      expect(result.settings).toEqual({
+        modelId: 'claude-opus-4',
+        enabledToolIds: ['Read'],
+        disabledToolIds: ['Execute'],
+      });
     });
   });
 

@@ -21,6 +21,16 @@ export const TraceContextMetaSchema = z.object({
 
 export type TraceContextMeta = z.infer<typeof TraceContextMetaSchema>;
 
+/** Shared tool selection override fields reused across client/server schemas. */
+export const ToolSelectionOverridesSchema = z.object({
+  enabledToolIds: z.array(z.string()).optional(),
+  disabledToolIds: z.array(z.string()).optional(),
+});
+
+export type ToolSelectionOverrides = z.infer<
+  typeof ToolSelectionOverridesSchema
+>;
+
 // ---------------------------------------------------------------------------
 // JSON-RPC envelope
 // ---------------------------------------------------------------------------

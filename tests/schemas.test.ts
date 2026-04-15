@@ -141,9 +141,9 @@ import {
 // ============================================================
 
 describe('enums', () => {
-  it('DroidServerMethod has all 24 methods', () => {
+  it('DroidServerMethod has all 25 methods', () => {
     const values = Object.values(DroidServerMethod);
-    expect(values).toHaveLength(24);
+    expect(values).toHaveLength(25);
     expect(values).toContain('droid.initialize_session');
     expect(values).toContain('droid.load_session');
     expect(values).toContain('droid.add_user_message');
@@ -158,6 +158,7 @@ describe('enums', () => {
     expect(values).toContain('droid.remove_mcp_server');
     expect(values).toContain('droid.list_mcp_registry');
     expect(values).toContain('droid.list_mcp_tools');
+    expect(values).toContain('droid.list_tools');
     expect(values).toContain('droid.list_mcp_servers');
     expect(values).toContain('droid.toggle_mcp_tool');
     expect(values).toContain('droid.submit_mcp_auth_code');
@@ -919,9 +920,16 @@ describe('client result schemas', () => {
   });
 
   it('SessionSettingsSchema parses valid settings', () => {
-    const settings = { modelId: 'claude-3', reasoningEffort: 'high' };
+    const settings = {
+      modelId: 'claude-3',
+      reasoningEffort: 'high',
+      enabledToolIds: ['Read'],
+      disabledToolIds: ['Execute'],
+    };
     const result = SessionSettingsSchema.parse(settings);
     expect(result.modelId).toBe('claude-3');
+    expect(result.enabledToolIds).toEqual(['Read']);
+    expect(result.disabledToolIds).toEqual(['Execute']);
   });
 
   it('result schemas accept extra fields (passthrough)', () => {
@@ -1073,11 +1081,17 @@ describe('server notification schemas', () => {
   it('SettingsUpdatedNotificationSchema parses valid notification', () => {
     const n = {
       type: 'settings_updated',
-      settings: { modelId: 'claude-3', reasoningEffort: 'high' },
+      settings: {
+        modelId: 'claude-3',
+        reasoningEffort: 'high',
+        enabledToolIds: ['Read'],
+        disabledToolIds: ['Execute'],
+      },
     };
-    expect(SettingsUpdatedNotificationSchema.parse(n).settings.modelId).toBe(
-      'claude-3'
-    );
+    const result = SettingsUpdatedNotificationSchema.parse(n);
+    expect(result.settings.modelId).toBe('claude-3');
+    expect(result.settings.enabledToolIds).toEqual(['Read']);
+    expect(result.settings.disabledToolIds).toEqual(['Execute']);
   });
 
   it('SessionTitleUpdatedNotificationSchema parses valid notification', () => {
