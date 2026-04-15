@@ -13,27 +13,31 @@ import {
   LEGACY_FACTORY_API_VERSION,
 } from './schemas/constants.js';
 import { DroidClientMethod, JsonRpcErrorCode } from './schemas/enums.js';
-import { SessionNotificationParamsSchema } from './schemas/server.js';
+import {
+  AskUserRequestParamsSchema,
+  AskUserResultSchema,
+  RequestPermissionRequestParamsSchema,
+  RequestPermissionResultSchema,
+  SessionNotificationParamsSchema,
+} from './schemas/server.js';
+import type {
+  AskUserRequestParams,
+  AskUserResult,
+  RequestPermissionRequestParams,
+  RequestPermissionResult,
+  RequestPermissionSelection,
+} from './schemas/server.js';
 import { JsonRpcMessageSchema, type JsonRpcError } from './schemas/shared.js';
 import type { DroidClientTransport } from './types.js';
 
 
-function toRecord(value: unknown): Record<string, unknown> {
-  if (typeof value === 'object' && value !== null && !Array.isArray(value)) {
-    // eslint-disable-next-line @typescript-eslint/consistent-type-assertions -- runtime-guarded narrowing
-    return value as Record<string, unknown>;
-  }
-  return {};
-}
-
-
 export type PermissionHandler = (
-  params: Record<string, unknown>
-) => string | Promise<string>;
+  params: RequestPermissionRequestParams
+) => RequestPermissionSelection | Promise<RequestPermissionSelection>;
 
 export type AskUserHandler = (
-  params: Record<string, unknown>
-) => Record<string, unknown> | Promise<Record<string, unknown>>;
+  params: AskUserRequestParams
+) => AskUserResult | Promise<AskUserResult>;
 
 export type NotificationCallback = (
   notification: Record<string, unknown>
@@ -258,9 +262,8 @@ export class ProtocolEngine {
 
     if (error != null) {
       if (error.code === JsonRpcErrorCode.ENTITY_NOT_FOUND) {
-        const paramsRecord = toRecord(pending.params);
         const sessionId = String(
-          paramsRecord['sessionId'] ?? pending.requestId
+          pending.params['sessionId'] ?? pending.requestId
         );
         pending.reject(new SessionNotFoundError(sessionId));
         return;
@@ -305,30 +308,35 @@ export class ProtocolEngine {
     requestId: string,
     params: unknown
   ): Promise<void> {
-    const paramsObj = toRecord(params);
-
     if (method === DroidClientMethod.REQUEST_PERMISSION) {
-      await this._handlePermissionRequest(requestId, paramsObj);
+      await this._handlePermissionRequest(requestId, params);
     } else if (method === DroidClientMethod.ASK_USER) {
-      await this._handleAskUserRequest(requestId, paramsObj);
+      await this._handleAskUserRequest(requestId, params);
     }
   }
 
   private async _handlePermissionRequest(
     requestId: string,
-    params: Record<string, unknown>
+    params: unknown
   ): Promise<void> {
     const handler = this._permissionHandler;
 
     if (handler == null) {
       // Default: Cancel
-      this._sendResponse(requestId, { selectedOption: 'cancel' });
+      this._sendResponse(
+        requestId,
+        RequestPermissionResultSchema.parse({ selectedOption: 'cancel' })
+      );
       return;
     }
 
     try {
-      const selectedOption = await Promise.resolve(handler(params));
-      this._sendResponse(requestId, { selectedOption });
+      const parsedParams = RequestPermissionRequestParamsSchema.parse(params);
+      const selectedOption = await Promise.resolve(handler(parsedParams));
+      this._sendResponse(
+        requestId,
+        RequestPermissionResultSchema.parse({ selectedOption })
+      );
     } catch (exc) {
       const errorMessage = exc instanceof Error ? exc.message : String(exc);
       this._sendErrorResponse(
@@ -342,19 +350,23 @@ export class ProtocolEngine {
 
   private async _handleAskUserRequest(
     requestId: string,
-    params: Record<string, unknown>
+    params: unknown
   ): Promise<void> {
     const handler = this._askUserHandler;
 
     if (handler == null) {
       // Default: cancelled=true
-      this._sendResponse(requestId, { cancelled: true, answers: [] });
+      this._sendResponse(
+        requestId,
+        AskUserResultSchema.parse({ cancelled: true, answers: [] })
+      );
       return;
     }
 
     try {
-      const result = await Promise.resolve(handler(params));
-      this._sendResponse(requestId, result);
+      const parsedParams = AskUserRequestParamsSchema.parse(params);
+      const result = await Promise.resolve(handler(parsedParams));
+      this._sendResponse(requestId, AskUserResultSchema.parse(result));
     } catch (exc) {
       const errorMessage = exc instanceof Error ? exc.message : String(exc);
       this._sendErrorResponse(
@@ -384,7 +396,7 @@ export class ProtocolEngine {
 
   private _sendResponse(
     requestId: string,
-    result: Record<string, unknown>
+    result: RequestPermissionResult | AskUserResult
   ): void {
     const response: Record<string, unknown> = {
       jsonrpc: JSONRPC_VERSION,
@@ -394,11 +406,7 @@ export class ProtocolEngine {
       id: requestId,
       result,
     };
-    try {
-      this._transport.send(response);
-    } catch {
-      // Failed to send response — log but don't crash
-    }
+    this._sendBestEffort(response);
   }
 
   private _sendErrorResponse(
@@ -420,10 +428,15 @@ export class ProtocolEngine {
       id: requestId,
       error: errorObj,
     };
+    this._sendBestEffort(response);
+  }
+
+  private _sendBestEffort(message: Record<string, unknown>): void {
     try {
-      this._transport.send(response);
+      this._transport.send(message);
     } catch {
-      // Failed to send error response — don't crash
+      // The transport is already failing; dropping the reply is safer than
+      // throwing from a server→client callback path.
     }
   }
 

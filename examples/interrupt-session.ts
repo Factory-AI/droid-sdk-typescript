@@ -13,11 +13,9 @@
 import { createSession } from '../src/index.js';
 
 async function main(): Promise<void> {
-  // Create a new session
   const session = await createSession({ cwd: process.cwd() });
   console.log(`Session created: ${session.sessionId}\n`);
 
-  // Start a streaming turn with a long-running prompt
   const prompt =
     'Write a detailed essay about the history of computing, from the ' +
     'earliest mechanical calculators to modern quantum computers.';
@@ -32,7 +30,6 @@ async function main(): Promise<void> {
         deltaCount++;
         process.stdout.write(msg.text);
 
-        // After receiving 5 text deltas, send an interrupt
         if (deltaCount === 5 && !interrupted) {
           interrupted = true;
           console.log('\n\n>>> Sending interrupt after 5 text deltas...\n');
@@ -58,7 +55,6 @@ async function main(): Promise<void> {
     }
   }
 
-  // Cleanup
   await session.close();
   console.log('\nSession closed.');
 }

@@ -24,10 +24,6 @@ import {
 } from '../src/schemas/index.js';
 import { InMemoryTransport } from './helpers.js';
 
-// ---------------------------------------------------------------------------
-// Helpers
-// ---------------------------------------------------------------------------
-
 /** Build a JSON-RPC success response for a given request ID. */
 function makeSuccessResponse(
   id: string,
@@ -96,10 +92,6 @@ function makeServerRequest(
   };
 }
 
-// ---------------------------------------------------------------------------
-// Tests
-// ---------------------------------------------------------------------------
-
 describe('ProtocolEngine', () => {
   let transport: InMemoryTransport;
   let engine: ProtocolEngine;
@@ -114,14 +106,10 @@ describe('ProtocolEngine', () => {
     await engine.close();
   });
 
-  // =======================================================================
-  // VAL-PROTOCOL-001: Request-response correlation by ID
-  // =======================================================================
   describe('request-response correlation (VAL-PROTOCOL-001)', () => {
     it('sends JSON-RPC request with correct envelope fields', async () => {
       const promise = engine.sendRequest('droid.list_skills', { foo: 'bar' });
 
-      // Verify the sent message has correct structure
       expect(transport.sentMessages).toHaveLength(1);
       const sent = transport.sentMessages[0] as Record<string, unknown>;
       expect(sent['jsonrpc']).toBe(JSONRPC_VERSION);
@@ -133,7 +121,6 @@ describe('ProtocolEngine', () => {
       expect(typeof sent['id']).toBe('string');
       expect((sent['id'] as string).length).toBeGreaterThan(0);
 
-      // Respond with matching ID
       const requestId = sent['id'] as string;
       transport.injectMessage(makeSuccessResponse(requestId, { skills: [] }));
 
@@ -153,7 +140,6 @@ describe('ProtocolEngine', () => {
         'id'
       ] as string;
 
-      // Respond in reverse order
       transport.injectMessage(makeSuccessResponse(id2, { data: 'b' }));
       transport.injectMessage(makeSuccessResponse(id1, { data: 'a' }));
 
@@ -175,7 +161,6 @@ describe('ProtocolEngine', () => {
 
       expect(new Set(ids).size).toBe(3);
 
-      // Clean up
       for (const id of ids) {
         transport.injectMessage(makeSuccessResponse(id));
       }
@@ -183,9 +168,6 @@ describe('ProtocolEngine', () => {
     });
   });
 
-  // =======================================================================
-  // VAL-PROTOCOL-002: Notification dispatch to listeners
-  // =======================================================================
   describe('notification dispatch (VAL-PROTOCOL-002)', () => {
     it('dispatches notifications to all registered listeners', () => {
       const received1: Record<string, unknown>[] = [];
@@ -220,7 +202,6 @@ describe('ProtocolEngine', () => {
         type: 'assistant_text_delta',
       });
 
-      // This one should be delivered
       transport.injectMessage(
         makeNotification(DroidClientMethod.SESSION_NOTIFICATION, {
           notification: {
@@ -232,7 +213,6 @@ describe('ProtocolEngine', () => {
         })
       );
 
-      // This one should NOT be delivered
       transport.injectMessage(
         makeNotification(DroidClientMethod.SESSION_NOTIFICATION, {
           notification: {
@@ -262,7 +242,6 @@ describe('ProtocolEngine', () => {
 
       expect(received).toHaveLength(1);
 
-      // Unsubscribe
       unsub();
 
       transport.injectMessage(
@@ -271,7 +250,6 @@ describe('ProtocolEngine', () => {
         })
       );
 
-      // Should not receive after unsubscribe
       expect(received).toHaveLength(1);
     });
 
@@ -295,14 +273,10 @@ describe('ProtocolEngine', () => {
         })
       );
 
-      // Second listener still receives
       expect(received).toHaveLength(1);
     });
   });
 
-  // =======================================================================
-  // VAL-PROTOCOL-003: Request timeout handling
-  // =======================================================================
   describe('request timeout (VAL-PROTOCOL-003)', () => {
     it('rejects with TimeoutError after configured duration', async () => {
       vi.useFakeTimers();
@@ -310,7 +284,6 @@ describe('ProtocolEngine', () => {
       try {
         const promise = engine.sendRequest('droid.slow_method', {}, 100);
 
-        // Advance time past the timeout
         vi.advanceTimersByTime(101);
 
         await expect(promise).rejects.toThrow(TimeoutError);
@@ -324,7 +297,6 @@ describe('ProtocolEngine', () => {
       vi.useFakeTimers();
 
       try {
-        // Create engine with short default timeout for testing
         const shortEngine = new ProtocolEngine({
           transport,
           defaultTimeout: 50,
@@ -352,14 +324,12 @@ describe('ProtocolEngine', () => {
           'id'
         ] as string;
 
-        // Respond quickly
         vi.advanceTimersByTime(10);
         transport.injectMessage(makeSuccessResponse(id, { ok: true }));
 
         const result = await promise;
         expect(result).toEqual({ ok: true });
 
-        // Advancing past timeout should not cause issues
         vi.advanceTimersByTime(500);
       } finally {
         vi.useRealTimers();
@@ -367,9 +337,6 @@ describe('ProtocolEngine', () => {
     });
   });
 
-  // =======================================================================
-  // VAL-PROTOCOL-004: Server→client request handling
-  // =======================================================================
   describe('server→client request handling (VAL-PROTOCOL-004)', () => {
     describe('permission requests', () => {
       it('invokes registered permission handler and sends response', async () => {
@@ -382,7 +349,6 @@ describe('ProtocolEngine', () => {
           })
         );
 
-        // Allow async handler to complete
         await vi.waitFor(() => {
           expect(transport.sentMessages).toHaveLength(1);
         });
@@ -435,7 +401,7 @@ describe('ProtocolEngine', () => {
 
       it('supports async permission handler', async () => {
         engine.setPermissionHandler(async () => {
-          return 'proceed_always';
+          return 'proceed_always' as const;
         });
 
         transport.injectMessage(
@@ -553,15 +519,11 @@ describe('ProtocolEngine', () => {
     });
   });
 
-  // =======================================================================
-  // VAL-PROTOCOL-005: Sticky transport error pattern
-  // =======================================================================
   describe('sticky transport error (VAL-PROTOCOL-005)', () => {
     it('rejects all pending requests when transport error occurs', async () => {
       const p1 = engine.sendRequest('droid.method_a', {});
       const p2 = engine.sendRequest('droid.method_b', {});
 
-      // Simulate transport error
       transport.injectError(new Error('process crashed'));
 
       await expect(p1).rejects.toThrow(ConnectionError);
@@ -570,10 +532,8 @@ describe('ProtocolEngine', () => {
     });
 
     it('subsequent sendRequest() throws immediately after transport error', async () => {
-      // No pending requests — just inject error
       transport.injectError(new Error('disconnected'));
 
-      // New request should fail immediately
       await expect(engine.sendRequest('droid.method', {})).rejects.toThrow(
         ConnectionError
       );
@@ -585,7 +545,6 @@ describe('ProtocolEngine', () => {
     it("transport error is sticky — doesn't clear after first rejection", async () => {
       transport.injectError(new Error('gone'));
 
-      // Multiple subsequent requests all fail
       await expect(engine.sendRequest('droid.a', {})).rejects.toThrow(
         ConnectionError
       );
@@ -598,9 +557,6 @@ describe('ProtocolEngine', () => {
     });
   });
 
-  // =======================================================================
-  // VAL-PROTOCOL-006: ENTITY_NOT_FOUND → SessionNotFoundError
-  // =======================================================================
   describe('error code mapping (VAL-PROTOCOL-006)', () => {
     it('maps ENTITY_NOT_FOUND to SessionNotFoundError', async () => {
       const promise = engine.sendRequest('droid.load_session', {
@@ -649,12 +605,8 @@ describe('ProtocolEngine', () => {
     });
   });
 
-  // =======================================================================
-  // VAL-PROTOCOL-007: Unknown response ID ignored gracefully
-  // =======================================================================
   describe('unknown/duplicate response IDs (VAL-PROTOCOL-007)', () => {
     it('ignores response with unknown ID without throwing', () => {
-      // Should not throw
       expect(() => {
         transport.injectMessage(
           makeSuccessResponse('unknown-id', { data: 'stale' })
@@ -669,13 +621,11 @@ describe('ProtocolEngine', () => {
         'id'
       ] as string;
 
-      // First response — resolves the promise
       transport.injectMessage(makeSuccessResponse(id, { first: true }));
 
       const result = await promise;
       expect(result).toEqual({ first: true });
 
-      // Duplicate response — should be silently ignored
       expect(() => {
         transport.injectMessage(makeSuccessResponse(id, { second: true }));
       }).not.toThrow();
@@ -694,9 +644,6 @@ describe('ProtocolEngine', () => {
     });
   });
 
-  // =======================================================================
-  // VAL-PROTOCOL-008: Closed engine rejects new requests immediately
-  // =======================================================================
   describe('closed engine (VAL-PROTOCOL-008)', () => {
     it('rejects new sendRequest() after close()', async () => {
       await engine.close();
@@ -731,7 +678,6 @@ describe('ProtocolEngine', () => {
 
       await engine.close();
 
-      // Notification after close should not reach listener
       transport.injectMessage(
         makeNotification(DroidClientMethod.SESSION_NOTIFICATION, {
           notification: { type: 'assistant_text_delta' },
@@ -742,31 +688,24 @@ describe('ProtocolEngine', () => {
     });
   });
 
-  // =======================================================================
-  // #19 — Unknown server→client method ignored
-  // =======================================================================
   describe('unknown server→client request method', () => {
     it('unknown method is silently ignored without sending a response', () => {
       const sentBefore = transport.sentMessages.length;
 
-      // Inject a server request with an unknown method
       transport.injectMessage(
         makeServerRequest('unknown-req-1', 'droid.unknown_method', {
           foo: 'bar',
         })
       );
 
-      // No response should have been sent
       expect(transport.sentMessages.length).toBe(sentBefore);
     });
 
     it('does not throw or affect subsequent requests', async () => {
-      // Inject unknown method
       transport.injectMessage(
         makeServerRequest('unknown-req-2', 'droid.nonexistent', {})
       );
 
-      // Engine should still work for normal requests
       const promise = engine.sendRequest('droid.method', {});
       const id = (transport.sentMessages[0] as Record<string, unknown>)[
         'id'
@@ -778,9 +717,6 @@ describe('ProtocolEngine', () => {
     });
   });
 
-  // =======================================================================
-  // #20 — _sendResponse failure silently caught
-  // =======================================================================
   describe('_sendResponse failure is silently caught', () => {
     it('does not throw when transport.send() fails during permission response', async () => {
       const transport2 = new InMemoryTransport();
@@ -789,37 +725,24 @@ describe('ProtocolEngine', () => {
 
       engine2.setPermissionHandler(() => 'proceed_once');
 
-      // Override send to throw
       transport2.send = () => {
         throw new Error('EPIPE: broken pipe');
       };
 
-      // Inject a permission request — should not crash the engine
       transport2.injectMessage(
-        makeServerRequest(
-          'perm-fail-1',
-          DroidClientMethod.REQUEST_PERMISSION,
-          { toolUses: [] }
-        )
+        makeServerRequest('perm-fail-1', DroidClientMethod.REQUEST_PERMISSION, {
+          toolUses: [],
+        })
       );
 
-      // Wait for handler to run
       await new Promise((resolve) => setTimeout(resolve, 10));
-
-      // Engine should still be healthy (not crashed)
-      // Verify by checking no unhandled error propagated
-      // (if it threw, the test would have failed)
 
       await engine2.close();
     });
   });
 
-  // =======================================================================
-  // Additional edge cases
-  // =======================================================================
   describe('edge cases', () => {
     it('handles send failure by rejecting the pending request', async () => {
-      // Close the transport to make send() fail
       await transport.close();
 
       await expect(engine.sendRequest('droid.method', {})).rejects.toThrow(
@@ -878,7 +801,6 @@ describe('ProtocolEngine', () => {
       const received: Record<string, unknown>[] = [];
       engine.onNotification((n) => received.push(n));
 
-      // Notification without standard structure
       transport.injectMessage({
         jsonrpc: JSONRPC_VERSION,
         factoryApiVersion: LEGACY_FACTORY_API_VERSION,
@@ -894,7 +816,6 @@ describe('ProtocolEngine', () => {
       const received: Record<string, unknown>[] = [];
       engine.onNotification((n) => received.push(n), { type: 'specific_type' });
 
-      // Notification with no inner type
       transport.injectMessage({
         jsonrpc: JSONRPC_VERSION,
         factoryApiVersion: LEGACY_FACTORY_API_VERSION,
@@ -910,7 +831,6 @@ describe('ProtocolEngine', () => {
       const received: Record<string, unknown>[] = [];
       engine.onNotification((n) => received.push(n));
 
-      // Valid JSON-RPC notification with all required envelope fields
       transport.injectMessage({
         jsonrpc: JSONRPC_VERSION,
         factoryApiVersion: LEGACY_FACTORY_API_VERSION,

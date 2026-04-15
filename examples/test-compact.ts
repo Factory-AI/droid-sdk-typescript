@@ -16,7 +16,6 @@ async function main(): Promise<void> {
   const session = await createSession({ cwd: process.cwd() });
   console.log(`Session created: ${session.sessionId}\n`);
 
-  // Send multiple messages to build up history
   const prompts = [
     'Say "one" and nothing else',
     'Say "two" and nothing else',
@@ -37,7 +36,6 @@ async function main(): Promise<void> {
     }
   }
 
-  // Compact the session
   console.log('=== Compacting session ===');
   const compactResult = await session.compactSession({});
   console.log(`Original session: ${session.sessionId}`);

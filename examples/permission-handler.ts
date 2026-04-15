@@ -9,26 +9,19 @@
  *   npx tsx examples/permission-handler.ts
  */
 
-import { query, ToolConfirmationOutcome } from '../src/index.js';
+import {
+  query,
+  ToolConfirmationOutcome,
+  type RequestPermissionRequestParams,
+} from '../src/index.js';
 
-/**
- * Custom permission handler that logs tool information and approves
- * each tool use individually.
- */
-function permissionHandler(params: Record<string, unknown>): string {
-  const toolUses = params.toolUses as
-    | Array<{
-        toolUse: { name: string; input: Record<string, unknown> };
-        confirmationType: string;
-      }>
-    | undefined;
-
-  if (toolUses) {
-    for (const item of toolUses) {
-      console.log(`\n[Permission] Tool: ${item.toolUse.name}`);
-      console.log(`  Type: ${item.confirmationType}`);
-      console.log(`  Input: ${JSON.stringify(item.toolUse.input, null, 2)}`);
-    }
+function permissionHandler(
+  params: RequestPermissionRequestParams
+): ToolConfirmationOutcome {
+  for (const item of params.toolUses) {
+    console.log(`\n[Permission] Tool: ${item.toolUse.name}`);
+    console.log(`  Type: ${item.confirmationType}`);
+    console.log(`  Input: ${JSON.stringify(item.toolUse.input, null, 2)}`);
   }
 
   console.log(`  → Approving with ProceedOnce\n`);

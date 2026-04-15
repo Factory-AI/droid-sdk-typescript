@@ -14,10 +14,6 @@ import { ProcessTransport } from '../src/transport.js';
 import type { DroidClientTransport } from '../src/types.js';
 import { InMemoryTransport } from './helpers.js';
 
-// ---------------------------------------------------------------------------
-// Helpers
-// ---------------------------------------------------------------------------
-
 /**
  * Create a ProcessTransport that runs `node -e <script>` instead of `droid`.
  * This lets us test real stdin/stdout JSONL framing without the droid CLI.
@@ -80,10 +76,6 @@ function waitForError(
   });
 }
 
-// ---------------------------------------------------------------------------
-// DroidClientTransport interface compliance
-// ---------------------------------------------------------------------------
-
 describe('ProcessTransport', () => {
   describe('interface compliance', () => {
     it('implements DroidClientTransport interface', () => {
@@ -102,7 +94,6 @@ describe('ProcessTransport', () => {
     });
 
     it('isConnected is true after connect()', async () => {
-      // Spawn a node process that stays alive briefly
       const transport = createNodeTransport('setTimeout(() => {}, 10000);');
       await transport.connect!();
       expect(transport.isConnected).toBe(true);
@@ -122,13 +113,8 @@ describe('ProcessTransport', () => {
     });
   });
 
-  // -----------------------------------------------------------------------
-  // JSONL stdin (send)
-  // -----------------------------------------------------------------------
-
   describe('JSONL stdin (send)', () => {
     it('sends JSONL via stdin — one JSON object per newline', async () => {
-      // Node script that echoes each stdin line as a JSON message
       const script = `
         const readline = require('readline');
         const rl = readline.createInterface({ input: process.stdin });
@@ -155,7 +141,6 @@ describe('ProcessTransport', () => {
     });
 
     it('serializes multiple sends without interleaving', async () => {
-      // Node script that collects all lines and echoes count at the end
       const script = `
         const readline = require('readline');
         const rl = readline.createInterface({ input: process.stdin });
@@ -173,7 +158,6 @@ describe('ProcessTransport', () => {
       const messagePromise = collectMessages(transport, 5);
       await transport.connect!();
 
-      // Fire 5 sends concurrently
       for (let i = 0; i < 5; i++) {
         transport.send({ id: String(i), data: 'x'.repeat(100) });
       }
@@ -181,7 +165,6 @@ describe('ProcessTransport', () => {
       const messages = await messagePromise;
       expect(messages).toHaveLength(5);
 
-      // Each message should have a distinct, correctly-parsed id
       const ids = messages.map(
         (m) => (m as { received: { id: string } }).received.id
       );
@@ -190,10 +173,6 @@ describe('ProcessTransport', () => {
       await transport.close();
     });
   });
-
-  // -----------------------------------------------------------------------
-  // JSONL stdout (receive)
-  // -----------------------------------------------------------------------
 
   describe('JSONL stdout parsing', () => {
     it('parses JSONL messages from stdout', async () => {
@@ -279,11 +258,25 @@ describe('ProcessTransport', () => {
 
       await transport.close();
     });
-  });
 
-  // -----------------------------------------------------------------------
-  // Process exit handling
-  // -----------------------------------------------------------------------
+    it('skips JSON arrays and only forwards object messages', async () => {
+      const script = `
+        process.stdout.write(JSON.stringify([{ ignored: true }]) + '\\n');
+        process.stdout.write(JSON.stringify({ good: true }) + '\\n');
+        setTimeout(() => process.exit(0), 200);
+      `;
+
+      const transport = createNodeTransport(script);
+      const messagePromise = collectMessages(transport, 1);
+      await transport.connect!();
+
+      const messages = await messagePromise;
+      expect(messages).toHaveLength(1);
+      expect(messages[0]).toEqual({ good: true });
+
+      await transport.close();
+    });
+  });
 
   describe('process exit handling', () => {
     it('fires ProcessExitError on abnormal exit (non-zero)', async () => {
@@ -343,20 +336,14 @@ describe('ProcessTransport', () => {
 
       await errorPromise;
 
-      // send() should throw the sticky error
       expect(() => transport.send({ test: true })).toThrow(ProcessExitError);
 
       await transport.close();
     });
   });
 
-  // -----------------------------------------------------------------------
-  // Reconnection
-  // -----------------------------------------------------------------------
-
   describe('reconnection', () => {
     it('supports close → connect cycle', async () => {
-      // First connection: echo script
       const echoScript = `
         const readline = require('readline');
         const rl = readline.createInterface({ input: process.stdin });
@@ -368,13 +355,11 @@ describe('ProcessTransport', () => {
         });
       `;
 
-      // Use a transport with node -e that we can reconnect
       const transport = new ProcessTransport({
         execPath: 'node',
         execArgs: ['-e', echoScript],
       });
 
-      // First connection
       await transport.connect!();
       expect(transport.isConnected).toBe(true);
 
@@ -383,11 +368,9 @@ describe('ProcessTransport', () => {
       const firstMsg = await firstMsgPromise;
       expect(firstMsg[0]).toEqual({ echo: { attempt: 1 } });
 
-      // Close
       await transport.close();
       expect(transport.isConnected).toBe(false);
 
-      // Reconnect
       await transport.connect!();
       expect(transport.isConnected).toBe(true);
 
@@ -400,18 +383,15 @@ describe('ProcessTransport', () => {
     });
 
     it('resets processError on reconnect so send() works', async () => {
-      // Process that exits immediately with error
       const transport = createNodeTransport('process.exit(1);');
       const errorPromise = waitForError(transport);
       await transport.connect!();
       await errorPromise;
 
-      // send() should throw sticky error
       expect(() => transport.send({ test: true })).toThrow(ProcessExitError);
 
       await transport.close();
 
-      // Reconnect with a long-lived process
       const echoScript = `
         const readline = require('readline');
         const rl = readline.createInterface({ input: process.stdin });
@@ -422,14 +402,12 @@ describe('ProcessTransport', () => {
           } catch {}
         });
       `;
-      // Create a new transport for reconnect since execArgs are fixed
       const transport2 = new ProcessTransport({
         execPath: 'node',
         execArgs: ['-e', echoScript],
       });
       await transport2.connect!();
 
-      // send() should work now
       const msgPromise = collectMessages(transport2, 1);
       transport2.send({ reconnected: true });
       const msgs = await msgPromise;
@@ -438,10 +416,6 @@ describe('ProcessTransport', () => {
       await transport2.close();
     });
   });
-
-  // -----------------------------------------------------------------------
-  // Shutdown escalation (SIGTERM → SIGKILL)
-  // -----------------------------------------------------------------------
 
   describe('SIGTERM → SIGKILL shutdown escalation', () => {
     it('close() terminates process and sets isConnected to false', async () => {
@@ -457,45 +431,36 @@ describe('ProcessTransport', () => {
       const transport = createNodeTransport('setTimeout(() => {}, 60000);');
       await transport.connect!();
 
-      // Calling close() twice should not throw
       await transport.close();
       await transport.close();
       expect(transport.isConnected).toBe(false);
     });
 
     it('escalates to SIGKILL for processes that ignore SIGTERM', async () => {
-      // Process that traps SIGTERM and ignores it
       const script = `
         process.on('SIGTERM', () => { /* ignore */ });
         setTimeout(() => {}, 60000);
       `;
 
       const transport = createNodeTransport(script, {
-        gracePeriod: 0.5, // Short grace period for fast test
+        gracePeriod: 0.5,
       });
       await transport.connect!();
       expect(transport.isConnected).toBe(true);
 
-      // close() should eventually succeed via SIGKILL
       await transport.close();
       expect(transport.isConnected).toBe(false);
-    }, 10_000); // Allow up to 10s for the escalation
+    }, 10_000);
   });
-
-  // -----------------------------------------------------------------------
-  // #22 — Transport send() EPIPE/ECONNRESET
-  // -----------------------------------------------------------------------
 
   describe('send() after stdin closes (EPIPE)', () => {
     it('fires error or throws when writing to a closed stdin', async () => {
-      // Node script that reads one line then closes stdin immediately
       const script = `
         const readline = require('readline');
         const rl = readline.createInterface({ input: process.stdin });
         rl.on('line', () => {
           rl.close();
           process.stdin.destroy();
-          // Keep process alive briefly
           setTimeout(() => process.exit(0), 2000);
         });
       `;
@@ -504,33 +469,24 @@ describe('ProcessTransport', () => {
       const errorPromise = waitForError(transport);
       await transport.connect!();
 
-      // First send succeeds — stdin is still open
       transport.send({ first: true });
 
-      // Give the child time to close stdin
       await new Promise((resolve) => setTimeout(resolve, 200));
 
-      // Second send should fail — either synchronously or via async error event
       try {
         transport.send({ second: true });
-        // If send() didn't throw, the error must fire asynchronously
         const asyncError = await errorPromise;
         expect(asyncError).toBeDefined();
       } catch {
-        // send() threw synchronously — acceptable behavior
+        void 0;
       }
 
       await transport.close();
     }, 10_000);
   });
 
-  // -----------------------------------------------------------------------
-  // #23 — Transport send() when isClosing
-  // -----------------------------------------------------------------------
-
   describe('send() during close()', () => {
     it('send() after close() starts throws or fires error', async () => {
-      // Process that ignores SIGTERM (long grace period to simulate closing state)
       const script = `
         process.on('SIGTERM', () => { /* ignore */ });
         setTimeout(() => {}, 60000);
@@ -540,29 +496,20 @@ describe('ProcessTransport', () => {
       await transport.connect!();
       expect(transport.isConnected).toBe(true);
 
-      // Start close (will send SIGTERM, then wait gracePeriod before SIGKILL)
       const closePromise = transport.close();
 
-      // Immediately try to send while close is in progress
       try {
         transport.send({ duringClose: true });
       } catch {
-        // send() may throw if the transport detects it's closing
+        void 0;
       }
 
-      // Wait for close to complete
       await closePromise;
 
-      // Either send() threw, or close completed and the message was silently dropped
-      // After close, subsequent sends should definitely fail
       expect(transport.isConnected).toBe(false);
       expect(() => transport.send({ afterClose: true })).toThrow();
     }, 15_000);
   });
-
-  // -----------------------------------------------------------------------
-  // Edge cases
-  // -----------------------------------------------------------------------
 
   describe('edge cases', () => {
     it('handles spawn failure (ENOENT) via error event', async () => {
@@ -588,13 +535,11 @@ describe('ProcessTransport', () => {
 
       const transport = createNodeTransport(script);
 
-      // Register handler BEFORE connect
       const messages: Record<string, unknown>[] = [];
       transport.onMessage((msg) => messages.push(msg));
 
       await transport.connect!();
 
-      // Wait briefly for stdout data
       await new Promise((resolve) => setTimeout(resolve, 300));
       expect(messages.length).toBeGreaterThanOrEqual(1);
       expect(messages[0]).toEqual({ early: true });
@@ -603,10 +548,6 @@ describe('ProcessTransport', () => {
     });
   });
 });
-
-// ---------------------------------------------------------------------------
-// InMemoryTransport
-// ---------------------------------------------------------------------------
 
 describe('InMemoryTransport', () => {
   let transport: InMemoryTransport;

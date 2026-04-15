@@ -3,8 +3,10 @@ import type { z } from 'zod';
 import { ConnectionError, SessionError } from './errors.js';
 import {
   ProtocolEngine,
+  type AskUserHandler,
   type NotificationCallback,
   type NotificationFilter,
+  type PermissionHandler,
 } from './protocol.js';
 import type {
   AddMcpServerRequestParams,
@@ -87,17 +89,22 @@ import {
 } from './schemas/constants.js';
 import { DroidServerMethod } from './schemas/enums.js';
 import { SessionNotificationParamsSchema } from './schemas/server.js';
+import type {
+  AskUserRequestParams,
+  AskUserResult,
+  RequestPermissionRequestParams,
+  RequestPermissionSelection,
+} from './schemas/server.js';
 import type { DroidClientTransport } from './types.js';
 
-// Types
+export type ClientPermissionHandler = PermissionHandler;
 
-export type ClientPermissionHandler = (
-  params: Record<string, unknown>
-) => string | Promise<string>;
+export type ClientAskUserHandler = AskUserHandler;
 
-export type ClientAskUserHandler = (
-  params: Record<string, unknown>
-) => Record<string, unknown> | Promise<Record<string, unknown>>;
+interface ClientNotificationListener {
+  readonly callback: NotificationCallback;
+  readonly filter?: NotificationFilter;
+}
 
 export interface DroidClientOptions {
   /** A connected DroidClientTransport implementation. */
@@ -107,8 +114,6 @@ export interface DroidClientOptions {
   defaultTimeout?: number;
 }
 
-// DroidClient
-
 export class DroidClient {
   private readonly _engine: ProtocolEngine;
   private _sessionId: string | null = null;
@@ -116,12 +121,9 @@ export class DroidClient {
 
   /**
    * Client-level notification listeners.
-   * Each entry is [callback, optional type filter string].
+   * Each entry is [callback, optional notification filter].
    */
-  private readonly _notificationListeners: Array<{
-    callback: NotificationCallback;
-    typeFilter?: string;
-  }> = [];
+  private readonly _notificationListeners: ClientNotificationListener[] = [];
 
   /** Client-level permission handler. */
   private _permissionHandler: ClientPermissionHandler | null = null;
@@ -135,13 +137,10 @@ export class DroidClient {
       defaultTimeout: options.defaultTimeout,
     });
 
-    // Wire up protocol engine's notification dispatch to client-level listeners
     this._engine.onNotification((notification) => {
       this._dispatchNotification(notification);
     });
 
-    // Wire up protocol engine's server→client request handlers
-    // to client-level dispatch methods
     this._engine.setPermissionHandler((params) =>
       this._dispatchPermissionRequest(params)
     );
@@ -149,7 +148,6 @@ export class DroidClient {
       this._dispatchAskUserRequest(params)
     );
   }
-
 
   private async _rpc<T extends z.ZodTypeAny>(
     method: string,
@@ -161,6 +159,24 @@ export class DroidClient {
     return schema.parse(raw);
   }
 
+  private async _sessionRpc<T extends z.ZodTypeAny>(
+    method: string,
+    params: Record<string, unknown>,
+    schema: T,
+    timeout?: number
+  ): Promise<z.output<T>> {
+    this._ensureNotClosed();
+    this._ensureSession();
+    return this._rpc(method, params, schema, timeout);
+  }
+
+  private async _sessionRpcWithoutParams<T extends z.ZodTypeAny>(
+    method: string,
+    schema: T,
+    timeout?: number
+  ): Promise<z.output<T>> {
+    return this._sessionRpc(method, {}, schema, timeout);
+  }
 
   get sessionId(): string | null {
     return this._sessionId;
@@ -169,7 +185,6 @@ export class DroidClient {
   get isConnected(): boolean {
     return !this._closed && this._engine.isHealthy;
   }
-
 
   async initializeSession(
     params: InitializeSessionRequestParams
@@ -207,10 +222,7 @@ export class DroidClient {
         Pick<AddUserMessageRequestParams, 'images' | 'files' | 'messageId'>
       >
   ): Promise<AddUserMessageResult> {
-    this._ensureNotClosed();
-    this._ensureSession();
-
-    return this._rpc(
+    return this._sessionRpc(
       DroidServerMethod.ADD_USER_MESSAGE,
       params,
       AddUserMessageResultSchema
@@ -218,12 +230,8 @@ export class DroidClient {
   }
 
   async interruptSession(): Promise<InterruptSessionResult> {
-    this._ensureNotClosed();
-    this._ensureSession();
-
-    return this._rpc(
+    return this._sessionRpcWithoutParams(
       DroidServerMethod.INTERRUPT_SESSION,
-      {},
       InterruptSessionResultSchema
     );
   }
@@ -231,10 +239,7 @@ export class DroidClient {
   async killWorkerSession(
     params: KillWorkerSessionRequestParams
   ): Promise<KillWorkerSessionResult> {
-    this._ensureNotClosed();
-    this._ensureSession();
-
-    return this._rpc(
+    return this._sessionRpc(
       DroidServerMethod.KILL_WORKER_SESSION,
       params,
       KillWorkerSessionResultSchema
@@ -244,24 +249,17 @@ export class DroidClient {
   async updateSessionSettings(
     params: Partial<UpdateSessionSettingsRequestParams>
   ): Promise<UpdateSessionSettingsResult> {
-    this._ensureNotClosed();
-    this._ensureSession();
-
-    return this._rpc(
+    return this._sessionRpc(
       DroidServerMethod.UPDATE_SESSION_SETTINGS,
       params,
       UpdateSessionSettingsResultSchema
     );
   }
 
-
   async toggleMcpServer(
     params: ToggleMcpServerRequestParams
   ): Promise<ToggleMcpServerResult> {
-    this._ensureNotClosed();
-    this._ensureSession();
-
-    return this._rpc(
+    return this._sessionRpc(
       DroidServerMethod.TOGGLE_MCP_SERVER,
       params,
       ToggleMcpServerResultSchema
@@ -271,10 +269,7 @@ export class DroidClient {
   async authenticateMcpServer(
     params: AuthenticateMcpServerRequestParams
   ): Promise<AuthenticateMcpServerResult> {
-    this._ensureNotClosed();
-    this._ensureSession();
-
-    return this._rpc(
+    return this._sessionRpc(
       DroidServerMethod.AUTHENTICATE_MCP_SERVER,
       params,
       AuthenticateMcpServerResultSchema,
@@ -285,10 +280,7 @@ export class DroidClient {
   async cancelMcpAuth(
     params: CancelMcpAuthRequestParams
   ): Promise<CancelMcpAuthResult> {
-    this._ensureNotClosed();
-    this._ensureSession();
-
-    return this._rpc(
+    return this._sessionRpc(
       DroidServerMethod.CANCEL_MCP_AUTH,
       params,
       CancelMcpAuthResultSchema
@@ -298,10 +290,7 @@ export class DroidClient {
   async clearMcpAuth(
     params: ClearMcpAuthRequestParams
   ): Promise<ClearMcpAuthResult> {
-    this._ensureNotClosed();
-    this._ensureSession();
-
-    return this._rpc(
+    return this._sessionRpc(
       DroidServerMethod.CLEAR_MCP_AUTH,
       params,
       ClearMcpAuthResultSchema
@@ -311,10 +300,7 @@ export class DroidClient {
   async submitMcpAuthCode(
     params: SubmitMcpAuthCodeRequestParams
   ): Promise<SubmitMcpAuthCodeResult> {
-    this._ensureNotClosed();
-    this._ensureSession();
-
-    return this._rpc(
+    return this._sessionRpc(
       DroidServerMethod.SUBMIT_MCP_AUTH_CODE,
       params,
       SubmitMcpAuthCodeResultSchema
@@ -324,10 +310,7 @@ export class DroidClient {
   async addMcpServer(
     params: AddMcpServerRequestParams
   ): Promise<AddMcpServerResult> {
-    this._ensureNotClosed();
-    this._ensureSession();
-
-    return this._rpc(
+    return this._sessionRpc(
       DroidServerMethod.ADD_MCP_SERVER,
       params,
       AddMcpServerResultSchema
@@ -337,10 +320,7 @@ export class DroidClient {
   async removeMcpServer(
     params: RemoveMcpServerRequestParams
   ): Promise<RemoveMcpServerResult> {
-    this._ensureNotClosed();
-    this._ensureSession();
-
-    return this._rpc(
+    return this._sessionRpc(
       DroidServerMethod.REMOVE_MCP_SERVER,
       params,
       RemoveMcpServerResultSchema
@@ -348,23 +328,15 @@ export class DroidClient {
   }
 
   async listMcpRegistry(): Promise<ListMcpRegistryResult> {
-    this._ensureNotClosed();
-    this._ensureSession();
-
-    return this._rpc(
+    return this._sessionRpcWithoutParams(
       DroidServerMethod.LIST_MCP_REGISTRY,
-      {},
       ListMcpRegistryResultSchema
     );
   }
 
   async listMcpTools(): Promise<ListMcpToolsResult> {
-    this._ensureNotClosed();
-    this._ensureSession();
-
-    return this._rpc(
+    return this._sessionRpcWithoutParams(
       DroidServerMethod.LIST_MCP_TOOLS,
-      {},
       ListMcpToolsResultSchema
     );
   }
@@ -372,10 +344,7 @@ export class DroidClient {
   async listTools(
     params: ListToolsRequestParams = {}
   ): Promise<ListToolsResult> {
-    this._ensureNotClosed();
-    this._ensureSession();
-
-    return this._rpc(
+    return this._sessionRpc(
       DroidServerMethod.LIST_TOOLS,
       params,
       ListToolsResultSchema
@@ -383,12 +352,8 @@ export class DroidClient {
   }
 
   async listMcpServers(): Promise<ListMcpServersResult> {
-    this._ensureNotClosed();
-    this._ensureSession();
-
-    return this._rpc(
+    return this._sessionRpcWithoutParams(
       DroidServerMethod.LIST_MCP_SERVERS,
-      {},
       ListMcpServersResultSchema
     );
   }
@@ -396,45 +361,34 @@ export class DroidClient {
   async toggleMcpTool(
     params: ToggleMcpToolRequestParams
   ): Promise<ToggleMcpToolResult> {
-    this._ensureNotClosed();
-    this._ensureSession();
-
-    return this._rpc(
+    return this._sessionRpc(
       DroidServerMethod.TOGGLE_MCP_TOOL,
       params,
       ToggleMcpToolResultSchema
     );
   }
 
-
   async listSkills(): Promise<ListSkillsResult> {
-    this._ensureNotClosed();
-    this._ensureSession();
-
-    return this._rpc(DroidServerMethod.LIST_SKILLS, {}, ListSkillsResultSchema);
+    return this._sessionRpcWithoutParams(
+      DroidServerMethod.LIST_SKILLS,
+      ListSkillsResultSchema
+    );
   }
 
   async submitBugReport(
     params: SubmitBugReportRequestParams
   ): Promise<SubmitBugReportResult> {
-    this._ensureNotClosed();
-    this._ensureSession();
-
-    return this._rpc(
+    return this._sessionRpc(
       DroidServerMethod.SUBMIT_BUG_REPORT,
       params,
       SubmitBugReportResultSchema
     );
   }
 
-
   async getRewindInfo(
     params: GetRewindInfoRequestParams
   ): Promise<GetRewindInfoResult> {
-    this._ensureNotClosed();
-    this._ensureSession();
-
-    return this._rpc(
+    return this._sessionRpc(
       DroidServerMethod.GET_REWIND_INFO,
       params,
       GetRewindInfoResultSchema
@@ -444,10 +398,7 @@ export class DroidClient {
   async executeRewind(
     params: ExecuteRewindRequestParams
   ): Promise<ExecuteRewindResult> {
-    this._ensureNotClosed();
-    this._ensureSession();
-
-    return this._rpc(
+    return this._sessionRpc(
       DroidServerMethod.EXECUTE_REWIND,
       params,
       ExecuteRewindResultSchema,
@@ -458,10 +409,7 @@ export class DroidClient {
   async compactSession(
     params: CompactSessionRequestParams
   ): Promise<CompactSessionResult> {
-    this._ensureNotClosed();
-    this._ensureSession();
-
-    return this._rpc(
+    return this._sessionRpc(
       DroidServerMethod.COMPACT_SESSION,
       params,
       CompactSessionResultSchema,
@@ -470,12 +418,8 @@ export class DroidClient {
   }
 
   async forkSession(): Promise<ForkSessionResult> {
-    this._ensureNotClosed();
-    this._ensureSession();
-
-    return this._rpc(
+    return this._sessionRpcWithoutParams(
       DroidServerMethod.FORK_SESSION,
-      {},
       ForkSessionResultSchema
     );
   }
@@ -483,25 +427,18 @@ export class DroidClient {
   async renameSession(
     params: RenameSessionRequestParams
   ): Promise<RenameSessionResult> {
-    this._ensureNotClosed();
-    this._ensureSession();
-
-    return this._rpc(
+    return this._sessionRpc(
       DroidServerMethod.RENAME_SESSION,
       params,
       RenameSessionResultSchema
     );
   }
 
-
   onNotification(
     callback: NotificationCallback,
     filter?: NotificationFilter
   ): () => void {
-    const entry = {
-      callback,
-      typeFilter: filter?.type,
-    };
+    const entry: ClientNotificationListener = { callback, filter };
     this._notificationListeners.push(entry);
 
     let unsubscribed = false;
@@ -515,7 +452,6 @@ export class DroidClient {
       }
     };
   }
-
 
   setPermissionHandler(handler: ClientPermissionHandler): void {
     this._permissionHandler = handler;
@@ -533,7 +469,6 @@ export class DroidClient {
     this._askUserHandler = null;
   }
 
-
   async close(): Promise<void> {
     if (this._closed) {
       return;
@@ -547,7 +482,6 @@ export class DroidClient {
     await this._engine.close();
   }
 
-
   private _dispatchNotification(notification: Record<string, unknown>): void {
     let notificationType: string | undefined;
     const parsed = SessionNotificationParamsSchema.safeParse(
@@ -559,9 +493,9 @@ export class DroidClient {
 
     const listeners = [...this._notificationListeners];
     for (const listener of listeners) {
-        if (
-        listener.typeFilter != null &&
-        listener.typeFilter !== notificationType
+      if (
+        listener.filter?.type != null &&
+        listener.filter.type !== notificationType
       ) {
         continue;
       }
@@ -575,8 +509,8 @@ export class DroidClient {
   }
 
   private _dispatchPermissionRequest(
-    params: Record<string, unknown>
-  ): string | Promise<string> {
+    params: RequestPermissionRequestParams
+  ): RequestPermissionSelection | Promise<RequestPermissionSelection> {
     const handler = this._permissionHandler;
     if (handler == null) {
       return 'cancel';
@@ -585,15 +519,14 @@ export class DroidClient {
   }
 
   private _dispatchAskUserRequest(
-    params: Record<string, unknown>
-  ): Record<string, unknown> | Promise<Record<string, unknown>> {
+    params: AskUserRequestParams
+  ): AskUserResult | Promise<AskUserResult> {
     const handler = this._askUserHandler;
     if (handler == null) {
       return { cancelled: true, answers: [] };
     }
     return handler(params);
   }
-
 
   private _ensureNotClosed(): void {
     if (this._closed) {

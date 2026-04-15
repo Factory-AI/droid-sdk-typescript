@@ -41,17 +41,9 @@ import type {
   DroidMessage,
 } from '../src/stream.js';
 
-// ---------------------------------------------------------------------------
-// Helpers for creating notification payloads
-// ---------------------------------------------------------------------------
-
 function makeNotification(type: string, payload: Record<string, unknown>) {
   return { type, ...payload };
 }
-
-// ---------------------------------------------------------------------------
-// DroidMessage type definitions
-// ---------------------------------------------------------------------------
 
 describe('DroidMessage types', () => {
   it('AssistantTextDelta has correct structure', () => {
@@ -331,7 +323,6 @@ describe('DroidMessage types', () => {
   });
 
   it('DroidMessage union type allows all 22 types', () => {
-    // Verify each type is assignable to DroidMessage
     const messages: DroidMessage[] = [
       {
         type: 'assistant_text_delta',
@@ -407,16 +398,17 @@ describe('DroidMessage types', () => {
         outcome: McpAuthOutcome.Success,
         message: 'm',
       },
-      { type: 'error', message: 'err', errorType: 'Error', timestamp: 't' },
+      {
+        type: 'error',
+        message: 'err',
+        errorType: DroidErrorType.ERROR,
+        timestamp: 't',
+      },
       { type: 'turn_complete', tokenUsage: null },
     ];
     expect(messages).toHaveLength(22);
   });
 });
-
-// ---------------------------------------------------------------------------
-// convertNotificationToStreamMessage
-// ---------------------------------------------------------------------------
 
 describe('convertNotificationToStreamMessage', () => {
   describe('assistant_text_delta', () => {
@@ -697,10 +689,8 @@ describe('convertNotificationToStreamMessage', () => {
       const result = convertNotificationToStreamMessage(notification);
       expect(Array.isArray(result)).toBe(true);
       const messages = result as DroidMessage[];
-      // 2 ToolUse + 1 CreateMessage
       expect(messages).toHaveLength(3);
 
-      // First two are ToolUse messages
       const tu1 = messages[0] as ToolUse;
       expect(tu1.type).toBe('tool_use');
       expect(tu1.toolName).toBe('read_file');
@@ -712,7 +702,6 @@ describe('convertNotificationToStreamMessage', () => {
       expect(tu2.toolName).toBe('write_file');
       expect(tu2.toolUseId).toBe('tu-2');
 
-      // Last is CreateMessage
       const cm = messages[2] as CreateMessage;
       expect(cm.type).toBe('create_message');
       expect(cm.messageId).toBe('msg-1');
@@ -736,7 +725,6 @@ describe('convertNotificationToStreamMessage', () => {
       const result = convertNotificationToStreamMessage(notification);
       expect(Array.isArray(result)).toBe(true);
       const messages = result as DroidMessage[];
-      // Only CreateMessage (no ToolUse blocks)
       expect(messages).toHaveLength(1);
       expect(messages[0].type).toBe('create_message');
     });
@@ -1023,7 +1011,6 @@ describe('convertNotificationToStreamMessage', () => {
   });
 
   describe('all 20 notification types are handled', () => {
-    // Enumerate all SessionNotificationType values and verify each one is handled
     const allNotificationTypes = Object.values(SessionNotificationType);
 
     it('covers all 20 SessionNotificationType values', () => {
@@ -1130,16 +1117,11 @@ describe('convertNotificationToStreamMessage', () => {
         ).not.toBeNull();
       }
 
-      // No warnings should have been logged (all types are known)
       expect(warnSpy).not.toHaveBeenCalled();
       warnSpy.mockRestore();
     });
   });
 });
-
-// ---------------------------------------------------------------------------
-// StreamStateTracker
-// ---------------------------------------------------------------------------
 
 describe('StreamStateTracker', () => {
   let tracker: StreamStateTracker;
@@ -1150,14 +1132,12 @@ describe('StreamStateTracker', () => {
 
   describe('TurnComplete emission', () => {
     it('emits TurnComplete on non-idle → idle transition', () => {
-      // Go non-idle
       const r1 = tracker.processMessage({
         type: 'working_state_changed',
         state: DroidWorkingState.StreamingAssistantMessage,
       });
       expect(r1.additional).toEqual([]);
 
-      // Go idle
       const r2 = tracker.processMessage({
         type: 'working_state_changed',
         state: DroidWorkingState.Idle,
@@ -1188,7 +1168,6 @@ describe('StreamStateTracker', () => {
     });
 
     it('emits TurnComplete after multiple non-idle states', () => {
-      // streaming → executing → idle
       tracker.processMessage({
         type: 'working_state_changed',
         state: DroidWorkingState.StreamingAssistantMessage,
@@ -1206,7 +1185,6 @@ describe('StreamStateTracker', () => {
     });
 
     it('can emit TurnComplete again after reset', () => {
-      // First turn
       tracker.processMessage({
         type: 'working_state_changed',
         state: DroidWorkingState.StreamingAssistantMessage,
@@ -1216,17 +1194,14 @@ describe('StreamStateTracker', () => {
         state: DroidWorkingState.Idle,
       });
 
-      // Reset for second turn
       tracker = new StreamStateTracker();
 
-      // Initial idle after reset should NOT emit TurnComplete
       const r1 = tracker.processMessage({
         type: 'working_state_changed',
         state: DroidWorkingState.Idle,
       });
       expect(r1.additional).toEqual([]);
 
-      // Go non-idle then idle again
       tracker.processMessage({
         type: 'working_state_changed',
         state: DroidWorkingState.ExecutingTool,
@@ -1319,7 +1294,6 @@ describe('StreamStateTracker', () => {
     });
 
     it('token usage is reset after reset()', () => {
-      // First turn with token usage
       tracker.processMessage({
         type: 'working_state_changed',
         state: DroidWorkingState.StreamingAssistantMessage,
@@ -1337,10 +1311,8 @@ describe('StreamStateTracker', () => {
         state: DroidWorkingState.Idle,
       });
 
-      // Reset
       tracker = new StreamStateTracker();
 
-      // Second turn without token usage
       tracker.processMessage({
         type: 'working_state_changed',
         state: DroidWorkingState.ExecutingTool,
@@ -1443,7 +1415,7 @@ describe('StreamStateTracker', () => {
       const result = tracker.processMessage({
         type: 'error',
         message: 'err',
-        errorType: 'Error',
+        errorType: DroidErrorType.ERROR,
         timestamp: 't',
       });
       expect(result.additional).toEqual([]);
@@ -1455,20 +1427,17 @@ describe('StreamStateTracker', () => {
       const tracker1 = new StreamStateTracker();
       const tracker2 = new StreamStateTracker();
 
-      // Tracker 1 goes non-idle
       tracker1.processMessage({
         type: 'working_state_changed',
         state: DroidWorkingState.StreamingAssistantMessage,
       });
 
-      // Tracker 2 receives idle — should NOT emit TurnComplete
       const r2 = tracker2.processMessage({
         type: 'working_state_changed',
         state: DroidWorkingState.Idle,
       });
       expect(r2.additional).toEqual([]);
 
-      // Tracker 1 goes idle — SHOULD emit TurnComplete
       const r1 = tracker1.processMessage({
         type: 'working_state_changed',
         state: DroidWorkingState.Idle,
@@ -1478,7 +1447,6 @@ describe('StreamStateTracker', () => {
     });
 
     it('simulates multi-turn session with reset between turns', () => {
-      // Turn 1
       tracker.processMessage({
         type: 'working_state_changed',
         state: DroidWorkingState.StreamingAssistantMessage,
@@ -1500,10 +1468,8 @@ describe('StreamStateTracker', () => {
         (turn1Result.additional[0] as TurnComplete).tokenUsage!.inputTokens
       ).toBe(50);
 
-      // Reset between turns
       tracker = new StreamStateTracker();
 
-      // Turn 2
       tracker.processMessage({
         type: 'working_state_changed',
         state: DroidWorkingState.ExecutingTool,
@@ -1529,19 +1495,16 @@ describe('StreamStateTracker', () => {
 
   describe('edge cases', () => {
     it('handles rapid idle→non-idle→idle transitions', () => {
-      // Start idle (initial)
       tracker.processMessage({
         type: 'working_state_changed',
         state: DroidWorkingState.Idle,
       });
 
-      // Go non-idle
       tracker.processMessage({
         type: 'working_state_changed',
         state: DroidWorkingState.StreamingAssistantMessage,
       });
 
-      // Go idle again — should emit TurnComplete
       const result = tracker.processMessage({
         type: 'working_state_changed',
         state: DroidWorkingState.Idle,
@@ -1582,14 +1545,12 @@ describe('StreamStateTracker', () => {
         state: DroidWorkingState.StreamingAssistantMessage,
       });
 
-      // First idle → TurnComplete
       const r1 = tracker.processMessage({
         type: 'working_state_changed',
         state: DroidWorkingState.Idle,
       });
       expect(r1.additional).toHaveLength(1);
 
-      // Second idle → no TurnComplete (hasBeenNonIdle is reset after emission)
       const r2 = tracker.processMessage({
         type: 'working_state_changed',
         state: DroidWorkingState.Idle,

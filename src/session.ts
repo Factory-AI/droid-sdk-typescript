@@ -1,15 +1,16 @@
 import { DroidClient } from './client.js';
-import type {
-  ClientAskUserHandler,
-  ClientPermissionHandler,
-} from './client.js';
 import { ConnectionError } from './errors.js';
 import {
   MessageBridge,
   buildInitParams,
-  createTransport,
-  setupClientHandlers,
+  closeQuietly,
+  createConfiguredClient,
   wireAbortSignal,
+} from './helpers.js';
+import type {
+  HandlerOptions,
+  SessionInitOptions,
+  TransportCreationOptions,
 } from './helpers.js';
 import type { NotificationCallback, NotificationFilter } from './protocol.js';
 import type {
@@ -37,21 +38,13 @@ import type {
   McpServerConfig,
   RemoveMcpServerRequestParams,
   RemoveMcpServerResult,
-  SessionTag,
   ToggleMcpServerRequestParams,
   ToggleMcpServerResult,
   UpdateSessionSettingsRequestParams,
   UpdateSessionSettingsResult,
 } from './schemas/client.js';
-import type {
-  AutonomyLevel,
-  DroidInteractionMode,
-  ReasoningEffort,
-} from './schemas/enums.js';
 import type { Base64ImageSource, DocumentSource } from './schemas/messages.js';
 import type { DroidMessage, TokenUsageUpdate } from './stream.js';
-import type { DroidClientTransport } from './types.js';
-
 
 /** Aggregated result from a non-streaming `session.send()` call. */
 export interface DroidResult {
@@ -60,48 +53,32 @@ export interface DroidResult {
   tokenUsage: TokenUsageUpdate | null;
 }
 
-
-export interface CreateSessionOptions {
-  cwd?: string;
-  machineId?: string;
-  modelId?: string;
-  autonomyLevel?: AutonomyLevel;
-  interactionMode?: DroidInteractionMode;
-  reasoningEffort?: ReasoningEffort;
-  mcpServers?: McpServerConfig[];
-  enabledToolIds?: string[];
-  disabledToolIds?: string[];
-  /** The SDK tag is always appended automatically. */
-  tags?: SessionTag[];
-  execPath?: string;
-  execArgs?: string[];
-  env?: Record<string, string>;
-  permissionHandler?: ClientPermissionHandler;
-  askUserHandler?: ClientAskUserHandler;
-  /**
-   * When provided, `execPath`, `execArgs`, `env`, and `cwd` (for transport) are ignored.
-   */
-  transport?: DroidClientTransport;
+export interface CreateSessionOptions
+  extends SessionInitOptions,
+    HandlerOptions,
+    TransportCreationOptions {
   abortSignal?: AbortSignal;
 }
 
-export interface ResumeSessionOptions {
-  execPath?: string;
-  execArgs?: string[];
-  cwd?: string;
-  env?: Record<string, string>;
+export interface ResumeSessionOptions
+  extends Pick<
+    CreateSessionOptions,
+    | 'execPath'
+    | 'execArgs'
+    | 'cwd'
+    | 'env'
+    | 'permissionHandler'
+    | 'askUserHandler'
+    | 'transport'
+    | 'abortSignal'
+  > {
   mcpServers?: McpServerConfig[];
-  permissionHandler?: ClientPermissionHandler;
-  askUserHandler?: ClientAskUserHandler;
-  transport?: DroidClientTransport;
-  abortSignal?: AbortSignal;
 }
 
 export interface MessageOptions {
   images?: Base64ImageSource[];
   files?: DocumentSource[];
 }
-
 
 /** Create instances via {@link createSession} or {@link resumeSession}. */
 export class DroidSession {
@@ -121,7 +98,6 @@ export class DroidSession {
     this._initResult = initResult;
   }
 
-
   get sessionId(): string {
     return this._sessionId;
   }
@@ -129,7 +105,6 @@ export class DroidSession {
   get initResult(): InitializeSessionResult | LoadSessionResult {
     return this._initResult;
   }
-
 
   /** Yields {@link DroidMessage} events until `turn_complete`. */
   async *stream(
@@ -185,7 +160,6 @@ export class DroidSession {
     };
   }
 
-
   async interrupt(): Promise<void> {
     this._ensureNotClosed();
     await this._client.interruptSession();
@@ -199,14 +173,12 @@ export class DroidSession {
     await this._client.close();
   }
 
-
   async updateSettings(
     params: Partial<UpdateSessionSettingsRequestParams>
   ): Promise<UpdateSessionSettingsResult> {
     this._ensureNotClosed();
     return this._client.updateSessionSettings(params);
   }
-
 
   async addMcpServer(
     params: AddMcpServerRequestParams
@@ -253,12 +225,10 @@ export class DroidSession {
     return this._client.authenticateMcpServer(params);
   }
 
-
   async listSkills(): Promise<ListSkillsResult> {
     this._ensureNotClosed();
     return this._client.listSkills();
   }
-
 
   async getRewindInfo(
     params: GetRewindInfoRequestParams
@@ -293,14 +263,12 @@ export class DroidSession {
     return this._client.renameSession(params);
   }
 
-
   onNotification(
     callback: NotificationCallback,
     filter?: NotificationFilter
   ): () => void {
     return this._client.onNotification(callback, filter);
   }
-
 
   private _ensureNotClosed(): void {
     if (this._closed) {
@@ -311,13 +279,10 @@ export class DroidSession {
   }
 }
 
-
 export async function createSession(
   options: CreateSessionOptions = {}
 ): Promise<DroidSession> {
-  const transport = await createTransport(options);
-  const client = new DroidClient({ transport });
-  setupClientHandlers(client, options);
+  const { client } = await createConfiguredClient(options);
   const initParams = buildInitParams(options);
 
   try {
@@ -327,11 +292,7 @@ export async function createSession(
 
     return session;
   } catch (error) {
-    try {
-      await client.close();
-    } catch {
-      // Best-effort cleanup
-    }
+    await closeQuietly(client);
     throw error;
   }
 }
@@ -341,9 +302,7 @@ export async function resumeSession(
   sessionId: string,
   options: ResumeSessionOptions = {}
 ): Promise<DroidSession> {
-  const transport = await createTransport(options);
-  const client = new DroidClient({ transport });
-  setupClientHandlers(client, options);
+  const { client } = await createConfiguredClient(options);
 
   const loadParams: LoadSessionRequestParams = {
     sessionId,
@@ -357,11 +316,7 @@ export async function resumeSession(
 
     return session;
   } catch (error) {
-    try {
-      await client.close();
-    } catch {
-      // Best-effort cleanup
-    }
+    await closeQuietly(client);
     throw error;
   }
 }

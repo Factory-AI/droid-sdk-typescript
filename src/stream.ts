@@ -1,24 +1,22 @@
-import type {
-  ContentBlock,
-  McpServerStatusInfo,
-  McpStatusSummary,
-  MissionFeature,
-  ProgressLogEntry,
-  SettingsUpdatedPayload,
-  TokenUsage,
-  ToolProgressUpdate,
-} from './schemas/index.js';
-
+import type { TokenUsage } from './schemas/client.js';
 import {
   DroidWorkingState,
   McpAuthOutcome,
   MissionState,
   SessionNotificationType,
   ToolConfirmationOutcome,
-} from './schemas/index.js';
-import { SessionNotificationPayloadSchema } from './schemas/server.js';
-import type { SessionNotificationPayload } from './schemas/server.js';
-
+} from './schemas/enums.js';
+import type { McpServerStatusInfo, McpStatusSummary } from './schemas/mcp.js';
+import type { MissionFeature, ProgressLogEntry } from './schemas/mission.js';
+import {
+  SessionNotificationPayloadSchema,
+  type CreateMessageNotification,
+  type ErrorNotification,
+  type SessionNotificationPayload,
+  type SettingsUpdatedPayload,
+  type ToolProgressUpdate,
+} from './schemas/server.js';
+import type { JsonObject, JsonValue } from './schemas/shared.js';
 
 export interface AssistantTextDelta {
   readonly type: 'assistant_text_delta';
@@ -37,7 +35,7 @@ export interface ThinkingTextDelta {
 export interface ToolUse {
   readonly type: 'tool_use';
   readonly toolName: string;
-  readonly toolInput: Record<string, unknown>;
+  readonly toolInput: JsonObject;
   readonly toolUseId: string;
 }
 
@@ -45,7 +43,7 @@ export interface ToolResult {
   readonly type: 'tool_result';
   readonly toolUseId: string;
   readonly toolName: string;
-  readonly content: string | unknown[];
+  readonly content: string | JsonValue[];
   readonly isError: boolean;
 }
 
@@ -62,21 +60,18 @@ export interface WorkingStateChanged {
   readonly state: DroidWorkingState;
 }
 
-export interface TokenUsageUpdate {
-  readonly type: 'token_usage_update';
-  readonly inputTokens: number;
-  readonly outputTokens: number;
-  readonly cacheReadTokens: number;
-  readonly cacheCreationTokens: number;
-  readonly thinkingTokens: number;
-}
+export type TokenUsageUpdate = Readonly<
+  {
+    type: 'token_usage_update';
+  } & TokenUsage
+>;
 
 export interface CreateMessage {
   readonly type: 'create_message';
-  readonly messageId: string;
-  readonly role: string;
-  readonly content: ContentBlock[];
-  readonly parentId?: string;
+  readonly messageId: CreateMessageNotification['message']['id'];
+  readonly role: CreateMessageNotification['message']['role'];
+  readonly content: CreateMessageNotification['message']['content'];
+  readonly parentId?: CreateMessageNotification['parentId'];
 }
 
 export interface PermissionResolved {
@@ -151,7 +146,7 @@ export interface McpAuthCompleted {
 export interface ErrorEvent {
   readonly type: 'error';
   readonly message: string;
-  readonly errorType: string;
+  readonly errorType: ErrorNotification['errorType'];
   readonly timestamp: string;
 }
 
@@ -160,7 +155,6 @@ export interface TurnComplete {
   readonly type: 'turn_complete';
   readonly tokenUsage: TokenUsageUpdate | null;
 }
-
 
 export type DroidMessage =
   | AssistantTextDelta
@@ -186,9 +180,8 @@ export type DroidMessage =
   | ErrorEvent
   | TurnComplete;
 
-
 export function convertNotificationToStreamMessage(
-  raw: Record<string, unknown>
+  raw: unknown
 ): DroidMessage | DroidMessage[] | null {
   const parsed = SessionNotificationPayloadSchema.safeParse(raw);
   if (!parsed.success) {
@@ -257,24 +250,22 @@ export function convertNotificationToStreamMessage(
       const msg = notification.message;
       const messages: DroidMessage[] = [];
 
-        if (msg.content && Array.isArray(msg.content)) {
-        for (const block of msg.content) {
-          if (block.type === 'tool_use') {
-            messages.push({
-              type: 'tool_use',
-              toolName: block.name,
-              toolInput: block.input,
-              toolUseId: block.id,
-            });
-          }
+      for (const block of msg.content) {
+        if (block.type === 'tool_use') {
+          messages.push({
+            type: 'tool_use',
+            toolName: block.name,
+            toolInput: block.input,
+            toolUseId: block.id,
+          });
         }
       }
 
-        messages.push({
+      messages.push({
         type: 'create_message',
         messageId: msg.id,
         role: msg.role,
-        content: msg.content ?? [],
+        content: msg.content,
         parentId: notification.parentId,
       });
 
@@ -375,7 +366,6 @@ export function convertNotificationToStreamMessage(
   }
 }
 
-
 /**
  * Tracks working state to detect turn completion (non-idle → idle transition).
  * Create a fresh instance per `stream()` call.
@@ -426,8 +416,9 @@ export class StreamStateTracker {
   }
 }
 
-
-function normalizeToolResultContent(content: unknown): string | unknown[] {
+function normalizeToolResultContent(
+  content: JsonValue | undefined
+): string | JsonValue[] {
   if (content == null) {
     return '';
   }

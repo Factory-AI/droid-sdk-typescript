@@ -15,13 +15,16 @@ import type {
   ReasoningEffort,
 } from './schemas/enums.js';
 import {
+  SessionNotificationSchema,
+  type SessionNotificationPayload,
+} from './schemas/server.js';
+import {
   convertNotificationToStreamMessage,
   StreamStateTracker,
 } from './stream.js';
 import type { DroidMessage } from './stream.js';
 import { ProcessTransport } from './transport.js';
 import type { DroidClientTransport, ProcessTransportOptions } from './types.js';
-
 
 export function wireAbortSignal(
   signal: AbortSignal | undefined,
@@ -35,20 +38,12 @@ export function wireAbortSignal(
   }
 }
 
-
 export function extractInnerNotification(
-  notification: Record<string, unknown>
-): Record<string, unknown> | null {
-  const params = notification['params'];
-  if (typeof params !== 'object' || params === null) return null;
-  // eslint-disable-next-line @typescript-eslint/consistent-type-assertions -- runtime-guarded narrowing
-  const paramsRecord = params as Record<string, unknown>;
-  const inner = paramsRecord['notification'];
-  if (typeof inner !== 'object' || inner === null) return null;
-  // eslint-disable-next-line @typescript-eslint/consistent-type-assertions -- runtime-guarded narrowing
-  return inner as Record<string, unknown>;
+  notification: unknown
+): SessionNotificationPayload | null {
+  const parsed = SessionNotificationSchema.safeParse(notification);
+  return parsed.success ? parsed.data.params.notification : null;
 }
-
 
 export class MessageBridge {
   private readonly _queue: DroidMessage[] = [];
@@ -124,13 +119,11 @@ export class MessageBridge {
   }
 }
 
-
-export interface TransportCreationOptions {
+export interface TransportCreationOptions extends Pick<
+  ProcessTransportOptions,
+  'execPath' | 'execArgs' | 'cwd' | 'env'
+> {
   transport?: DroidClientTransport;
-  execPath?: string;
-  execArgs?: string[];
-  cwd?: string;
-  env?: Record<string, string>;
 }
 
 export async function createTransport(
@@ -151,7 +144,6 @@ export async function createTransport(
   return processTransport;
 }
 
-
 export interface HandlerOptions {
   permissionHandler?: ClientPermissionHandler;
   askUserHandler?: ClientAskUserHandler;
@@ -169,6 +161,38 @@ export function setupClientHandlers(
   }
 }
 
+export interface ClientCreationOptions
+  extends TransportCreationOptions, HandlerOptions {}
+
+export async function createConfiguredClient(
+  options: ClientCreationOptions
+): Promise<{
+  transport: DroidClientTransport;
+  client: DroidClient;
+}> {
+  const transport = await createTransport(options);
+  const client = new DroidClient({ transport });
+  setupClientHandlers(client, options);
+  return { transport, client };
+}
+
+type Closable = {
+  close(): Promise<void>;
+};
+
+export async function closeQuietly(
+  resource: Closable | null | undefined
+): Promise<void> {
+  if (!resource) {
+    return;
+  }
+
+  try {
+    await resource.close();
+  } catch {
+    // Best-effort cleanup
+  }
+}
 
 export interface SessionInitOptions {
   cwd?: string;

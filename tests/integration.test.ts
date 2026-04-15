@@ -29,13 +29,13 @@ import {
   SessionNotificationType,
   ToolConfirmationOutcome,
 } from '../src/schemas/index.js';
+import type {
+  AskUserRequestParams,
+  RequestPermissionRequestParams,
+} from '../src/schemas/index.js';
 import { createSession, resumeSession } from '../src/session.js';
 import type { DroidMessage } from '../src/stream.js';
 import { InMemoryTransport } from './helpers.js';
-
-// ---------------------------------------------------------------------------
-// Shared helpers
-// ---------------------------------------------------------------------------
 
 function makeSuccessResponse(
   id: string,
@@ -86,6 +86,39 @@ function makeServerRequest(
   };
 }
 
+function makePermissionRequestParams(options: {
+  toolUseId: string;
+  toolName: string;
+  confirmationType: 'exec' | 'edit';
+  input?: Record<string, unknown>;
+  details: Record<string, unknown>;
+}): Record<string, unknown> {
+  return {
+    toolUses: [
+      {
+        toolUse: {
+          type: 'tool_use',
+          id: options.toolUseId,
+          name: options.toolName,
+          input: options.input ?? {},
+        },
+        confirmationType: options.confirmationType,
+        details: options.details,
+      },
+    ],
+    options: [
+      {
+        label: 'Proceed once',
+        value: ToolConfirmationOutcome.ProceedOnce,
+      },
+      {
+        label: 'Cancel',
+        value: ToolConfirmationOutcome.Cancel,
+      },
+    ],
+  };
+}
+
 /**
  * Wire up an InMemoryTransport to intercept send() calls and auto-respond
  * to JSON-RPC methods. Callers can provide per-method overrides.
@@ -116,13 +149,11 @@ function wireTransport(
     const id = msg['id'] as string;
     const params = (msg['params'] as Record<string, unknown>) ?? {};
 
-    // Delegate to override if present
     if (overrides?.[method]) {
       overrides[method](id, params);
       return;
     }
 
-    // Default handlers
     switch (method) {
       case DroidServerMethod.INITIALIZE_SESSION:
         queueMicrotask(() => {
@@ -167,7 +198,6 @@ function wireTransport(
         break;
 
       default:
-        // For any other method, respond with empty result
         queueMicrotask(() => {
           transport.injectMessage(makeSuccessResponse(id, {}));
         });
@@ -227,22 +257,16 @@ function sendDefaultStreamSequence(transport: InMemoryTransport): void {
   );
 }
 
-// ===========================================================================
-// 1. Full query lifecycle (VAL-CROSS-001)
-// ===========================================================================
-
 describe('Full query lifecycle (VAL-CROSS-001)', () => {
   it('query() sends initializeSession + addUserMessage, receives streaming notifications, yields correct DroidMessage types, terminates with TurnComplete, and cleans up transport', async () => {
     const transport = new InMemoryTransport();
     await transport.connect();
 
-    // Wire with extended streaming: tool_use, tool_result, working_state_changed
     wireTransport(transport, 'sess-lifecycle', {
       [DroidServerMethod.ADD_USER_MESSAGE]: (id) => {
         queueMicrotask(() => {
           transport.injectMessage(makeSuccessResponse(id, {}));
 
-          // 1. Working state → streaming
           transport.injectMessage(
             makeNotification(
               SessionNotificationType.DROID_WORKING_STATE_CHANGED,
@@ -250,7 +274,6 @@ describe('Full query lifecycle (VAL-CROSS-001)', () => {
             )
           );
 
-          // 2. assistant_text_delta
           transport.injectMessage(
             makeNotification(SessionNotificationType.ASSISTANT_TEXT_DELTA, {
               messageId: 'msg-1',
@@ -259,7 +282,6 @@ describe('Full query lifecycle (VAL-CROSS-001)', () => {
             })
           );
 
-          // 3. create_message with tool_use block
           transport.injectMessage(
             makeNotification(SessionNotificationType.CREATE_MESSAGE, {
               message: {
@@ -279,7 +301,6 @@ describe('Full query lifecycle (VAL-CROSS-001)', () => {
             })
           );
 
-          // 4. Working state → executing tool
           transport.injectMessage(
             makeNotification(
               SessionNotificationType.DROID_WORKING_STATE_CHANGED,
@@ -287,7 +308,6 @@ describe('Full query lifecycle (VAL-CROSS-001)', () => {
             )
           );
 
-          // 5. tool_result
           transport.injectMessage(
             makeNotification(SessionNotificationType.TOOL_RESULT, {
               messageId: 'msg-2',
@@ -297,7 +317,6 @@ describe('Full query lifecycle (VAL-CROSS-001)', () => {
             })
           );
 
-          // 6. Working state → streaming again
           transport.injectMessage(
             makeNotification(
               SessionNotificationType.DROID_WORKING_STATE_CHANGED,
@@ -305,7 +324,6 @@ describe('Full query lifecycle (VAL-CROSS-001)', () => {
             )
           );
 
-          // 7. More text
           transport.injectMessage(
             makeNotification(SessionNotificationType.ASSISTANT_TEXT_DELTA, {
               messageId: 'msg-3',
@@ -314,7 +332,6 @@ describe('Full query lifecycle (VAL-CROSS-001)', () => {
             })
           );
 
-          // 8. Token usage
           transport.injectMessage(
             makeNotification(
               SessionNotificationType.SESSION_TOKEN_USAGE_CHANGED,
@@ -331,7 +348,6 @@ describe('Full query lifecycle (VAL-CROSS-001)', () => {
             )
           );
 
-          // 9. Working state → idle (triggers TurnComplete)
           transport.injectMessage(
             makeNotification(
               SessionNotificationType.DROID_WORKING_STATE_CHANGED,
@@ -349,14 +365,12 @@ describe('Full query lifecycle (VAL-CROSS-001)', () => {
       messages.push(msg);
     }
 
-    // Verify sent methods: initializeSession then addUserMessage
     const sentMethods = transport.sentMessages.map(
       (m) => (m as Record<string, unknown>)['method']
     );
     expect(sentMethods[0]).toBe(DroidServerMethod.INITIALIZE_SESSION);
     expect(sentMethods[1]).toBe(DroidServerMethod.ADD_USER_MESSAGE);
 
-    // Verify the DroidMessage type sequence
     const types = messages.map((m) => m.type);
 
     expect(types).toContain('working_state_changed');
@@ -366,10 +380,8 @@ describe('Full query lifecycle (VAL-CROSS-001)', () => {
     expect(types).toContain('tool_result');
     expect(types).toContain('token_usage_update');
 
-    // Last message must be turn_complete
     expect(types[types.length - 1]).toBe('turn_complete');
 
-    // Verify TurnComplete carries token usage
     const turnComplete = messages[messages.length - 1];
     expect(turnComplete.type).toBe('turn_complete');
     if (turnComplete.type === 'turn_complete') {
@@ -378,7 +390,6 @@ describe('Full query lifecycle (VAL-CROSS-001)', () => {
       expect(turnComplete.tokenUsage!.outputTokens).toBe(100);
     }
 
-    // Verify text deltas content
     const textDeltas = messages.filter(
       (m) => m.type === 'assistant_text_delta'
     );
@@ -390,7 +401,6 @@ describe('Full query lifecycle (VAL-CROSS-001)', () => {
       expect(textDeltas[1].text).toBe('Done!');
     }
 
-    // Verify tool_use message
     const toolUse = messages.find((m) => m.type === 'tool_use');
     expect(toolUse).toBeDefined();
     if (toolUse?.type === 'tool_use') {
@@ -399,7 +409,6 @@ describe('Full query lifecycle (VAL-CROSS-001)', () => {
       expect(toolUse.toolInput).toEqual({ path: '/tmp/test.ts' });
     }
 
-    // Verify tool_result message
     const toolResult = messages.find((m) => m.type === 'tool_result');
     expect(toolResult).toBeDefined();
     if (toolResult?.type === 'tool_result') {
@@ -408,7 +417,6 @@ describe('Full query lifecycle (VAL-CROSS-001)', () => {
       expect(toolResult.isError).toBe(false);
     }
 
-    // Transport should be cleaned up
     expect(transport.isConnected).toBe(false);
   });
 
@@ -425,18 +433,11 @@ describe('Full query lifecycle (VAL-CROSS-001)', () => {
     expect(first.done).toBe(false);
     expect(q.sessionId).toBe('sess-q-id');
 
-    // Consume rest
-    while (!(await iter.next()).done) {
-      /* drain */
-    }
+    while (!(await iter.next()).done) continue;
 
     expect(transport.isConnected).toBe(false);
   });
 });
-
-// ===========================================================================
-// 2. Full session lifecycle (VAL-CROSS-002)
-// ===========================================================================
 
 describe('Full session lifecycle (VAL-CROSS-002)', () => {
   it("createSession() → session.stream('first') → session.send('second') → session.close()", async () => {
@@ -453,7 +454,6 @@ describe('Full session lifecycle (VAL-CROSS-002)', () => {
         queueMicrotask(() => {
           transport.injectMessage(makeSuccessResponse(id, {}));
 
-          // Non-idle
           transport.injectMessage(
             makeNotification(
               SessionNotificationType.DROID_WORKING_STATE_CHANGED,
@@ -461,7 +461,6 @@ describe('Full session lifecycle (VAL-CROSS-002)', () => {
             )
           );
 
-          // Text delta unique per turn
           transport.injectMessage(
             makeNotification(SessionNotificationType.ASSISTANT_TEXT_DELTA, {
               messageId: `msg-turn-${turnIndex}`,
@@ -470,7 +469,6 @@ describe('Full session lifecycle (VAL-CROSS-002)', () => {
             })
           );
 
-          // Token usage
           transport.injectMessage(
             makeNotification(
               SessionNotificationType.SESSION_TOKEN_USAGE_CHANGED,
@@ -487,7 +485,6 @@ describe('Full session lifecycle (VAL-CROSS-002)', () => {
             )
           );
 
-          // Back to idle
           transport.injectMessage(
             makeNotification(
               SessionNotificationType.DROID_WORKING_STATE_CHANGED,
@@ -498,11 +495,9 @@ describe('Full session lifecycle (VAL-CROSS-002)', () => {
       },
     });
 
-    // 1. Create session
     const session = await createSession({ cwd: '/tmp', transport });
     expect(session.sessionId).toBe('sess-multi-turn');
 
-    // 2. First turn: stream('first message')
     const streamMessages: DroidMessage[] = [];
     for await (const msg of session.stream('first message')) {
       streamMessages.push(msg);
@@ -520,7 +515,6 @@ describe('Full session lifecycle (VAL-CROSS-002)', () => {
       'turn_complete'
     );
 
-    // 3. Second turn: send('second message') (non-streaming)
     const result = await session.send('second message');
 
     expect(result.text).toBe('Response to turn 2');
@@ -531,10 +525,8 @@ describe('Full session lifecycle (VAL-CROSS-002)', () => {
       expect(result.tokenUsage.outputTokens).toBe(100);
     }
 
-    // 4. Verify two addUserMessage calls were made
     expect(addUserMessageCount).toBe(2);
 
-    // Verify the prompts
     const addMsgCalls = transport.sentMessages.filter(
       (m) =>
         (m as Record<string, unknown>)['method'] ===
@@ -558,7 +550,6 @@ describe('Full session lifecycle (VAL-CROSS-002)', () => {
       )['text']
     ).toBe('second message');
 
-    // 5. Close
     await session.close();
     expect(transport.isConnected).toBe(false);
   });
@@ -577,7 +568,6 @@ describe('Full session lifecycle (VAL-CROSS-002)', () => {
         queueMicrotask(() => {
           transport.injectMessage(makeSuccessResponse(id, {}));
 
-          // Each turn independently goes non-idle → idle
           transport.injectMessage(
             makeNotification(
               SessionNotificationType.DROID_WORKING_STATE_CHANGED,
@@ -605,31 +595,26 @@ describe('Full session lifecycle (VAL-CROSS-002)', () => {
 
     const session = await createSession({ cwd: '/tmp', transport });
 
-    // Turn 1
     const turn1Msgs: DroidMessage[] = [];
     for await (const msg of session.stream('turn 1')) {
       turn1Msgs.push(msg);
     }
     expect(turn1Msgs[turn1Msgs.length - 1].type).toBe('turn_complete');
 
-    // Turn 2
     const turn2Msgs: DroidMessage[] = [];
     for await (const msg of session.stream('turn 2')) {
       turn2Msgs.push(msg);
     }
     expect(turn2Msgs[turn2Msgs.length - 1].type).toBe('turn_complete');
 
-    // Turn 3
     const turn3Msgs: DroidMessage[] = [];
     for await (const msg of session.stream('turn 3')) {
       turn3Msgs.push(msg);
     }
     expect(turn3Msgs[turn3Msgs.length - 1].type).toBe('turn_complete');
 
-    // Each turn should have its own TurnComplete with independent state
     expect(turnCount).toBe(3);
 
-    // Verify text deltas were unique per turn
     const t1text = turn1Msgs.find((m) => m.type === 'assistant_text_delta');
     const t2text = turn2Msgs.find((m) => m.type === 'assistant_text_delta');
     const t3text = turn3Msgs.find((m) => m.type === 'assistant_text_delta');
@@ -681,14 +666,12 @@ describe('Full session lifecycle (VAL-CROSS-002)', () => {
     const session = await resumeSession('sess-resume', { transport });
     expect(session.sessionId).toBe('sess-resume');
 
-    // Verify loadSession was called (not initializeSession)
     const sentMethods = transport.sentMessages.map(
       (m) => (m as Record<string, unknown>)['method']
     );
     expect(sentMethods).toContain(DroidServerMethod.LOAD_SESSION);
     expect(sentMethods).not.toContain(DroidServerMethod.INITIALIZE_SESSION);
 
-    // Use the resumed session
     const result = await session.send('continue');
     expect(result.text).toBe('Resumed response');
     expect(turnCount).toBe(1);
@@ -697,23 +680,18 @@ describe('Full session lifecycle (VAL-CROSS-002)', () => {
   });
 });
 
-// ===========================================================================
-// 3. Permission handler integration (VAL-CROSS-003)
-// ===========================================================================
-
 describe('Permission handler integration (VAL-CROSS-003)', () => {
   it('client receives permission request → handler invoked → outcome sent back → stream continues', async () => {
     const transport = new InMemoryTransport();
     await transport.connect();
 
-    const permissionRequests: Record<string, unknown>[] = [];
+    const permissionRequests: RequestPermissionRequestParams[] = [];
 
     wireTransport(transport, 'sess-perm', {
       [DroidServerMethod.ADD_USER_MESSAGE]: (id) => {
         queueMicrotask(() => {
           transport.injectMessage(makeSuccessResponse(id, {}));
 
-          // Start streaming
           transport.injectMessage(
             makeNotification(
               SessionNotificationType.DROID_WORKING_STATE_CHANGED,
@@ -729,22 +707,24 @@ describe('Permission handler integration (VAL-CROSS-003)', () => {
             })
           );
 
-          // Server sends a permission request
           transport.injectMessage(
             makeServerRequest(
               'perm-req-001',
               DroidClientMethod.REQUEST_PERMISSION,
-              {
+              makePermissionRequestParams({
+                toolUseId: 'tu-exec-1',
                 toolName: 'execute',
-                command: 'npm test',
                 confirmationType: 'exec',
-                toolUseIds: ['tu-exec-1'],
-              }
+                input: { command: 'npm test' },
+                details: {
+                  type: 'exec',
+                  fullCommand: 'npm test',
+                  command: 'npm test',
+                },
+              })
             )
           );
 
-          // After the permission is handled, continue streaming
-          // (we use setTimeout to ensure the handler has time to run)
           setTimeout(() => {
             transport.injectMessage(
               makeNotification(
@@ -810,12 +790,12 @@ describe('Permission handler integration (VAL-CROSS-003)', () => {
       messages.push(msg);
     }
 
-    // Permission handler should have been invoked
     expect(permissionRequests.length).toBe(1);
-    expect(permissionRequests[0]['toolName']).toBe('execute');
-    expect(permissionRequests[0]['command']).toBe('npm test');
+    expect(permissionRequests[0].toolUses[0]?.toolUse.name).toBe('execute');
+    expect(permissionRequests[0].toolUses[0]?.toolUse.input).toEqual({
+      command: 'npm test',
+    });
 
-    // Verify the permission response was sent back to the server
     const responses = transport.sentMessages.filter(
       (m) => (m as Record<string, unknown>)['type'] === 'response'
     );
@@ -828,14 +808,12 @@ describe('Permission handler integration (VAL-CROSS-003)', () => {
       (permResponse['result'] as Record<string, unknown>)['selectedOption']
     ).toBe(ToolConfirmationOutcome.ProceedOnce);
 
-    // Stream should have continued after permission was granted
     const types = messages.map((m) => m.type);
     expect(types).toContain('assistant_text_delta');
     expect(types).toContain('tool_result');
     expect(types).toContain('permission_resolved');
     expect(types[types.length - 1]).toBe('turn_complete');
 
-    // Verify we got text from BOTH before and after the permission request
     const textDeltas = messages.filter(
       (m) => m.type === 'assistant_text_delta'
     );
@@ -852,7 +830,7 @@ describe('Permission handler integration (VAL-CROSS-003)', () => {
     const transport = new InMemoryTransport();
     await transport.connect();
 
-    const handlerCalls: Record<string, unknown>[] = [];
+    const handlerCalls: RequestPermissionRequestParams[] = [];
 
     wireTransport(transport, 'sess-multi-perm', {
       [DroidServerMethod.ADD_USER_MESSAGE]: (id) => {
@@ -874,21 +852,24 @@ describe('Permission handler integration (VAL-CROSS-003)', () => {
             })
           );
 
-          // First permission request
           transport.injectMessage(
             makeServerRequest(
               'perm-multi-1',
               DroidClientMethod.REQUEST_PERMISSION,
-              {
+              makePermissionRequestParams({
+                toolUseId: 'tu-1',
                 toolName: 'execute',
-                command: 'npm test',
                 confirmationType: 'exec',
-                toolUseIds: ['tu-1'],
-              }
+                input: { command: 'npm test' },
+                details: {
+                  type: 'exec',
+                  fullCommand: 'npm test',
+                  command: 'npm test',
+                },
+              })
             )
           );
 
-          // After first permission handled, send tool result + second permission
           setTimeout(() => {
             transport.injectMessage(
               makeNotification(SessionNotificationType.TOOL_RESULT, {
@@ -899,21 +880,24 @@ describe('Permission handler integration (VAL-CROSS-003)', () => {
               })
             );
 
-            // Second permission request
             transport.injectMessage(
               makeServerRequest(
                 'perm-multi-2',
                 DroidClientMethod.REQUEST_PERMISSION,
-                {
+                makePermissionRequestParams({
+                  toolUseId: 'tu-2',
                   toolName: 'edit',
-                  path: '/tmp/file.ts',
                   confirmationType: 'edit',
-                  toolUseIds: ['tu-2'],
-                }
+                  input: { path: '/tmp/file.ts' },
+                  details: {
+                    type: 'edit',
+                    filePath: '/tmp/file.ts',
+                    fileName: 'file.ts',
+                  },
+                })
               )
             );
 
-            // After second permission handled, finish
             setTimeout(() => {
               transport.injectMessage(
                 makeNotification(SessionNotificationType.TOOL_RESULT, {
@@ -950,12 +934,10 @@ describe('Permission handler integration (VAL-CROSS-003)', () => {
       messages.push(msg);
     }
 
-    // Permission handler called exactly 2 times
     expect(handlerCalls.length).toBe(2);
-    expect(handlerCalls[0]['toolName']).toBe('execute');
-    expect(handlerCalls[1]['toolName']).toBe('edit');
+    expect(handlerCalls[0].toolUses[0]?.toolUse.name).toBe('execute');
+    expect(handlerCalls[1].toolUses[0]?.toolUse.name).toBe('edit');
 
-    // Both permission responses sent
     const permResponses = transport.sentMessages.filter(
       (m) =>
         (m as Record<string, unknown>)['type'] === 'response' &&
@@ -964,7 +946,6 @@ describe('Permission handler integration (VAL-CROSS-003)', () => {
     );
     expect(permResponses.length).toBe(2);
 
-    // Stream completed with turn_complete
     const types = messages.map((m) => m.type);
     expect(types[types.length - 1]).toBe('turn_complete');
   });
@@ -993,20 +974,24 @@ describe('Permission handler integration (VAL-CROSS-003)', () => {
             })
           );
 
-          // Server sends permission request
           transport.injectMessage(
             makeServerRequest(
               'perm-cancel-1',
               DroidClientMethod.REQUEST_PERMISSION,
-              {
+              makePermissionRequestParams({
+                toolUseId: 'tu-cancel-1',
                 toolName: 'execute',
-                command: 'rm -rf /',
                 confirmationType: 'exec',
-              }
+                input: { command: 'rm -rf /' },
+                details: {
+                  type: 'exec',
+                  fullCommand: 'rm -rf /',
+                  command: 'rm -rf /',
+                },
+              })
             )
           );
 
-          // After handler cancels, agent goes idle
           setTimeout(() => {
             transport.injectMessage(
               makeNotification(
@@ -1037,7 +1022,6 @@ describe('Permission handler integration (VAL-CROSS-003)', () => {
 
     expect(handlerCalled).toBe(true);
 
-    // Verify Cancel was sent back
     const permResponse = transport.sentMessages.find(
       (m) =>
         (m as Record<string, unknown>)['type'] === 'response' &&
@@ -1048,10 +1032,8 @@ describe('Permission handler integration (VAL-CROSS-003)', () => {
       (permResponse['result'] as Record<string, unknown>)['selectedOption']
     ).toBe(ToolConfirmationOutcome.Cancel);
 
-    // Stream completed
     expect(messages[messages.length - 1].type).toBe('turn_complete');
 
-    // Session still usable after cancel
     await session.close();
     expect(transport.isConnected).toBe(false);
   });
@@ -1074,15 +1056,21 @@ describe('Permission handler integration (VAL-CROSS-003)', () => {
             )
           );
 
-          // Permission request
           transport.injectMessage(
             makeServerRequest(
               'perm-sess-1',
               DroidClientMethod.REQUEST_PERMISSION,
-              {
+              makePermissionRequestParams({
+                toolUseId: 'tu-edit-session-1',
                 toolName: 'edit',
-                path: '/tmp/file.ts',
-              }
+                confirmationType: 'edit',
+                input: { path: '/tmp/file.ts' },
+                details: {
+                  type: 'edit',
+                  filePath: '/tmp/file.ts',
+                  fileName: 'file.ts',
+                },
+              })
             )
           );
 
@@ -1122,16 +1110,12 @@ describe('Permission handler integration (VAL-CROSS-003)', () => {
   });
 });
 
-// ===========================================================================
-// 4. Ask-user handler integration (VAL-CROSS-004)
-// ===========================================================================
-
 describe('Ask-user handler integration (VAL-CROSS-004)', () => {
   it('client receives ask_user request → handler invoked → answers sent back → stream continues', async () => {
     const transport = new InMemoryTransport();
     await transport.connect();
 
-    const askUserRequests: Record<string, unknown>[] = [];
+    const askUserRequests: AskUserRequestParams[] = [];
 
     wireTransport(transport, 'sess-ask', {
       [DroidServerMethod.ADD_USER_MESSAGE]: (id) => {
@@ -1153,17 +1137,26 @@ describe('Ask-user handler integration (VAL-CROSS-004)', () => {
             })
           );
 
-          // Server sends ask_user request
           transport.injectMessage(
             makeServerRequest('ask-req-001', DroidClientMethod.ASK_USER, {
+              toolCallId: 'tool-ask-001',
               questions: [
-                { id: 'q1', text: 'Which database do you prefer?' },
-                { id: 'q2', text: 'Should I add tests?' },
+                {
+                  index: 0,
+                  topic: 'Database',
+                  question: 'Which database do you prefer?',
+                  options: ['PostgreSQL', 'MySQL'],
+                },
+                {
+                  index: 1,
+                  topic: 'Testing',
+                  question: 'Should I add tests?',
+                  options: ['Yes', 'No'],
+                },
               ],
             })
           );
 
-          // After handler responds, continue streaming
           setTimeout(() => {
             transport.injectMessage(
               makeNotification(SessionNotificationType.ASSISTANT_TEXT_DELTA, {
@@ -1193,8 +1186,12 @@ describe('Ask-user handler integration (VAL-CROSS-004)', () => {
         return {
           cancelled: false,
           answers: [
-            { questionId: 'q1', answer: 'PostgreSQL' },
-            { questionId: 'q2', answer: 'Yes' },
+            {
+              index: 0,
+              question: 'Which database do you prefer?',
+              answer: 'PostgreSQL',
+            },
+            { index: 1, question: 'Should I add tests?', answer: 'Yes' },
           ],
         };
       },
@@ -1204,11 +1201,9 @@ describe('Ask-user handler integration (VAL-CROSS-004)', () => {
       messages.push(msg);
     }
 
-    // Ask-user handler should have been invoked
     expect(askUserRequests.length).toBe(1);
-    expect(askUserRequests[0]['questions']).toBeDefined();
+    expect(askUserRequests[0]?.questions).toBeDefined();
 
-    // Verify the response was sent back
     const responses = transport.sentMessages.filter(
       (m) => (m as Record<string, unknown>)['type'] === 'response'
     );
@@ -1220,16 +1215,18 @@ describe('Ask-user handler integration (VAL-CROSS-004)', () => {
     const askResult = askResponse['result'] as Record<string, unknown>;
     expect(askResult['cancelled']).toBe(false);
     expect(askResult['answers']).toEqual([
-      { questionId: 'q1', answer: 'PostgreSQL' },
-      { questionId: 'q2', answer: 'Yes' },
+      {
+        index: 0,
+        question: 'Which database do you prefer?',
+        answer: 'PostgreSQL',
+      },
+      { index: 1, question: 'Should I add tests?', answer: 'Yes' },
     ]);
 
-    // Stream should have continued
     const types = messages.map((m) => m.type);
     expect(types).toContain('assistant_text_delta');
     expect(types[types.length - 1]).toBe('turn_complete');
 
-    // Verify text from both before and after ask_user
     const textDeltas = messages.filter(
       (m) => m.type === 'assistant_text_delta'
     );
@@ -1259,7 +1256,15 @@ describe('Ask-user handler integration (VAL-CROSS-004)', () => {
 
           transport.injectMessage(
             makeServerRequest('ask-sess-1', DroidClientMethod.ASK_USER, {
-              questions: [{ id: 'q1', text: 'Confirm?' }],
+              toolCallId: 'tool-ask-session-1',
+              questions: [
+                {
+                  index: 0,
+                  topic: 'Confirmation',
+                  question: 'Confirm?',
+                  options: ['Yes', 'No'],
+                },
+              ],
             })
           );
 
@@ -1289,7 +1294,7 @@ describe('Ask-user handler integration (VAL-CROSS-004)', () => {
         handlerCalled = true;
         return {
           cancelled: false,
-          answers: [{ questionId: 'q1', answer: 'Yes' }],
+          answers: [{ index: 0, question: 'Confirm?', answer: 'Yes' }],
         };
       },
     });
@@ -1301,10 +1306,6 @@ describe('Ask-user handler integration (VAL-CROSS-004)', () => {
     await session.close();
   });
 });
-
-// ===========================================================================
-// 5. Interrupt during streaming (VAL-CROSS-005)
-// ===========================================================================
 
 describe('Interrupt during active streaming (VAL-CROSS-005)', () => {
   it('interrupt during ExecutingTool state emits TurnComplete', async () => {
@@ -1333,15 +1334,12 @@ describe('Interrupt during active streaming (VAL-CROSS-005)', () => {
             })
           );
 
-          // Transition to ExecutingTool
           transport.injectMessage(
             makeNotification(
               SessionNotificationType.DROID_WORKING_STATE_CHANGED,
               { newState: DroidWorkingState.ExecutingTool }
             )
           );
-
-          // Pause here — interrupt will be called by the test
         });
       },
       [DroidServerMethod.INTERRUPT_SESSION]: (id) => {
@@ -1349,7 +1347,6 @@ describe('Interrupt during active streaming (VAL-CROSS-005)', () => {
         queueMicrotask(() => {
           transport.injectMessage(makeSuccessResponse(id, {}));
 
-          // After interrupt, agent goes idle
           transport.injectMessage(
             makeNotification(
               SessionNotificationType.DROID_WORKING_STATE_CHANGED,
@@ -1368,7 +1365,6 @@ describe('Interrupt during active streaming (VAL-CROSS-005)', () => {
     for await (const msg of session.stream('test')) {
       messages.push(msg);
 
-      // Interrupt once we see ExecutingTool state
       if (
         msg.type === 'working_state_changed' &&
         msg.state === DroidWorkingState.ExecutingTool &&
@@ -1400,7 +1396,6 @@ describe('Interrupt during active streaming (VAL-CROSS-005)', () => {
         const callIndex = addUserMessageCount;
 
         if (callIndex === 1) {
-          // First turn: partial stream, will be interrupted
           queueMicrotask(() => {
             transport.injectMessage(makeSuccessResponse(id, {}));
 
@@ -1418,11 +1413,8 @@ describe('Interrupt during active streaming (VAL-CROSS-005)', () => {
                 textDelta: 'Partial response',
               })
             );
-
-            // Stream stays open — interrupt will trigger idle
           });
         } else {
-          // Second turn: full stream
           queueMicrotask(() => {
             transport.injectMessage(makeSuccessResponse(id, {}));
 
@@ -1466,7 +1458,6 @@ describe('Interrupt during active streaming (VAL-CROSS-005)', () => {
 
     const session = await createSession({ cwd: '/tmp', transport });
 
-    // First turn: interrupt after first delta
     const msgs1: DroidMessage[] = [];
     for await (const msg of session.stream('first')) {
       msgs1.push(msg);
@@ -1476,12 +1467,10 @@ describe('Interrupt during active streaming (VAL-CROSS-005)', () => {
     }
     expect(msgs1[msgs1.length - 1].type).toBe('turn_complete');
 
-    // Second turn: full response
     const result = await session.send('second');
     expect(result.text).toBe('Full second response');
     expect(result.messages.length).toBeGreaterThan(0);
 
-    // Two addUserMessage requests sent
     expect(addUserMessageCount).toBe(2);
 
     await session.close();
@@ -1498,7 +1487,6 @@ describe('Interrupt during active streaming (VAL-CROSS-005)', () => {
         queueMicrotask(() => {
           transport.injectMessage(makeSuccessResponse(id, {}));
 
-          // Start streaming with multiple deltas
           transport.injectMessage(
             makeNotification(
               SessionNotificationType.DROID_WORKING_STATE_CHANGED,
@@ -1521,8 +1509,6 @@ describe('Interrupt during active streaming (VAL-CROSS-005)', () => {
               textDelta: 'Second chunk. ',
             })
           );
-
-          // More deltas will come after interrupt is handled
         });
       },
       [DroidServerMethod.INTERRUPT_SESSION]: (id) => {
@@ -1530,7 +1516,6 @@ describe('Interrupt during active streaming (VAL-CROSS-005)', () => {
         queueMicrotask(() => {
           transport.injectMessage(makeSuccessResponse(id, {}));
 
-          // After interrupt, agent yields remaining content and goes idle
           transport.injectMessage(
             makeNotification(SessionNotificationType.ASSISTANT_TEXT_DELTA, {
               messageId: 'msg-1',
@@ -1573,7 +1558,6 @@ describe('Interrupt during active streaming (VAL-CROSS-005)', () => {
     for await (const msg of session.stream('Write a long essay')) {
       messages.push(msg);
 
-      // Interrupt after receiving the second text delta
       if (msg.type === 'assistant_text_delta' && !didInterrupt) {
         const textDeltas = messages.filter(
           (m) => m.type === 'assistant_text_delta'
@@ -1585,16 +1569,13 @@ describe('Interrupt during active streaming (VAL-CROSS-005)', () => {
       }
     }
 
-    // Interrupt should have been sent
     expect(interruptSent).toBe(true);
     expect(didInterrupt).toBe(true);
 
-    // Should have received all messages including post-interrupt content
     const types = messages.map((m) => m.type);
     expect(types.filter((t) => t === 'assistant_text_delta').length).toBe(3);
     expect(types[types.length - 1]).toBe('turn_complete');
 
-    // Verify the final text delta
     const textDeltas = messages.filter(
       (m) => m.type === 'assistant_text_delta'
     );
@@ -1602,17 +1583,12 @@ describe('Interrupt during active streaming (VAL-CROSS-005)', () => {
       expect(textDeltas[2].text).toBe('Final chunk after interrupt.');
     }
 
-    // TurnComplete should carry token usage
     const turnComplete = messages[messages.length - 1];
     if (turnComplete.type === 'turn_complete') {
       expect(turnComplete.tokenUsage).not.toBeNull();
       expect(turnComplete.tokenUsage!.inputTokens).toBe(50);
     }
 
-    // Session should still be usable for another turn
-    // (interrupt doesn't close the session)
-    // We can verify by checking that session.close() works without error
-    // and by verifying no ConnectionError is thrown when we call close.
     await session.close();
     expect(transport.isConnected).toBe(false);
   });
@@ -1674,19 +1650,13 @@ describe('Interrupt during active streaming (VAL-CROSS-005)', () => {
   });
 });
 
-// ===========================================================================
-// 6. Transport error during query (VAL-CROSS-006)
-// ===========================================================================
-
 describe('Transport error during query (VAL-CROSS-006)', () => {
   it('process exits abnormally during initializeSession → ProcessExitError propagated as cause in ConnectionError → query() generator raises error', async () => {
     const transport = new InMemoryTransport();
     await transport.connect();
 
-    // Don't respond to initializeSession — inject a transport error while the request is pending
     wireTransport(transport, 'sess-error-init', {
       [DroidServerMethod.INITIALIZE_SESSION]: () => {
-        // Simulate process crash before responding
         setTimeout(() => {
           transport.injectError(
             new ProcessExitError('Process exited with code 1', {
@@ -1703,19 +1673,17 @@ describe('Transport error during query (VAL-CROSS-006)', () => {
     try {
       const q = query({ prompt: 'Do something', transport });
       for await (const _msg of q) {
-        // Should never get here
+        void _msg;
       }
     } catch (err) {
       caughtError = err as Error;
     }
 
-    // Error should have been propagated through all layers
     expect(caughtError).not.toBeNull();
     expect(caughtError).toBeInstanceOf(ConnectionError);
     expect(caughtError!.message).toContain('Transport error');
     expect(caughtError!.message).toContain('Process exited');
 
-    // ProcessExitError should be accessible as the cause
     expect(caughtError!.cause).toBeInstanceOf(ProcessExitError);
     const processError = caughtError!.cause as ProcessExitError;
     expect(processError.exitCode).toBe(1);
@@ -1728,7 +1696,6 @@ describe('Transport error during query (VAL-CROSS-006)', () => {
 
     wireTransport(transport, 'sess-error-msg', {
       [DroidServerMethod.ADD_USER_MESSAGE]: () => {
-        // Don't respond — simulate crash during message processing
         setTimeout(() => {
           transport.injectError(
             new ProcessExitError('Process killed by SIGTERM', {
@@ -1745,7 +1712,7 @@ describe('Transport error during query (VAL-CROSS-006)', () => {
     try {
       const q = query({ prompt: 'Do something', transport });
       for await (const _msg of q) {
-        // Should not yield any messages
+        void _msg;
       }
     } catch (err) {
       caughtError = err as Error;
@@ -1755,7 +1722,6 @@ describe('Transport error during query (VAL-CROSS-006)', () => {
     expect(caughtError).toBeInstanceOf(ConnectionError);
     expect(caughtError!.message).toContain('Transport error');
 
-    // ProcessExitError should be accessible as the cause
     expect(caughtError!.cause).toBeInstanceOf(ProcessExitError);
     const processError = caughtError!.cause as ProcessExitError;
     expect(processError.signal).toBe('SIGTERM');
@@ -1766,10 +1732,8 @@ describe('Transport error during query (VAL-CROSS-006)', () => {
     const transport = new InMemoryTransport();
     await transport.connect();
 
-    // Don't respond to initializeSession — let the transport error hit while it's pending
     wireTransport(transport, 'sess-err-create', {
       [DroidServerMethod.INITIALIZE_SESSION]: () => {
-        // Simulate process crash
         setTimeout(() => {
           transport.injectError(
             new ProcessExitError('Process killed by SIGKILL', {
@@ -1800,7 +1764,6 @@ describe('Transport error during query (VAL-CROSS-006)', () => {
 
     wireTransport(transport, 'sess-sticky', {
       [DroidServerMethod.INITIALIZE_SESSION]: () => {
-        // Don't respond — we'll inject an error instead
         setTimeout(() => {
           transport.injectError(
             new ProcessExitError('Crashed on startup', {
@@ -1823,10 +1786,6 @@ describe('Transport error during query (VAL-CROSS-006)', () => {
     expect(caughtError).not.toBeNull();
     expect(caughtError).toBeInstanceOf(ConnectionError);
     expect(caughtError!.message).toContain('Transport error');
-
-    // After the error, subsequent requests should also fail (sticky pattern)
-    // The transport's error handler was already called, so any new protocol
-    // engine on this transport would also fail
   });
 
   it('transport error during session.send() propagates as ConnectionError', async () => {
@@ -1835,7 +1794,6 @@ describe('Transport error during query (VAL-CROSS-006)', () => {
 
     wireTransport(transport, 'sess-err-send', {
       [DroidServerMethod.ADD_USER_MESSAGE]: () => {
-        // Don't respond — simulate crash during message processing
         setTimeout(() => {
           transport.injectError(
             new ProcessExitError('Process crashed mid-request', {
@@ -1862,10 +1820,6 @@ describe('Transport error during query (VAL-CROSS-006)', () => {
   });
 });
 
-// ===========================================================================
-// 7. Settings update notification flow (VAL-CROSS-007)
-// ===========================================================================
-
 describe('Settings update notification flow (VAL-CROSS-007)', () => {
   it('updateSettings() sent → settings_updated notification arrives → SettingsUpdated message in stream', async () => {
     const transport = new InMemoryTransport();
@@ -1876,7 +1830,6 @@ describe('Settings update notification flow (VAL-CROSS-007)', () => {
         queueMicrotask(() => {
           transport.injectMessage(makeSuccessResponse(id, {}));
 
-          // Start streaming
           transport.injectMessage(
             makeNotification(
               SessionNotificationType.DROID_WORKING_STATE_CHANGED,
@@ -1892,7 +1845,6 @@ describe('Settings update notification flow (VAL-CROSS-007)', () => {
             })
           );
 
-          // Simulate settings_updated notification arriving during stream
           transport.injectMessage(
             makeNotification(SessionNotificationType.SETTINGS_UPDATED, {
               settings: {
@@ -1922,7 +1874,6 @@ describe('Settings update notification flow (VAL-CROSS-007)', () => {
         queueMicrotask(() => {
           transport.injectMessage(makeSuccessResponse(id, {}));
 
-          // Server sends a settings_updated notification in response to the update
           transport.injectMessage(
             makeNotification(SessionNotificationType.SETTINGS_UPDATED, {
               settings: {
@@ -1937,13 +1888,11 @@ describe('Settings update notification flow (VAL-CROSS-007)', () => {
 
     const session = await createSession({ cwd: '/tmp', transport });
 
-    // First: do a turn that includes a settings_updated notification mid-stream
     const messages: DroidMessage[] = [];
     for await (const msg of session.stream('do work')) {
       messages.push(msg);
     }
 
-    // Verify settings_updated was in the stream
     const settingsUpdated = messages.filter(
       (m) => m.type === 'settings_updated'
     );
@@ -1955,10 +1904,6 @@ describe('Settings update notification flow (VAL-CROSS-007)', () => {
       });
     }
 
-    // Now test explicit updateSettings call and verify the resulting
-    // settings_updated notification is received as a SettingsUpdated message.
-    // Collect notifications via onNotification so we can observe the
-    // settings_updated notification triggered by updateSettings().
     const settingsNotifications: DroidMessage[] = [];
     const { convertNotificationToStreamMessage } =
       await import('../src/stream.js');
@@ -1985,10 +1930,8 @@ describe('Settings update notification flow (VAL-CROSS-007)', () => {
 
     await session.updateSettings({ modelId: 'upgraded-model' } as never);
 
-    // Allow microtasks to process the notification
     await new Promise((r) => setTimeout(r, 20));
 
-    // Verify updateSettings was sent
     const sentUpdateSettings = transport.sentMessages.find(
       (m) =>
         (m as Record<string, unknown>)['method'] ===
@@ -1996,7 +1939,6 @@ describe('Settings update notification flow (VAL-CROSS-007)', () => {
     );
     expect(sentUpdateSettings).toBeDefined();
 
-    // Verify the settings_updated notification arrived as a SettingsUpdated message
     expect(settingsNotifications.length).toBe(1);
     expect(settingsNotifications[0].type).toBe('settings_updated');
     if (settingsNotifications[0].type === 'settings_updated') {
@@ -2009,14 +1951,11 @@ describe('Settings update notification flow (VAL-CROSS-007)', () => {
     await session.close();
   });
 
-  // =========================================================================
-  // #11 — ToolConfirmationDetails variants through handler
-  // =========================================================================
   it('permission handler receives full edit confirmation details', async () => {
     const transport = new InMemoryTransport();
     await transport.connect();
 
-    let receivedDetails: Record<string, unknown> | null = null;
+    let receivedDetails: RequestPermissionRequestParams | null = null;
 
     wireTransport(transport, 'sess-perm-details', {
       [DroidServerMethod.ADD_USER_MESSAGE]: (id) => {
@@ -2030,28 +1969,22 @@ describe('Settings update notification flow (VAL-CROSS-007)', () => {
             )
           );
 
-          // Send a permission request with edit confirmation details
           transport.injectMessage(
             makeServerRequest(
               'perm-detail-1',
               DroidClientMethod.REQUEST_PERMISSION,
-              {
+              makePermissionRequestParams({
+                toolUseId: 'tu-edit-details',
                 toolName: 'edit',
                 confirmationType: 'edit',
-                toolUses: [
-                  {
-                    toolUse: { name: 'edit', input: {} },
-                    confirmationType: 'edit',
-                    details: {
-                      type: 'edit',
-                      filePath: '/src/main.ts',
-                      fileName: 'main.ts',
-                      oldContent: 'const x = 1;',
-                      newContent: 'const x = 2;',
-                    },
-                  },
-                ],
-              }
+                details: {
+                  type: 'edit',
+                  filePath: '/src/main.ts',
+                  fileName: 'main.ts',
+                  oldContent: 'const x = 1;',
+                  newContent: 'const x = 2;',
+                },
+              })
             )
           );
 
@@ -2082,7 +2015,6 @@ describe('Settings update notification flow (VAL-CROSS-007)', () => {
     }
 
     expect(receivedDetails).not.toBeNull();
-    // Verify the full details object was passed through
     expect(receivedDetails).toMatchObject({
       toolUses: [
         {
@@ -2100,9 +2032,6 @@ describe('Settings update notification flow (VAL-CROSS-007)', () => {
     expect(messages[messages.length - 1].type).toBe('turn_complete');
   });
 
-  // =========================================================================
-  // #12 — Ask-user cancelled response flow
-  // =========================================================================
   it('ask-user handler returning cancelled: true sends cancelled response and stream continues', async () => {
     const transport = new InMemoryTransport();
     await transport.connect();
@@ -2121,9 +2050,9 @@ describe('Settings update notification flow (VAL-CROSS-007)', () => {
             )
           );
 
-          // Server sends ask_user request
           transport.injectMessage(
             makeServerRequest('ask-cancel-1', DroidClientMethod.ASK_USER, {
+              toolCallId: 'tool-ask-cancel-1',
               questions: [
                 {
                   index: 0,
@@ -2135,7 +2064,6 @@ describe('Settings update notification flow (VAL-CROSS-007)', () => {
             })
           );
 
-          // After handler responds with cancelled, agent continues
           setTimeout(() => {
             transport.injectMessage(
               makeNotification(SessionNotificationType.ASSISTANT_TEXT_DELTA, {
@@ -2172,7 +2100,6 @@ describe('Settings update notification flow (VAL-CROSS-007)', () => {
 
     expect(handlerCalled).toBe(true);
 
-    // Verify the cancelled response was sent back
     const askResponse = transport.sentMessages.find(
       (m) =>
         (m as Record<string, unknown>)['type'] === 'response' &&
@@ -2183,7 +2110,6 @@ describe('Settings update notification flow (VAL-CROSS-007)', () => {
     expect(result['cancelled']).toBe(true);
     expect(result['answers']).toEqual([]);
 
-    // Stream should have continued to turn_complete
     expect(messages[messages.length - 1].type).toBe('turn_complete');
   });
 
@@ -2203,7 +2129,6 @@ describe('Settings update notification flow (VAL-CROSS-007)', () => {
             )
           );
 
-          // Settings update notification mid-stream
           transport.injectMessage(
             makeNotification(SessionNotificationType.SETTINGS_UPDATED, {
               settings: {

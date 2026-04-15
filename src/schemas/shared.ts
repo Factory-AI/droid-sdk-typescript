@@ -4,6 +4,36 @@ import { JSONRPC_VERSION, LEGACY_FACTORY_API_VERSION } from './constants.js';
 import { JsonRpcErrorCode } from './enums.js';
 
 
+/** JSON-compatible primitive values. */
+export type JsonPrimitive = string | number | boolean | null;
+
+/** JSON-compatible object values. */
+export interface JsonObject {
+  [key: string]: JsonValue;
+}
+
+/** JSON-compatible array values. */
+export type JsonArray = JsonValue[];
+
+/** Recursive JSON-compatible value. */
+export type JsonValue = JsonPrimitive | JsonObject | JsonArray;
+
+export const JsonValueSchema: z.ZodType<JsonValue> = z.lazy(() =>
+  z.union([
+    z.string(),
+    z.number(),
+    z.boolean(),
+    z.null(),
+    z.array(JsonValueSchema),
+    z.record(JsonValueSchema),
+  ])
+);
+
+export const JsonObjectSchema: z.ZodType<JsonObject> =
+  z.record(JsonValueSchema);
+
+export const JsonArraySchema: z.ZodType<JsonArray> = z.array(JsonValueSchema);
+
 /** Trace context metadata for distributed tracing propagation. */
 export const TraceContextMetaSchema = z.object({
   traceparent: z.string().optional(),
@@ -35,7 +65,7 @@ export type JsonRpcEnvelope = z.infer<typeof JsonRpcEnvelopeSchema>;
 export const JsonRpcErrorSchema = z.object({
   code: z.nativeEnum(JsonRpcErrorCode),
   message: z.string(),
-  data: z.unknown().optional(),
+  data: JsonValueSchema.optional(),
 });
 
 export type JsonRpcError = z.infer<typeof JsonRpcErrorSchema>;
@@ -46,7 +76,7 @@ export const BaseRequestSchema = z.object({
   type: z.literal('request'),
   id: z.string(),
   method: z.string(),
-  params: z.unknown().optional(),
+  params: JsonValueSchema.optional(),
 });
 
 export type BaseRequest = z.infer<typeof BaseRequestSchema>;
@@ -55,7 +85,7 @@ export type BaseRequest = z.infer<typeof BaseRequestSchema>;
 export const BaseResponseSuccessSchema = z.object({
   type: z.literal('response'),
   id: z.string(),
-  result: z.unknown(),
+  result: JsonValueSchema,
 });
 
 export type BaseResponseSuccess = z.infer<typeof BaseResponseSuccessSchema>;
@@ -73,7 +103,7 @@ export type BaseResponseFailure = z.infer<typeof BaseResponseFailureSchema>;
 export const BaseNotificationSchema = z.object({
   type: z.literal('notification'),
   method: z.string(),
-  params: z.unknown().optional(),
+  params: JsonValueSchema.optional(),
 });
 
 export type BaseNotification = z.infer<typeof BaseNotificationSchema>;
@@ -125,7 +155,7 @@ export const JsonRpcMessageSchema = z.discriminatedUnion('type', [
   JsonRpcEnvelopeSchema.extend({
     type: z.literal('response'),
     id: z.string().nullable(),
-    result: z.unknown().optional(),
+    result: JsonValueSchema.optional(),
     error: JsonRpcErrorSchema.optional(),
   }),
   JsonRpcNotificationSchema,

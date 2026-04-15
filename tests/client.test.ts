@@ -28,10 +28,6 @@ import {
 } from '../src/schemas/index.js';
 import { InMemoryTransport } from './helpers.js';
 
-// ---------------------------------------------------------------------------
-// Helpers
-// ---------------------------------------------------------------------------
-
 /** Build a JSON-RPC success response for a given request ID. */
 function makeSuccessResponse(
   id: string,
@@ -105,6 +101,39 @@ function makeServerRequest(
   };
 }
 
+function makePermissionRequestParams(options: {
+  toolUseId: string;
+  toolName: string;
+  confirmationType: 'exec' | 'edit';
+  input?: Record<string, unknown>;
+  details: Record<string, unknown>;
+}): Record<string, unknown> {
+  return {
+    toolUses: [
+      {
+        toolUse: {
+          type: 'tool_use',
+          id: options.toolUseId,
+          name: options.toolName,
+          input: options.input ?? {},
+        },
+        confirmationType: options.confirmationType,
+        details: options.details,
+      },
+    ],
+    options: [
+      {
+        label: 'Proceed once',
+        value: ToolConfirmationOutcome.ProceedOnce,
+      },
+      {
+        label: 'Cancel',
+        value: ToolConfirmationOutcome.Cancel,
+      },
+    ],
+  };
+}
+
 /** Extract the request ID from the last sent message. */
 function getLastSentId(transport: InMemoryTransport): string {
   const lastMsg = transport.sentMessages[
@@ -135,7 +164,6 @@ async function initializeTestSession(
     cwd: '/tmp/test',
   });
 
-  // Wait a tick for the request to be sent
   await vi.waitFor(() => {
     expect(transport.sentMessages.length).toBeGreaterThan(0);
   });
@@ -155,10 +183,6 @@ async function initializeTestSession(
   await initPromise;
 }
 
-// ---------------------------------------------------------------------------
-// Tests
-// ---------------------------------------------------------------------------
-
 describe('DroidClient', () => {
   let client: DroidClient;
   let transport: InMemoryTransport;
@@ -173,9 +197,6 @@ describe('DroidClient', () => {
     await client.close();
   });
 
-  // ===================================================================
-  // VAL-CLIENT-001: Session initialization via JSON-RPC
-  // ===================================================================
   describe('initializeSession (VAL-CLIENT-001)', () => {
     it('sends correct JSON-RPC request and returns parsed result', async () => {
       const initPromise = client.initializeSession({
@@ -214,8 +235,6 @@ describe('DroidClient', () => {
     });
 
     it('uses extended timeout (SESSION_INIT_TIMEOUT)', async () => {
-      // We can verify the timeout indirectly by checking the request is sent
-      // The actual timeout behavior is tested in protocol tests
       const initPromise = client.initializeSession({
         machineId: 'test',
         cwd: '/tmp',
@@ -278,9 +297,6 @@ describe('DroidClient', () => {
     });
   });
 
-  // ===================================================================
-  // VAL-CLIENT-002: Session loading
-  // ===================================================================
   describe('loadSession (VAL-CLIENT-002)', () => {
     it('sends request and returns parsed result', async () => {
       const loadPromise = client.loadSession({
@@ -339,9 +355,6 @@ describe('DroidClient', () => {
     });
   });
 
-  // ===================================================================
-  // VAL-CLIENT-003: User message sending
-  // ===================================================================
   describe('addUserMessage (VAL-CLIENT-003)', () => {
     beforeEach(async () => {
       await initializeTestSession(client, transport);
@@ -351,7 +364,6 @@ describe('DroidClient', () => {
       const msgPromise = client.addUserMessage({ text: 'Hello world' });
 
       await vi.waitFor(() => {
-        // initializeSession sent 1 message, addUserMessage sends another
         expect(transport.sentMessages.length).toBe(2);
       });
 
@@ -402,7 +414,6 @@ describe('DroidClient', () => {
     });
 
     it('throws SessionError if no active session', async () => {
-      // Create a fresh client without initialization
       const transport2 = new InMemoryTransport();
       await transport2.connect();
       const client2 = new DroidClient({ transport: transport2 });
@@ -415,9 +426,6 @@ describe('DroidClient', () => {
     });
   });
 
-  // ===================================================================
-  // VAL-CLIENT-004: MCP server management
-  // ===================================================================
   describe('MCP methods (VAL-CLIENT-004)', () => {
     beforeEach(async () => {
       await initializeTestSession(client, transport);
@@ -689,9 +697,6 @@ describe('DroidClient', () => {
     });
   });
 
-  // ===================================================================
-  // Other session methods
-  // ===================================================================
   describe('other session methods', () => {
     beforeEach(async () => {
       await initializeTestSession(client, transport);
@@ -806,9 +811,6 @@ describe('DroidClient', () => {
     });
   });
 
-  // ===================================================================
-  // VAL-CLIENT-005: Permission handler callbacks
-  // ===================================================================
   describe('permission handler (VAL-CLIENT-005)', () => {
     beforeEach(async () => {
       await initializeTestSession(client, transport);
@@ -818,16 +820,22 @@ describe('DroidClient', () => {
       const handler = vi.fn().mockResolvedValue('proceed_once');
       client.setPermissionHandler(handler);
 
-      // Simulate server→client permission request
       transport.injectMessage(
         makeServerRequest('perm-req-1', DroidClientMethod.REQUEST_PERMISSION, {
-          toolUses: [{ name: 'edit', type: 'edit' }],
+          ...makePermissionRequestParams({
+            toolUseId: 'tu-edit-1',
+            toolName: 'edit',
+            confirmationType: 'edit',
+            details: {
+              type: 'edit',
+              filePath: '/tmp/file.ts',
+              fileName: 'file.ts',
+            },
+          }),
         })
       );
 
-      // Wait for the handler to be called and response to be sent
       await vi.waitFor(() => {
-        // sentMessages: 1 (initializeSession) + 1 (permission response) = 2
         const responses = transport.sentMessages.filter(
           (msg) =>
             (msg as Record<string, unknown>)['type'] === 'response' &&
@@ -838,7 +846,6 @@ describe('DroidClient', () => {
 
       expect(handler).toHaveBeenCalledOnce();
 
-      // Verify the response content
       const response = transport.sentMessages.find(
         (msg) =>
           (msg as Record<string, unknown>)['type'] === 'response' &&
@@ -862,7 +869,16 @@ describe('DroidClient', () => {
         const reqId = `perm-outcome-${outcome}`;
         transport.injectMessage(
           makeServerRequest(reqId, DroidClientMethod.REQUEST_PERMISSION, {
-            toolUses: [{ name: 'test-tool', type: 'exec' }],
+            ...makePermissionRequestParams({
+              toolUseId: `tu-${outcome}`,
+              toolName: 'test-tool',
+              confirmationType: 'exec',
+              details: {
+                type: 'exec',
+                fullCommand: 'test-tool --run',
+                command: 'test-tool --run',
+              },
+            }),
           })
         );
 
@@ -893,7 +909,16 @@ describe('DroidClient', () => {
 
       transport.injectMessage(
         makeServerRequest('perm-req-2', DroidClientMethod.REQUEST_PERMISSION, {
-          toolUses: [],
+          ...makePermissionRequestParams({
+            toolUseId: 'tu-exec-2',
+            toolName: 'execute',
+            confirmationType: 'exec',
+            details: {
+              type: 'exec',
+              fullCommand: 'npm test',
+              command: 'npm test',
+            },
+          }),
         })
       );
 
@@ -918,9 +943,6 @@ describe('DroidClient', () => {
     });
   });
 
-  // ===================================================================
-  // VAL-CLIENT-006: Ask-user handler callbacks
-  // ===================================================================
   describe('ask-user handler (VAL-CLIENT-006)', () => {
     beforeEach(async () => {
       await initializeTestSession(client, transport);
@@ -929,14 +951,21 @@ describe('DroidClient', () => {
     it('invokes registered handler and sends response back', async () => {
       const handler = vi.fn().mockResolvedValue({
         cancelled: false,
-        answers: [{ questionId: 'q1', answer: 'Yes' }],
+        answers: [{ index: 0, question: 'Continue?', answer: 'Yes' }],
       });
       client.setAskUserHandler(handler);
 
       transport.injectMessage(
         makeServerRequest('ask-req-1', DroidClientMethod.ASK_USER, {
           toolCallId: 'tool-1',
-          questions: [{ id: 'q1', text: 'Continue?' }],
+          questions: [
+            {
+              index: 0,
+              topic: 'Confirmation',
+              question: 'Continue?',
+              options: ['Yes', 'No'],
+            },
+          ],
         })
       );
 
@@ -959,47 +988,37 @@ describe('DroidClient', () => {
 
       expect(response['result']).toEqual({
         cancelled: false,
-        answers: [{ questionId: 'q1', answer: 'Yes' }],
+        answers: [{ index: 0, question: 'Continue?', answer: 'Yes' }],
       });
     });
   });
 
-  // ===================================================================
-  // VAL-CLIENT-007: Transport error propagation
-  // ===================================================================
   describe('transport error propagation (VAL-CLIENT-007)', () => {
     beforeEach(async () => {
       await initializeTestSession(client, transport);
     });
 
     it('subsequent method calls throw after transport error', async () => {
-      // Inject a transport error
       transport.injectError(new Error('process exited'));
 
-      // All subsequent calls should fail
       await expect(client.addUserMessage({ text: 'hello' })).rejects.toThrow(
         ConnectionError
       );
     });
 
     it('pending requests are rejected on transport error', async () => {
-      // Start a request that won't get a response
       const promise = client.addUserMessage({ text: 'hello' });
 
       await vi.waitFor(() => {
         expect(transport.sentMessages.length).toBe(2);
       });
 
-      // Inject transport error before response arrives
       transport.injectError(new Error('connection lost'));
 
       await expect(promise).rejects.toThrow(ConnectionError);
     });
   });
 
-  // ===================================================================
-  // VAL-CLIENT-008: Notification subscription with type filtering
-  // ===================================================================
   describe('notification subscription with filtering (VAL-CLIENT-008)', () => {
     it('delivers all notifications when no filter is set', async () => {
       const received: Record<string, unknown>[] = [];
@@ -1067,9 +1086,6 @@ describe('DroidClient', () => {
     });
   });
 
-  // ===================================================================
-  // VAL-CLIENT-009: Notification unsubscribe function
-  // ===================================================================
   describe('notification unsubscribe (VAL-CLIENT-009)', () => {
     it('removes listener after unsubscribe', () => {
       const received: Record<string, unknown>[] = [];
@@ -1089,7 +1105,7 @@ describe('DroidClient', () => {
           text: 'After',
         })
       );
-      expect(received).toHaveLength(1); // unchanged
+      expect(received).toHaveLength(1);
     });
 
     it('double unsubscribe is safe (idempotent)', () => {
@@ -1097,13 +1113,10 @@ describe('DroidClient', () => {
       const unsubscribe = client.onNotification((n) => received.push(n));
 
       unsubscribe();
-      expect(() => unsubscribe()).not.toThrow(); // second call is no-op
+      expect(() => unsubscribe()).not.toThrow();
     });
   });
 
-  // ===================================================================
-  // VAL-CLIENT-010: Permission handler exception sends error response
-  // ===================================================================
   describe('permission handler exception (VAL-CLIENT-010)', () => {
     beforeEach(async () => {
       await initializeTestSession(client, transport);
@@ -1116,11 +1129,19 @@ describe('DroidClient', () => {
 
       transport.injectMessage(
         makeServerRequest('perm-err-1', DroidClientMethod.REQUEST_PERMISSION, {
-          toolUses: [],
+          ...makePermissionRequestParams({
+            toolUseId: 'tu-perm-err-1',
+            toolName: 'execute',
+            confirmationType: 'exec',
+            details: {
+              type: 'exec',
+              fullCommand: 'npm test',
+              command: 'npm test',
+            },
+          }),
         })
       );
 
-      // Wait for error response to be sent
       await vi.waitFor(() => {
         const errorResponses = transport.sentMessages.filter(
           (msg) =>
@@ -1149,7 +1170,16 @@ describe('DroidClient', () => {
 
       transport.injectMessage(
         makeServerRequest('perm-err-2', DroidClientMethod.REQUEST_PERMISSION, {
-          toolUses: [],
+          ...makePermissionRequestParams({
+            toolUseId: 'tu-perm-err-2',
+            toolName: 'execute',
+            confirmationType: 'exec',
+            details: {
+              type: 'exec',
+              fullCommand: 'npm test',
+              command: 'npm test',
+            },
+          }),
         })
       );
 
@@ -1165,21 +1195,26 @@ describe('DroidClient', () => {
     });
   });
 
-  // ===================================================================
-  // VAL-CLIENT-011: Default handler behavior when no handler registered
-  // ===================================================================
   describe('default handler behavior (VAL-CLIENT-011)', () => {
     beforeEach(async () => {
       await initializeTestSession(client, transport);
     });
 
     it('returns cancel for permission requests when no handler registered', async () => {
-      // No handler set — default should return "cancel"
       transport.injectMessage(
         makeServerRequest(
           'perm-default-1',
           DroidClientMethod.REQUEST_PERMISSION,
-          { toolUses: [] }
+          makePermissionRequestParams({
+            toolUseId: 'tu-perm-default-1',
+            toolName: 'execute',
+            confirmationType: 'exec',
+            details: {
+              type: 'exec',
+              fullCommand: 'npm test',
+              command: 'npm test',
+            },
+          })
         )
       );
 
@@ -1202,7 +1237,6 @@ describe('DroidClient', () => {
     });
 
     it('returns cancelled for ask-user requests when no handler registered', async () => {
-      // No handler set — default should return { cancelled: true, answers: [] }
       transport.injectMessage(
         makeServerRequest('ask-default-1', DroidClientMethod.ASK_USER, {
           toolCallId: 'tool-1',
@@ -1237,7 +1271,16 @@ describe('DroidClient', () => {
         makeServerRequest(
           'perm-clear-1',
           DroidClientMethod.REQUEST_PERMISSION,
-          { toolUses: [] }
+          makePermissionRequestParams({
+            toolUseId: 'tu-perm-clear-1',
+            toolName: 'execute',
+            confirmationType: 'exec',
+            details: {
+              type: 'exec',
+              fullCommand: 'npm test',
+              command: 'npm test',
+            },
+          })
         )
       );
 
@@ -1296,9 +1339,6 @@ describe('DroidClient', () => {
     });
   });
 
-  // ===================================================================
-  // VAL-CLIENT-012: Post-close method calls throw ConnectionError
-  // ===================================================================
   describe('post-close behavior (VAL-CLIENT-012)', () => {
     it('initializeSession throws after close', async () => {
       await client.close();
@@ -1445,9 +1485,6 @@ describe('DroidClient', () => {
     });
   });
 
-  // ===================================================================
-  // Rewind / Compact / Fork methods
-  // ===================================================================
   describe('getRewindInfo', () => {
     beforeEach(async () => {
       await initializeTestSession(client, transport);
@@ -1643,9 +1680,6 @@ describe('DroidClient', () => {
     });
   });
 
-  // ===================================================================
-  // #24 — Client _rpc() Zod parse failure
-  // ===================================================================
   describe('Zod parse failure on malformed response', () => {
     beforeEach(async () => {
       await initializeTestSession(client, transport);
@@ -1660,19 +1694,14 @@ describe('DroidClient', () => {
 
       const requestId = getLastSentId(transport);
 
-      // Respond with invalid shape (missing `servers` and `summary`)
       transport.injectMessage(
         makeSuccessResponse(requestId, { unexpected: 'shape' })
       );
 
-      // Should reject with a ZodError from the schema parse
       await expect(promise).rejects.toHaveProperty('name', 'ZodError');
     });
   });
 
-  // ===================================================================
-  // #24 — Client _rpc() Zod parse failure
-  // ===================================================================
   describe('Zod parse failure on malformed response', () => {
     beforeEach(async () => {
       await initializeTestSession(client, transport);
@@ -1687,19 +1716,14 @@ describe('DroidClient', () => {
 
       const requestId = getLastSentId(transport);
 
-      // Respond with invalid shape (missing `servers` and `summary`)
       transport.injectMessage(
         makeSuccessResponse(requestId, { unexpected: 'shape' })
       );
 
-      // Should reject with a ZodError from the schema parse
       await expect(promise).rejects.toHaveProperty('name', 'ZodError');
     });
   });
 
-  // ===================================================================
-  // Additional edge cases
-  // ===================================================================
   describe('edge cases', () => {
     it('notification listener exception does not crash client', () => {
       const goodListener = vi.fn();
@@ -1716,7 +1740,6 @@ describe('DroidClient', () => {
         })
       );
 
-      // Bad listener was called and threw, but good listener still received
       expect(badListener).toHaveBeenCalledOnce();
       expect(goodListener).toHaveBeenCalledOnce();
     });
@@ -1752,7 +1775,6 @@ describe('DroidClient', () => {
       const listener2 = vi.fn();
       const unsub1: { fn?: () => void } = {};
       const listener1 = vi.fn().mockImplementation(() => {
-        // Unsubscribe self during callback
         unsub1.fn?.();
       });
 
@@ -1768,14 +1790,13 @@ describe('DroidClient', () => {
       expect(listener1).toHaveBeenCalledOnce();
       expect(listener2).toHaveBeenCalledOnce();
 
-      // Second notification: listener1 should NOT be called
       transport.injectMessage(
         makeNotification(SessionNotificationType.ASSISTANT_TEXT_DELTA, {
           text: 'World',
         })
       );
 
-      expect(listener1).toHaveBeenCalledOnce(); // still 1
+      expect(listener1).toHaveBeenCalledOnce();
       expect(listener2).toHaveBeenCalledTimes(2);
     });
 

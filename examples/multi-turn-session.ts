@@ -12,11 +12,9 @@
 import { createSession } from '../src/index.js';
 
 async function main(): Promise<void> {
-  // Create a new session
   const session = await createSession({ cwd: process.cwd() });
   console.log(`Session created: ${session.sessionId}\n`);
 
-  // --- Turn 1: Streaming ---
   console.log('=== Turn 1 (streaming) ===');
   console.log('Prompt: "List the TypeScript files in this project"\n');
 
@@ -31,7 +29,6 @@ async function main(): Promise<void> {
     }
   }
 
-  // --- Turn 2: Streaming ---
   console.log('=== Turn 2 (streaming) ===');
   console.log('Prompt: "How many lines of code total?"\n');
 
@@ -44,7 +41,6 @@ async function main(): Promise<void> {
     }
   }
 
-  // --- Turn 3: Non-streaming (send) ---
   console.log('=== Turn 3 (non-streaming) ===');
   console.log('Prompt: "Summarize the project in one sentence"\n');
 
@@ -59,7 +55,6 @@ async function main(): Promise<void> {
     );
   }
 
-  // --- Cleanup ---
   await session.close();
   console.log('\nSession closed.');
 }
