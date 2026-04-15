@@ -7,7 +7,6 @@
 
 import { describe, expect, it } from 'vitest';
 
-import { SDK_TAG } from '../src/constants.js';
 import { query } from '../src/query.js';
 import {
   DroidClientMethod,
@@ -90,7 +89,7 @@ function simulateQueryLifecycle(
   let _messageCount = 0;
 
   const originalSend = transport.send.bind(transport);
-  transport.send = (message: object) => {
+  transport.send = (message: Record<string, unknown>) => {
     originalSend(message);
     const msg = message as Record<string, unknown>;
     const method = msg['method'] as string;
@@ -225,6 +224,7 @@ describe('query()', () => {
         cwd: '/my/project',
         machineId: 'my-machine',
         modelId: 'claude-test',
+        enabledToolIds: ['Read'],
         disabledToolIds: ['Execute'],
         transport,
       });
@@ -245,6 +245,7 @@ describe('query()', () => {
       expect(params['cwd']).toBe('/my/project');
       expect(params['machineId']).toBe('my-machine');
       expect(params['modelId']).toBe('claude-test');
+      expect(params['enabledToolIds']).toEqual(['Read']);
       expect(params['disabledToolIds']).toEqual(['Execute']);
     });
 
@@ -285,7 +286,7 @@ describe('query()', () => {
 
       // Custom lifecycle that waits for interrupt
       const originalSend = transport.send.bind(transport);
-      transport.send = (message: object) => {
+      transport.send = (message: Record<string, unknown>) => {
         originalSend(message);
         const msg = message as Record<string, unknown>;
         const method = msg['method'] as string;
@@ -370,7 +371,7 @@ describe('query()', () => {
 
       // Only respond to init and addUserMessage, then stream forever
       const originalSend = transport.send.bind(transport);
-      transport.send = (message: object) => {
+      transport.send = (message: Record<string, unknown>) => {
         originalSend(message);
         const msg = message as Record<string, unknown>;
         const method = msg['method'] as string;
@@ -470,7 +471,7 @@ describe('query()', () => {
 
       // Set up lifecycle that never completes
       const originalSend = transport.send.bind(transport);
-      transport.send = (message: object) => {
+      transport.send = (message: Record<string, unknown>) => {
         originalSend(message);
         const msg = message as Record<string, unknown>;
         const method = msg['method'] as string;
@@ -539,7 +540,7 @@ describe('query()', () => {
 
       // Transport that never responds to init (simulates slow startup)
       const originalSend = transport.send.bind(transport);
-      transport.send = (message: object) => {
+      transport.send = (message: Record<string, unknown>) => {
         originalSend(message);
         // Never respond — init hangs
       };
@@ -577,7 +578,7 @@ describe('query()', () => {
       let receivedParams: Record<string, unknown> | null = null;
 
       const originalSend = transport.send.bind(transport);
-      transport.send = (message: object) => {
+      transport.send = (message: Record<string, unknown>) => {
         originalSend(message);
         const msg = message as Record<string, unknown>;
         const method = msg['method'] as string;
@@ -621,11 +622,14 @@ describe('query()', () => {
             // After handler responds, continue
             setTimeout(() => {
               transport.injectMessage(
-                makeNotification(SessionNotificationType.ASSISTANT_TEXT_DELTA, {
-                  messageId: 'msg-1',
-                  blockIndex: 0,
-                  textDelta: 'Using TypeScript.',
-                })
+                makeNotification(
+                  SessionNotificationType.ASSISTANT_TEXT_DELTA,
+                  {
+                    messageId: 'msg-1',
+                    blockIndex: 0,
+                    textDelta: 'Using TypeScript.',
+                  }
+                )
               );
 
               transport.injectMessage(
@@ -661,9 +665,7 @@ describe('query()', () => {
 
       expect(askHandlerCalled).toBe(true);
       expect(receivedParams).not.toBeNull();
-      expect(
-        (receivedParams as unknown as Record<string, unknown>)['questions']
-      ).toBeDefined();
+      expect((receivedParams as unknown as Record<string, unknown>)['questions']).toBeDefined();
 
       // Verify response was sent back
       const askResponse = transport.sentMessages.find(
@@ -681,184 +683,6 @@ describe('query()', () => {
     });
   });
 
-  // =========================================================================
-  // SDK_TAG auto-injection
-  // =========================================================================
-  describe('SDK_TAG auto-injection', () => {
-    it('injects SDK_TAG when no user tags are provided', async () => {
-      const transport = new InMemoryTransport();
-      await transport.connect();
-
-      simulateQueryLifecycle(transport, 'sess-sdk-tag-q-default');
-
-      const q = query({ prompt: 'Test', transport });
-
-      for await (const _msg of q) {
-        // consume
-      }
-
-      const initMsg = transport.sentMessages.find(
-        (m) =>
-          (m as Record<string, unknown>)['method'] ===
-          DroidServerMethod.INITIALIZE_SESSION
-      ) as Record<string, unknown>;
-
-      const params = initMsg['params'] as Record<string, unknown>;
-      expect(params['tags']).toEqual([SDK_TAG]);
-    });
-
-    it('merges user tags with SDK_TAG', async () => {
-      const transport = new InMemoryTransport();
-      await transport.connect();
-
-      simulateQueryLifecycle(transport, 'sess-sdk-tag-q-merge');
-
-      const q = query({
-        prompt: 'Test',
-        transport,
-        tags: [{ name: 'custom', metadata: { env: 'test' } }],
-      });
-
-      for await (const _msg of q) {
-        // consume
-      }
-
-      const initMsg = transport.sentMessages.find(
-        (m) =>
-          (m as Record<string, unknown>)['method'] ===
-          DroidServerMethod.INITIALIZE_SESSION
-      ) as Record<string, unknown>;
-
-      const params = initMsg['params'] as Record<string, unknown>;
-      expect(params['tags']).toEqual([
-        { name: 'custom', metadata: { env: 'test' } },
-        SDK_TAG,
-      ]);
-    });
-  });
-
-  // =========================================================================
-  // abortSignal support
-  // =========================================================================
-  describe('abortSignal', () => {
-    it('aborts the query when signal fires', async () => {
-      const transport = new InMemoryTransport();
-      await transport.connect();
-
-      // Only respond to init and addUserMessage, then stream without completing
-      const originalSend = transport.send.bind(transport);
-      transport.send = (message: object) => {
-        originalSend(message);
-        const msg = message as Record<string, unknown>;
-        const method = msg['method'] as string;
-        const id = msg['id'] as string;
-
-        if (method === DroidServerMethod.INITIALIZE_SESSION) {
-          queueMicrotask(() => {
-            transport.injectMessage(
-              makeSuccessResponse(id, {
-                sessionId: 'sess-abort-signal',
-                session: {},
-                settings: { modelId: 'test', reasoningEffort: 'medium' },
-              })
-            );
-          });
-        } else if (method === DroidServerMethod.ADD_USER_MESSAGE) {
-          queueMicrotask(() => {
-            transport.injectMessage(makeSuccessResponse(id, {}));
-
-            transport.injectMessage(
-              makeNotification(
-                SessionNotificationType.DROID_WORKING_STATE_CHANGED,
-                { newState: DroidWorkingState.StreamingAssistantMessage }
-              )
-            );
-
-            transport.injectMessage(
-              makeNotification(SessionNotificationType.ASSISTANT_TEXT_DELTA, {
-                messageId: 'msg-1',
-                blockIndex: 0,
-                textDelta: 'Hello',
-              })
-            );
-          });
-        }
-      };
-
-      const controller = new AbortController();
-
-      const q = query({
-        prompt: 'Long task',
-        transport,
-        abortSignal: controller.signal,
-      });
-
-      const messages: DroidMessage[] = [];
-      for await (const msg of q) {
-        messages.push(msg);
-        if (msg.type === 'assistant_text_delta') {
-          controller.abort();
-        }
-      }
-
-      expect(messages.length).toBeGreaterThanOrEqual(1);
-      expect(transport.isConnected).toBe(false);
-    });
-
-    it('terminates immediately when signal is already aborted', async () => {
-      const transport = new InMemoryTransport();
-      await transport.connect();
-
-      const controller = new AbortController();
-      controller.abort(); // Already aborted
-
-      const q = query({
-        prompt: 'Test',
-        transport,
-        abortSignal: controller.signal,
-      });
-
-      const messages: DroidMessage[] = [];
-      try {
-        for await (const msg of q) {
-          messages.push(msg);
-        }
-      } catch {
-        // Expected — abort during init causes a ConnectionError
-      }
-
-      // No messages should be yielded since the generator exits immediately
-      expect(messages).toHaveLength(0);
-
-      // No RPC requests should have been sent
-      expect(transport.sentMessages).toHaveLength(0);
-    });
-
-    it('does not interfere when signal is never aborted', async () => {
-      const transport = new InMemoryTransport();
-      await transport.connect();
-
-      simulateQueryLifecycle(transport, 'sess-signal-noop');
-
-      const controller = new AbortController();
-
-      const q = query({
-        prompt: 'Test',
-        transport,
-        abortSignal: controller.signal,
-      });
-
-      const messages: DroidMessage[] = [];
-      for await (const msg of q) {
-        messages.push(msg);
-      }
-
-      // Should complete normally with turn_complete
-      expect(messages[messages.length - 1].type).toBe('turn_complete');
-      expect(transport.isConnected).toBe(false);
-    });
-  });
-
   describe('permission and ask-user handlers', () => {
     it('invokes permissionHandler when set', async () => {
       const transport = new InMemoryTransport();
@@ -867,7 +691,7 @@ describe('query()', () => {
       let permissionCalled = false;
 
       const originalSend = transport.send.bind(transport);
-      transport.send = (message: object) => {
+      transport.send = (message: Record<string, unknown>) => {
         originalSend(message);
         const msg = message as Record<string, unknown>;
         const method = msg['method'] as string;

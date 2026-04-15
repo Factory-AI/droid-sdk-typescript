@@ -1,14 +1,5 @@
-/**
- * Message content block schemas for the Factory Droid protocol.
- *
- * Ported from: packages/common/src/sessionV2/messages/schemas.ts
- */
-
 import { z } from 'zod';
 
-// ---------------------------------------------------------------------------
-// Content block schemas
-// ---------------------------------------------------------------------------
 
 /** Text content block. */
 export const TextBlockSchema = z
@@ -117,9 +108,6 @@ export const ContentBlockSchema = z.discriminatedUnion('type', [
 
 export type ContentBlock = z.infer<typeof ContentBlockSchema>;
 
-// ---------------------------------------------------------------------------
-// FactoryDroidMessage
-// ---------------------------------------------------------------------------
 
 /** Factory Droid message schema (used in CreateMessageNotification and session data). */
 export const FactoryDroidMessageSchema = z

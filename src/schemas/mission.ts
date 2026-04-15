@@ -1,9 +1,3 @@
-/**
- * Mission decomposition schemas for the Factory Droid protocol.
- *
- * Ported from: packages/common/src/droid/schemas/mission-decomposition.ts
- */
-
 import { z } from 'zod';
 
 import {
@@ -14,9 +8,6 @@ import {
   ProgressLogEntryType,
 } from './enums.js';
 
-// ---------------------------------------------------------------------------
-// Feature schema
-// ---------------------------------------------------------------------------
 
 /** Mission feature schema. */
 export const MissionFeatureSchema = z
@@ -38,9 +29,6 @@ export const MissionFeatureSchema = z
 
 export type MissionFeature = z.infer<typeof MissionFeatureSchema>;
 
-// ---------------------------------------------------------------------------
-// Handoff-related schemas
-// ---------------------------------------------------------------------------
 
 export const FeatureSuccessStateSchema = z.nativeEnum(FeatureSuccessState);
 
@@ -166,9 +154,6 @@ export const DismissalRecordSchema = z
 
 export type DismissalRecord = z.infer<typeof DismissalRecordSchema>;
 
-// ---------------------------------------------------------------------------
-// Progress log entry schemas
-// ---------------------------------------------------------------------------
 
 const BaseProgressLogEntrySchema = z.object({
   timestamp: z.string(),

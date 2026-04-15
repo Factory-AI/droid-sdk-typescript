@@ -1,20 +1,12 @@
-// @factory/droid-sdk - TypeScript SDK for the Factory Droid CLI
-// This is the public API barrel file.
-
-// --- Schemas (enums, constants, Zod schemas, types) ---
 export * from './schemas/index.js';
 
-// --- SDK metadata ---
 export { SDK_TAG, SDK_VERSION } from './constants.js';
 
-// --- Errors ---
 export * from './errors.js';
 
-// --- Transport types ---
 export * from './types.js';
 export { ProcessTransport } from './transport.js';
 
-// --- Protocol engine ---
 export { ProtocolEngine } from './protocol.js';
 export type {
   AskUserHandler,
@@ -23,7 +15,6 @@ export type {
   PermissionHandler,
 } from './protocol.js';
 
-// --- Client ---
 export { DroidClient } from './client.js';
 export type {
   ClientAskUserHandler,
@@ -31,7 +22,6 @@ export type {
   DroidClientOptions,
 } from './client.js';
 
-// --- Stream message types and converter ---
 export {
   convertNotificationToStreamMessage,
   StreamStateTracker,
@@ -62,11 +52,9 @@ export type {
   DroidMessage,
 } from './stream.js';
 
-// --- High-level API: query ---
 export { query } from './query.js';
 export type { QueryOptions, DroidQuery } from './query.js';
 
-// --- High-level API: session ---
 export { createSession, resumeSession, DroidSession } from './session.js';
 export type {
   CreateSessionOptions,

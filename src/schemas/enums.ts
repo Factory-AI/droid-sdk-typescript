@@ -1,7 +1,6 @@
 /**
  * All protocol enums for the Factory Droid SDK.
  *
- * Ported from:
  * - packages/common/src/droid/enums.ts
  * - packages/common/src/shared/enums.ts
  * - packages/common/src/llm/enums.ts

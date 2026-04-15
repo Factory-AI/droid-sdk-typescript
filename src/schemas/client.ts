@@ -1,11 +1,3 @@
-/**
- * Client→server request/response schemas for the Factory Droid protocol.
- *
- * All 19 client→server RPC method request/response pairs.
- *
- * Ported from: packages/common/src/droid/schemas/client.ts
- */
-
 import { z } from 'zod';
 
 import {
@@ -37,9 +29,6 @@ import {
   ToolSelectionOverridesSchema,
 } from './shared.js';
 
-// ---------------------------------------------------------------------------
-// Supporting types
-// ---------------------------------------------------------------------------
 
 /** Session tag metadata. */
 export const SessionTagSchema = z
@@ -219,9 +208,6 @@ export const SkillInfoSchema = z
 
 export type SkillInfo = z.infer<typeof SkillInfoSchema>;
 
-// ---------------------------------------------------------------------------
-// Request params schemas
-// ---------------------------------------------------------------------------
 
 /** Parameters for droid.initialize_session request. */
 export const InitializeSessionRequestParamsSchema = z
@@ -502,9 +488,6 @@ export type SubmitBugReportRequestParams = z.infer<
   typeof SubmitBugReportRequestParamsSchema
 >;
 
-// ---------------------------------------------------------------------------
-// Rewind sub-types
-// ---------------------------------------------------------------------------
 
 /** File snapshot for rewind operations. */
 export const RewindFileSnapshotSchema = z
@@ -536,9 +519,6 @@ export const RewindEvictedFileSchema = z
 
 export type RewindEvictedFile = z.infer<typeof RewindEvictedFileSchema>;
 
-// ---------------------------------------------------------------------------
-// Rewind / Compact / Fork request params
-// ---------------------------------------------------------------------------
 
 /** Parameters for droid.get_rewind_info request. */
 export const GetRewindInfoRequestParamsSchema = z
@@ -594,9 +574,6 @@ export type ForkSessionRequestParams = z.infer<
   typeof ForkSessionRequestParamsSchema
 >;
 
-// ---------------------------------------------------------------------------
-// Full request schemas (JsonRpcRequest + method literal + typed params)
-// ---------------------------------------------------------------------------
 
 export const InitializeSessionRequestSchema = JsonRpcRequestSchema.extend({
   method: z.literal(DroidServerMethod.INITIALIZE_SESSION),
@@ -824,9 +801,6 @@ export const ClientRequestSchema = z.discriminatedUnion('method', [
 
 export type ClientRequest = z.infer<typeof ClientRequestSchema>;
 
-// ---------------------------------------------------------------------------
-// Result schemas (all use passthrough for forward-compatibility)
-// ---------------------------------------------------------------------------
 
 /** Mission state snapshot (for orchestrator sessions). */
 export const MissionSnapshotSchema = z
@@ -1065,9 +1039,6 @@ export const RenameSessionResultSchema = z
 
 export type RenameSessionResult = z.infer<typeof RenameSessionResultSchema>;
 
-// ---------------------------------------------------------------------------
-// Response schemas (union of success | failure)
-// ---------------------------------------------------------------------------
 
 export const InitializeSessionResponseSchema = z.union([
   JsonRpcResponseSuccessSchema.extend({

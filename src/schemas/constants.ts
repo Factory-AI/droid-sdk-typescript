@@ -1,7 +1,3 @@
-/**
- * Protocol version constants for the Factory Droid SDK.
- */
-
 /** JSON-RPC protocol version. */
 export const JSONRPC_VERSION = '2.0' as const;
 

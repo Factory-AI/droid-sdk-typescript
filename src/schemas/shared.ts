@@ -1,17 +1,8 @@
-/**
- * JSON-RPC 2.0 base schemas for the Factory Droid protocol.
- *
- * Ported from: packages/common/src/shared/schemas.ts
- */
-
 import { z } from 'zod';
 
 import { JSONRPC_VERSION, LEGACY_FACTORY_API_VERSION } from './constants.js';
 import { JsonRpcErrorCode } from './enums.js';
 
-// ---------------------------------------------------------------------------
-// Trace context metadata
-// ---------------------------------------------------------------------------
 
 /** Trace context metadata for distributed tracing propagation. */
 export const TraceContextMetaSchema = z.object({
@@ -27,13 +18,7 @@ export const ToolSelectionOverridesSchema = z.object({
   disabledToolIds: z.array(z.string()).optional(),
 });
 
-export type ToolSelectionOverrides = z.infer<
-  typeof ToolSelectionOverridesSchema
->;
 
-// ---------------------------------------------------------------------------
-// JSON-RPC envelope
-// ---------------------------------------------------------------------------
 
 /** JSON-RPC 2.0 envelope with Factory protocol extensions. */
 export const JsonRpcEnvelopeSchema = z.object({
@@ -45,9 +30,6 @@ export const JsonRpcEnvelopeSchema = z.object({
 
 export type JsonRpcEnvelope = z.infer<typeof JsonRpcEnvelopeSchema>;
 
-// ---------------------------------------------------------------------------
-// JSON-RPC error
-// ---------------------------------------------------------------------------
 
 /** JSON-RPC 2.0 error object. */
 export const JsonRpcErrorSchema = z.object({
@@ -58,9 +40,6 @@ export const JsonRpcErrorSchema = z.object({
 
 export type JsonRpcError = z.infer<typeof JsonRpcErrorSchema>;
 
-// ---------------------------------------------------------------------------
-// Base message schemas (without envelope)
-// ---------------------------------------------------------------------------
 
 /** Base JSON-RPC request. */
 export const BaseRequestSchema = z.object({
@@ -99,9 +78,6 @@ export const BaseNotificationSchema = z.object({
 
 export type BaseNotification = z.infer<typeof BaseNotificationSchema>;
 
-// ---------------------------------------------------------------------------
-// Combined models (Envelope + Base)
-// ---------------------------------------------------------------------------
 
 /** Full JSON-RPC request with envelope fields. */
 export const JsonRpcRequestSchema = JsonRpcEnvelopeSchema.extend(

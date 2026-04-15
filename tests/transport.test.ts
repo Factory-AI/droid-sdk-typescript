@@ -42,7 +42,7 @@ function collectMessages(
   timeoutMs = 5_000
 ): Promise<object[]> {
   return new Promise((resolve, reject) => {
-    const messages: object[] = [];
+    const messages: Record<string, unknown>[] = [];
     const timer = setTimeout(() => {
       reject(
         new Error(
@@ -589,7 +589,7 @@ describe('ProcessTransport', () => {
       const transport = createNodeTransport(script);
 
       // Register handler BEFORE connect
-      const messages: object[] = [];
+      const messages: Record<string, unknown>[] = [];
       transport.onMessage((msg) => messages.push(msg));
 
       await transport.connect!();
@@ -669,7 +669,7 @@ describe('InMemoryTransport', () => {
 
   describe('injectMessage()', () => {
     it('fires onMessage handler with injected message', () => {
-      const received: object[] = [];
+      const received: Record<string, unknown>[] = [];
       transport.onMessage((msg) => received.push(msg));
 
       const msg = { type: 'notification', method: 'test' };
@@ -703,8 +703,8 @@ describe('InMemoryTransport', () => {
 
   describe('handler replacement', () => {
     it('onMessage replaces previous handler', () => {
-      const first: object[] = [];
-      const second: object[] = [];
+      const first: Record<string, unknown>[] = [];
+      const second: Record<string, unknown>[] = [];
 
       transport.onMessage((msg) => first.push(msg));
       transport.injectMessage({ a: 1 });

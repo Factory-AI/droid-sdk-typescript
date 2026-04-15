@@ -1671,6 +1671,33 @@ describe('DroidClient', () => {
   });
 
   // ===================================================================
+  // #24 — Client _rpc() Zod parse failure
+  // ===================================================================
+  describe('Zod parse failure on malformed response', () => {
+    beforeEach(async () => {
+      await initializeTestSession(client, transport);
+    });
+
+    it('rejects with ZodError when response has unexpected shape', async () => {
+      const promise = client.listMcpServers();
+
+      await vi.waitFor(() => {
+        expect(transport.sentMessages.length).toBe(2);
+      });
+
+      const requestId = getLastSentId(transport);
+
+      // Respond with invalid shape (missing `servers` and `summary`)
+      transport.injectMessage(
+        makeSuccessResponse(requestId, { unexpected: 'shape' })
+      );
+
+      // Should reject with a ZodError from the schema parse
+      await expect(promise).rejects.toHaveProperty('name', 'ZodError');
+    });
+  });
+
+  // ===================================================================
   // Additional edge cases
   // ===================================================================
   describe('edge cases', () => {

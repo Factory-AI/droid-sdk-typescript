@@ -1,20 +1,3 @@
-/**
- * JSON-RPC 2.0 protocol engine for the Factory Droid SDK.
- *
- * Sits between the transport layer and the client API. Handles:
- *
- * - Envelope construction for outbound requests
- * - Request/response correlation via pending promises keyed by UUID
- * - Configurable per-request timeouts
- * - Notification dispatch to registered listeners with optional type filtering
- * - Server→client request handling (permission, ask_user)
- * - Error code mapping (ENTITY_NOT_FOUND → SessionNotFoundError)
- * - Sticky transport error: once a transport error fires, all
- *   pending and subsequent requests are immediately rejected
- * - Edge cases: unknown response IDs, duplicate response IDs,
- *   malformed responses, null-id error responses
- */
-
 import { v4 as uuidv4 } from 'uuid';
 
 import {
@@ -34,11 +17,7 @@ import { SessionNotificationParamsSchema } from './schemas/server.js';
 import { JsonRpcMessageSchema, type JsonRpcError } from './schemas/shared.js';
 import type { DroidClientTransport } from './types.js';
 
-// ---------------------------------------------------------------------------
-// Helpers
-// ---------------------------------------------------------------------------
 
-/** Safely coerce an unknown value to a Record, defaulting to empty. */
 function toRecord(value: unknown): Record<string, unknown> {
   if (typeof value === 'object' && value !== null && !Array.isArray(value)) {
     // eslint-disable-next-line @typescript-eslint/consistent-type-assertions -- runtime-guarded narrowing
@@ -47,107 +26,48 @@ function toRecord(value: unknown): Record<string, unknown> {
   return {};
 }
 
-// ---------------------------------------------------------------------------
-// Types
-// ---------------------------------------------------------------------------
 
-/**
- * Handler for server→client permission requests.
- * Receives request params and returns the selected ToolConfirmationOutcome string.
- */
 export type PermissionHandler = (
   params: Record<string, unknown>
 ) => string | Promise<string>;
 
-/**
- * Handler for server→client ask-user requests.
- * Receives request params and returns a result with cancelled flag and answers.
- */
 export type AskUserHandler = (
   params: Record<string, unknown>
 ) => Record<string, unknown> | Promise<Record<string, unknown>>;
 
-/**
- * Callback for incoming notification messages.
- */
 export type NotificationCallback = (
   notification: Record<string, unknown>
 ) => void;
 
-/**
- * Optional filter for notification listeners.
- */
 export interface NotificationFilter {
-  /** Only dispatch notifications whose `params.notification.type` matches. */
   type?: string;
 }
 
-/**
- * Internal state for a pending request awaiting a response.
- */
 interface PendingRequest {
   readonly method: string;
   readonly requestId: string;
-  readonly params: object;
+  readonly params: Record<string, unknown>;
   readonly resolve: (value: unknown) => void;
   readonly reject: (reason: Error) => void;
   readonly timer: ReturnType<typeof setTimeout>;
 }
 
-/**
- * Internal entry in the notification listener registry.
- */
 interface NotificationListener {
   readonly callback: NotificationCallback;
   readonly filter?: NotificationFilter;
 }
 
-// ---------------------------------------------------------------------------
-// ProtocolEngine
-// ---------------------------------------------------------------------------
-
-/**
- * JSON-RPC 2.0 protocol engine.
- *
- * Manages request/response correlation, timeout handling, notification
- * dispatch, server→client request handling, and error mapping.
- *
- * After construction the engine immediately registers itself on the
- * transport's `onMessage` and `onError` callbacks.
- *
- * @example
- * ```ts
- * const engine = new ProtocolEngine({ transport });
- * const result = await engine.sendRequest("droid.list_skills", {});
- * engine.close();
- * ```
- */
 export class ProtocolEngine {
   private readonly _transport: DroidClientTransport;
   private readonly _defaultTimeout: number;
 
-  /** Pending requests keyed by UUID string. */
   private readonly _pendingRequests = new Map<string, PendingRequest>();
-
-  /** Notification listener registry. */
   private readonly _notificationListeners = new Set<NotificationListener>();
-
-  /** Server→client request handlers. */
   private _permissionHandler: PermissionHandler | null = null;
   private _askUserHandler: AskUserHandler | null = null;
-
-  /** Sticky transport error — once set, all requests fail immediately. */
   private _transportError: Error | null = null;
-
-  /** Closed flag — once true, new requests are rejected. */
   private _closed = false;
 
-  /**
-   * Create a new ProtocolEngine.
-   *
-   * @param options.transport - A connected DroidClientTransport implementation.
-   * @param options.defaultTimeout - Default timeout in ms for sendRequest (default 30 000).
-   */
   constructor(options: {
     transport: DroidClientTransport;
     defaultTimeout?: number;
@@ -155,8 +75,7 @@ export class ProtocolEngine {
     this._transport = options.transport;
     this._defaultTimeout = options.defaultTimeout ?? DEFAULT_REQUEST_TIMEOUT;
 
-    // Wire up transport callbacks
-    this._transport.onMessage((message: object) => {
+    this._transport.onMessage((message: Record<string, unknown>) => {
       this._handleMessage(message);
     });
     this._transport.onError((error: Error) => {
@@ -164,37 +83,16 @@ export class ProtocolEngine {
     });
   }
 
-  // ------------------------------------------------------------------
-  // Public API: Sending requests
-  // ------------------------------------------------------------------
 
-  /**
-   * Send a JSON-RPC request and wait for the response.
-   *
-   * Constructs the full envelope, registers a pending promise, sends
-   * via transport, and returns the unwrapped `result` field.
-   *
-   * @param method - The RPC method name (e.g. `"droid.list_skills"`).
-   * @param params - Method parameters object.
-   * @param timeout - Timeout in ms. Defaults to `defaultTimeout`.
-   * @returns The unwrapped `result` from the JSON-RPC success response.
-   * @throws {ConnectionError} If the engine is closed.
-   * @throws {ConnectionError} If the transport has a sticky error.
-   * @throws {TimeoutError} If no response arrives within the timeout.
-   * @throws {ProtocolError} If the response contains a protocol error.
-   * @throws {SessionNotFoundError} If error code is ENTITY_NOT_FOUND.
-   */
   async sendRequest(
     method: string,
-    params: object,
+    params: Record<string, unknown>,
     timeout?: number
   ): Promise<unknown> {
-    // Check closed state
     if (this._closed) {
       throw new ConnectionError('Protocol engine is closed');
     }
 
-    // Check sticky transport error
     if (this._transportError !== null) {
       throw new ConnectionError(
         `Transport error: ${this._transportError.message}`
@@ -204,7 +102,6 @@ export class ProtocolEngine {
     const effectiveTimeout = timeout ?? this._defaultTimeout;
     const requestId = uuidv4();
 
-    // Build envelope
     const envelope = {
       jsonrpc: JSONRPC_VERSION,
       factoryApiVersion: LEGACY_FACTORY_API_VERSION,
@@ -217,8 +114,7 @@ export class ProtocolEngine {
 
     // Create a promise that will be resolved when we get a matching response
     return new Promise<unknown>((resolve, reject) => {
-      // Set up timeout
-      const timer = setTimeout(() => {
+        const timer = setTimeout(() => {
         this._pendingRequests.delete(requestId);
         reject(
           new TimeoutError(
@@ -227,8 +123,7 @@ export class ProtocolEngine {
         );
       }, effectiveTimeout);
 
-      // Store as pending
-      const pending: PendingRequest = {
+        const pending: PendingRequest = {
         method,
         requestId,
         params,
@@ -238,12 +133,10 @@ export class ProtocolEngine {
       };
       this._pendingRequests.set(requestId, pending);
 
-      // Send via transport
-      try {
+        try {
         this._transport.send(envelope);
       } catch (sendError) {
-        // Clean up pending and reject
-        clearTimeout(timer);
+            clearTimeout(timer);
         this._pendingRequests.delete(requestId);
         if (sendError instanceof Error) {
           reject(
@@ -256,20 +149,7 @@ export class ProtocolEngine {
     });
   }
 
-  // ------------------------------------------------------------------
-  // Public API: Notification listeners
-  // ------------------------------------------------------------------
 
-  /**
-   * Register a callback for incoming notification messages.
-   *
-   * Multiple listeners can be registered. Each receives the full
-   * parsed notification object.
-   *
-   * @param callback - Invoked with the notification object.
-   * @param filter - Optional filter to only receive specific notification types.
-   * @returns An unsubscribe function. Calling it again is safe (no-op).
-   */
   onNotification(
     callback: NotificationCallback,
     filter?: NotificationFilter
@@ -286,25 +166,11 @@ export class ProtocolEngine {
     };
   }
 
-  // ------------------------------------------------------------------
-  // Public API: Server→client request handlers
-  // ------------------------------------------------------------------
 
-  /**
-   * Register a handler for server→client permission requests.
-   *
-   * The handler receives the request params and should return a
-   * ToolConfirmationOutcome string value.
-   *
-   * Replaces any previously registered handler.
-   */
   setPermissionHandler(handler: PermissionHandler): void {
     this._permissionHandler = handler;
   }
 
-  /**
-   * Remove the permission request handler (restores default Cancel).
-   */
   clearPermissionHandler(): void {
     this._permissionHandler = null;
   }
@@ -321,65 +187,36 @@ export class ProtocolEngine {
     this._askUserHandler = handler;
   }
 
-  /**
-   * Remove the ask-user request handler (restores default cancelled=true).
-   */
   clearAskUserHandler(): void {
     this._askUserHandler = null;
   }
 
-  // ------------------------------------------------------------------
-  // Public API: Health check
-  // ------------------------------------------------------------------
 
-  /**
-   * Whether the engine is in a healthy state — not closed and no
-   * sticky transport error.
-   */
   get isHealthy(): boolean {
     return !this._closed && this._transportError === null;
   }
 
-  // ------------------------------------------------------------------
-  // Public API: Close
-  // ------------------------------------------------------------------
 
-  /**
-   * Close the protocol engine.
-   *
-   * Rejects all pending requests, closes the transport, and prevents
-   * new requests. Idempotent — safe to call multiple times.
-   */
   async close(): Promise<void> {
     if (this._closed) {
       return;
     }
     this._closed = true;
 
-    // Reject all pending
     const error = new ConnectionError(
       'Protocol engine closed: pending requests cancelled'
     );
     this._rejectAllPending(error);
 
-    // Clear handlers and listeners
     this._permissionHandler = null;
     this._askUserHandler = null;
     this._notificationListeners.clear();
 
-    // Close the transport
     await this._transport.close();
   }
 
-  // ------------------------------------------------------------------
-  // Internal: Message handling
-  // ------------------------------------------------------------------
 
-  /**
-   * Handle an incoming parsed message from the transport.
-   * Parses through JsonRpcMessageSchema and dispatches to the appropriate handler.
-   */
-  private _handleMessage(raw: object): void {
+  private _handleMessage(raw: Record<string, unknown>): void {
     const parsed = JsonRpcMessageSchema.safeParse(raw);
 
     if (!parsed.success) {
@@ -401,16 +238,11 @@ export class ProtocolEngine {
     }
   }
 
-  /**
-   * Handle an incoming response message.
-   * Matches by ID to resolve the correct pending Promise.
-   */
   private _handleResponse(
     responseId: string | null,
     result: unknown,
     error: JsonRpcError | undefined
   ): void {
-    // Null-id error response — log but don't crash
     if (responseId == null) {
       return;
     }
@@ -418,15 +250,12 @@ export class ProtocolEngine {
     const pending = this._pendingRequests.get(responseId);
 
     if (pending == null) {
-      // Unknown response ID — already timed out or duplicate
-      return;
+        return;
     }
 
-    // Remove from pending and clear its timeout
     this._pendingRequests.delete(responseId);
     clearTimeout(pending.timer);
 
-    // Check for error response and map to exceptions
     if (error != null) {
       if (error.code === JsonRpcErrorCode.ENTITY_NOT_FOUND) {
         const paramsRecord = toRecord(pending.params);
@@ -443,16 +272,10 @@ export class ProtocolEngine {
       return;
     }
 
-    // Resolve with the unwrapped result
     pending.resolve(result);
   }
 
-  /**
-   * Handle an incoming notification message.
-   * Dispatches to all registered notification listeners that match.
-   */
   private _handleNotification(notification: Record<string, unknown>): void {
-    // Extract the notification type for filtering via Zod parse
     let notificationType: string | undefined;
     const parsed = SessionNotificationParamsSchema.safeParse(
       notification['params']
@@ -462,8 +285,7 @@ export class ProtocolEngine {
     }
 
     for (const listener of this._notificationListeners) {
-      // Apply type filter if present
-      if (
+        if (
         listener.filter?.type != null &&
         listener.filter.type !== notificationType
       ) {
@@ -478,10 +300,6 @@ export class ProtocolEngine {
     }
   }
 
-  /**
-   * Handle an incoming server→client request.
-   * Dispatches to the appropriate handler based on the method field.
-   */
   private async _handleServerRequest(
     method: string,
     requestId: string,
@@ -494,12 +312,8 @@ export class ProtocolEngine {
     } else if (method === DroidClientMethod.ASK_USER) {
       await this._handleAskUserRequest(requestId, paramsObj);
     }
-    // Unknown server→client methods are silently ignored
   }
 
-  /**
-   * Handle droid.request_permission server→client request.
-   */
   private async _handlePermissionRequest(
     requestId: string,
     params: Record<string, unknown>
@@ -526,9 +340,6 @@ export class ProtocolEngine {
     }
   }
 
-  /**
-   * Handle droid.ask_user server→client request.
-   */
   private async _handleAskUserRequest(
     requestId: string,
     params: Record<string, unknown>
@@ -555,9 +366,6 @@ export class ProtocolEngine {
     }
   }
 
-  // ------------------------------------------------------------------
-  // Internal: Transport error handling
-  // ------------------------------------------------------------------
 
   /**
    * Handle a transport error.
@@ -573,13 +381,7 @@ export class ProtocolEngine {
     this._rejectAllPending(connectionError);
   }
 
-  // ------------------------------------------------------------------
-  // Internal: Response helpers
-  // ------------------------------------------------------------------
 
-  /**
-   * Send a JSON-RPC success response back to the server.
-   */
   private _sendResponse(
     requestId: string,
     result: Record<string, unknown>
@@ -599,9 +401,6 @@ export class ProtocolEngine {
     }
   }
 
-  /**
-   * Send a JSON-RPC error response back to the server.
-   */
   private _sendErrorResponse(
     requestId: string,
     code: number,
@@ -628,9 +427,6 @@ export class ProtocolEngine {
     }
   }
 
-  /**
-   * Reject all pending requests with the given error.
-   */
   private _rejectAllPending(error: Error): void {
     const pending = new Map(this._pendingRequests);
     this._pendingRequests.clear();
