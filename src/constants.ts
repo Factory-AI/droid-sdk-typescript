@@ -1,3 +1,4 @@
+/** Re-exported for convenience. */
 export {
   DEFAULT_REQUEST_TIMEOUT,
   SESSION_INIT_TIMEOUT,

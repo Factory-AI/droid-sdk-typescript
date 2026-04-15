@@ -198,8 +198,20 @@ describe('enums', () => {
     expect(ToolConfirmationOutcome.ProceedOnce).toBe('proceed_once');
     expect(ToolConfirmationOutcome.ProceedAlways).toBe('proceed_always');
     expect(ToolConfirmationOutcome.ProceedAutoRun).toBe('proceed_auto_run');
+    expect(ToolConfirmationOutcome.ProceedNewSession).toBe(
+      'proceed_new_session'
+    );
+    expect(ToolConfirmationOutcome.ProceedNewSessionLow).toBe(
+      'proceed_new_session_low'
+    );
+    expect(ToolConfirmationOutcome.ProceedNewSessionMedium).toBe(
+      'proceed_new_session_medium'
+    );
+    expect(ToolConfirmationOutcome.ProceedNewSessionHigh).toBe(
+      'proceed_new_session_high'
+    );
     expect(ToolConfirmationOutcome.Cancel).toBe('cancel');
-    expect(Object.values(ToolConfirmationOutcome)).toHaveLength(8);
+    expect(Object.values(ToolConfirmationOutcome)).toHaveLength(12);
   });
 
   it('ToolConfirmationType has correct values', () => {
@@ -1271,6 +1283,28 @@ describe('server→client request schemas', () => {
     const parsed = RequestPermissionResultSchema.parse(result);
     expect(parsed.selectedOption).toBe('proceed_once');
     expect(parsed.comment).toBe('Looks good, continue.');
+  });
+
+  it('RequestPermissionResultSchema parses result without comment', () => {
+    const parsed = RequestPermissionResultSchema.parse({
+      selectedOption: 'proceed_once',
+    });
+    expect(parsed.selectedOption).toBe('proceed_once');
+    expect(parsed.comment).toBeUndefined();
+  });
+
+  it('RequestPermissionResultSchema accepts new-session outcomes', () => {
+    for (const outcome of [
+      'proceed_new_session',
+      'proceed_new_session_low',
+      'proceed_new_session_medium',
+      'proceed_new_session_high',
+    ]) {
+      const parsed = RequestPermissionResultSchema.parse({
+        selectedOption: outcome,
+      });
+      expect(parsed.selectedOption).toBe(outcome);
+    }
   });
 
   it('RequestPermissionResultSchema rejects invalid outcome', () => {
