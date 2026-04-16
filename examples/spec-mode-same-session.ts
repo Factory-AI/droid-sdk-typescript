@@ -17,7 +17,7 @@ import {
 } from '../src/index.js';
 
 const PROMPT =
-  'Make a simple plan. It can be anything. Nothing fancy. It should be to add some kind of random comment to the code.';
+  'Plan how to create a small hello-from-droid.txt file in the current directory containing the text "Hello from Droid". Keep the plan short and concrete.';
 
 async function main(): Promise<void> {
   console.log('=== Spec Mode: Same Session ===\n');
