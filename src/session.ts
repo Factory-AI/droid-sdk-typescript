@@ -55,24 +55,21 @@ export interface DroidResult {
 }
 
 export interface CreateSessionOptions
-  extends SessionInitOptions,
-    HandlerOptions,
-    TransportCreationOptions {
+  extends SessionInitOptions, HandlerOptions, TransportCreationOptions {
   abortSignal?: AbortSignal;
 }
 
-export interface ResumeSessionOptions
-  extends Pick<
-    CreateSessionOptions,
-    | 'execPath'
-    | 'execArgs'
-    | 'cwd'
-    | 'env'
-    | 'permissionHandler'
-    | 'askUserHandler'
-    | 'transport'
-    | 'abortSignal'
-  > {
+export interface ResumeSessionOptions extends Pick<
+  CreateSessionOptions,
+  | 'execPath'
+  | 'execArgs'
+  | 'cwd'
+  | 'env'
+  | 'permissionHandler'
+  | 'askUserHandler'
+  | 'transport'
+  | 'abortSignal'
+> {
   mcpServers?: McpServerConfig[];
 }
 

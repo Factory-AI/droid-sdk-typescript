@@ -30,7 +30,6 @@ import type {
 import { JsonRpcMessageSchema, type JsonRpcError } from './schemas/shared.js';
 import type { DroidClientTransport } from './types.js';
 
-
 export type PermissionHandler = (
   params: RequestPermissionRequestParams
 ) => RequestPermissionHandlerResult | Promise<RequestPermissionHandlerResult>;
@@ -87,7 +86,6 @@ export class ProtocolEngine {
     });
   }
 
-
   async sendRequest(
     method: string,
     params: Record<string, unknown>,
@@ -118,7 +116,7 @@ export class ProtocolEngine {
 
     // Create a promise that will be resolved when we get a matching response
     return new Promise<unknown>((resolve, reject) => {
-        const timer = setTimeout(() => {
+      const timer = setTimeout(() => {
         this._pendingRequests.delete(requestId);
         reject(
           new TimeoutError(
@@ -127,7 +125,7 @@ export class ProtocolEngine {
         );
       }, effectiveTimeout);
 
-        const pending: PendingRequest = {
+      const pending: PendingRequest = {
         method,
         requestId,
         params,
@@ -137,10 +135,10 @@ export class ProtocolEngine {
       };
       this._pendingRequests.set(requestId, pending);
 
-        try {
+      try {
         this._transport.send(envelope);
       } catch (sendError) {
-            clearTimeout(timer);
+        clearTimeout(timer);
         this._pendingRequests.delete(requestId);
         if (sendError instanceof Error) {
           reject(
@@ -152,7 +150,6 @@ export class ProtocolEngine {
       }
     });
   }
-
 
   onNotification(
     callback: NotificationCallback,
@@ -169,7 +166,6 @@ export class ProtocolEngine {
       }
     };
   }
-
 
   setPermissionHandler(handler: PermissionHandler): void {
     this._permissionHandler = handler;
@@ -195,11 +191,9 @@ export class ProtocolEngine {
     this._askUserHandler = null;
   }
 
-
   get isHealthy(): boolean {
     return !this._closed && this._transportError === null;
   }
-
 
   async close(): Promise<void> {
     if (this._closed) {
@@ -218,7 +212,6 @@ export class ProtocolEngine {
 
     await this._transport.close();
   }
-
 
   private _handleMessage(raw: Record<string, unknown>): void {
     const parsed = JsonRpcMessageSchema.safeParse(raw);
@@ -254,7 +247,7 @@ export class ProtocolEngine {
     const pending = this._pendingRequests.get(responseId);
 
     if (pending == null) {
-        return;
+      return;
     }
 
     this._pendingRequests.delete(responseId);
@@ -288,7 +281,7 @@ export class ProtocolEngine {
     }
 
     for (const listener of this._notificationListeners) {
-        if (
+      if (
         listener.filter?.type != null &&
         listener.filter.type !== notificationType
       ) {
@@ -382,7 +375,6 @@ export class ProtocolEngine {
     }
   }
 
-
   /**
    * Handle a transport error.
    * Sets the sticky transport error and rejects all pending requests.
@@ -396,7 +388,6 @@ export class ProtocolEngine {
     connectionError.cause = error;
     this._rejectAllPending(connectionError);
   }
-
 
   private _sendResponse(
     requestId: string,

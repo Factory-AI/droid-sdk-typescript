@@ -8,7 +8,6 @@ import {
   ProgressLogEntryType,
 } from './enums.js';
 
-
 /** Mission feature schema. */
 export const MissionFeatureSchema = z
   .object({
@@ -28,7 +27,6 @@ export const MissionFeatureSchema = z
   .passthrough();
 
 export type MissionFeature = z.infer<typeof MissionFeatureSchema>;
-
 
 export const FeatureSuccessStateSchema = z.nativeEnum(FeatureSuccessState);
 
@@ -153,7 +151,6 @@ export const DismissalRecordSchema = z
   .passthrough();
 
 export type DismissalRecord = z.infer<typeof DismissalRecordSchema>;
-
 
 const BaseProgressLogEntrySchema = z.object({
   timestamp: z.string(),

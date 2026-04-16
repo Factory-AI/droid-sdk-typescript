@@ -36,6 +36,21 @@ function makeSuccessResponse(
   };
 }
 
+function makeErrorResponse(
+  id: string,
+  code: number,
+  message: string
+): Record<string, unknown> {
+  return {
+    jsonrpc: JSONRPC_VERSION,
+    factoryApiVersion: LEGACY_FACTORY_API_VERSION,
+    factoryProtocolVersion: FACTORY_PROTOCOL_VERSION,
+    type: 'response',
+    id,
+    error: { code, message },
+  };
+}
+
 function makeNotification(
   notificationType: string,
   payload: Record<string, unknown> = {}
@@ -433,6 +448,98 @@ describe('query()', () => {
         const next = await iterator.next();
         if (next.done) break;
       }
+    });
+  });
+
+  describe('DroidQuery.initResult and initialized', () => {
+    it('exposes the init result after initialization without sending the prompt early', async () => {
+      const transport = new InMemoryTransport();
+      await transport.connect();
+
+      const originalSend = transport.send.bind(transport);
+      transport.send = (message: Record<string, unknown>) => {
+        originalSend(message);
+        const msg = message as Record<string, unknown>;
+        const method = msg['method'] as string;
+        const id = msg['id'] as string;
+
+        if (method === DroidServerMethod.INITIALIZE_SESSION) {
+          setTimeout(() => {
+            transport.injectMessage(
+              makeSuccessResponse(id, {
+                sessionId: 'sess-init-result',
+                session: {},
+                settings: { modelId: 'test', reasoningEffort: 'medium' },
+                gitRepo: { repoName: 'droid-sdk-typescript' },
+              })
+            );
+          }, 10);
+        }
+      };
+
+      const q = query({ prompt: 'Test', transport });
+
+      expect(q.initResult).toBeNull();
+
+      const result = await q.initialized;
+
+      expect(q.initResult).toBe(result);
+      expect(result.sessionId).toBe('sess-init-result');
+      expect(q.sessionId).toBe('sess-init-result');
+
+      const sentMethods = transport.sentMessages.map(
+        (m) => (m as Record<string, unknown>)['method']
+      );
+      expect(sentMethods).toEqual([DroidServerMethod.INITIALIZE_SESSION]);
+
+      q.abort();
+      expect(transport.isConnected).toBe(false);
+    });
+
+    it('rejects initialized when initialization fails', async () => {
+      const transport = new InMemoryTransport();
+      await transport.connect();
+
+      const originalSend = transport.send.bind(transport);
+      transport.send = (message: Record<string, unknown>) => {
+        originalSend(message);
+        const msg = message as Record<string, unknown>;
+        const method = msg['method'] as string;
+        const id = msg['id'] as string;
+
+        if (method === DroidServerMethod.INITIALIZE_SESSION) {
+          queueMicrotask(() => {
+            transport.injectMessage(
+              makeErrorResponse(id, -32603, 'Initialization failed')
+            );
+          });
+        }
+      };
+
+      const q = query({ prompt: 'Test', transport });
+
+      await expect(q.initialized).rejects.toThrow('Initialization failed');
+      expect(q.initResult).toBeNull();
+      expect(transport.isConnected).toBe(false);
+    });
+
+    it('rejects initialized when aborted before initialization completes', async () => {
+      const transport = new InMemoryTransport();
+      await transport.connect();
+
+      const originalSend = transport.send.bind(transport);
+      transport.send = (message: Record<string, unknown>) => {
+        originalSend(message);
+      };
+
+      const q = query({ prompt: 'Test', transport });
+      const initialized = q.initialized;
+
+      q.abort();
+
+      await expect(initialized).rejects.toThrow();
+      expect(q.initResult).toBeNull();
+      expect(transport.isConnected).toBe(false);
     });
   });
 

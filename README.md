@@ -1,6 +1,6 @@
 # @factory/droid-sdk
 
-TypeScript SDK for the [Factory](https://factory.ai) Droid CLI. Provides a high-level API for interacting with Droid as a subprocess, with streaming message support, multi-turn sessions, and tool permission handling.
+TypeScript SDK for the [Factory](https://factory.ai) Droid CLI. Provides a high-level API for interacting with Droid as a subprocess, with streaming message support, multi-turn sessions, spec mode, tool controls, and tool permission handling.
 
 ## Requirements
 
@@ -69,6 +69,64 @@ console.log(result.text);
 await session.close();
 ```
 
+## Spec Mode
+
+Start a session directly in spec mode, or enter spec mode later on an existing session:
+
+```ts
+import {
+  createSession,
+  DroidInteractionMode,
+  ReasoningEffort,
+} from '@factory/droid-sdk';
+
+const session = await createSession({
+  cwd: '/my/project',
+  interactionMode: DroidInteractionMode.Spec,
+  specModeReasoningEffort: ReasoningEffort.High,
+  specModeModelId: 'claude-sonnet-4-20250514',
+});
+
+const plan = await session.send('Draft a plan for adding integration tests');
+console.log(plan.text);
+
+await session.enterSpecMode({
+  specModeReasoningEffort: ReasoningEffort.High,
+});
+
+await session.close();
+```
+
+When handling spec-mode approval, you can approve implementation in the same session with `ToolConfirmationOutcome.ProceedOnce`, or hand off to a fresh session with `ToolConfirmationOutcome.ProceedNewSessionHigh`.
+
+## Tool Controls
+
+Control which exec tools are available at session start, inspect the current tool catalog, and update tool overrides later:
+
+```ts
+import { createSession } from '@factory/droid-sdk';
+
+const session = await createSession({
+  cwd: '/my/project',
+  enabledToolIds: ['Read'],
+  disabledToolIds: ['Execute'],
+});
+
+const { tools } = await session.listTools();
+console.log(
+  tools.map((tool) => ({
+    id: tool.llmId,
+    allowed: tool.currentlyAllowed,
+  }))
+);
+
+await session.updateSettings({
+  disabledToolIds: ['Read', 'Execute'],
+});
+
+await session.close();
+```
+
 ## Permission Handling
 
 Handle tool confirmation requests with a custom permission handler:
@@ -110,6 +168,8 @@ Returns an async generator that yields `DroidMessage` events. The returned `Droi
 - **`abort()`** — forcefully kill the subprocess
 - **`sessionId`** — the session ID (available after initialization)
 
+`query(options)` also accepts an `abortSignal` for external cancellation.
+
 ### `DroidSession`
 
 Returned by `createSession()` and `resumeSession()`. Key methods:
@@ -119,7 +179,10 @@ Returned by `createSession()` and `resumeSession()`. Key methods:
 - **`interrupt()`** — interrupt the current turn
 - **`close()`** — close the session and release resources
 - **`updateSettings(params)`** — update model, autonomy level, etc.
+- **`enterSpecMode(params?)`** — switch the current session into spec mode
 - **`addMcpServer(params)`** / **`removeMcpServer(params)`** — manage MCP servers
+- **`listTools(params?)`** — inspect the exec tool catalog and current allow/deny state
+- **`renameSession(params)`** — rename the current session
 - **`sessionId`** — the session ID
 
 ### `DroidResult`
@@ -145,6 +208,7 @@ All messages have a discriminated `type` field:
 | `token_usage_update`    | Updated token usage counters            |
 | `create_message`        | Full assistant message created          |
 | `turn_complete`         | Sentinel: agent turn finished           |
+| `session_title_updated` | Session title changed                   |
 | `error`                 | Error event from the process            |
 
 ### Options
@@ -155,15 +219,21 @@ All messages have a discriminated `type` field:
 - **`cwd`** — working directory for the session
 - **`modelId`** — LLM model identifier
 - **`autonomyLevel`** — `AutonomyLevel` enum value
+- **`interactionMode`** — `DroidInteractionMode` enum value
 - **`reasoningEffort`** — `ReasoningEffort` enum value
+- **`specModeModelId`** — override model used in spec mode
+- **`specModeReasoningEffort`** — override reasoning level used in spec mode
+- **`enabledToolIds`** — explicit exec tool allowlist
+- **`disabledToolIds`** — explicit exec tool denylist
 - **`permissionHandler`** — callback for tool confirmations
 - **`askUserHandler`** — callback for interactive questions
+- **`abortSignal`** — standard `AbortSignal` for cancellation
 - **`execPath`** — path to `droid` executable (default: `"droid"`)
 - **`transport`** — provide a custom transport instead of spawning a process
 
 ### `DroidClient`
 
-Low-level JSON-RPC client for advanced use. Provides typed methods for all 19 protocol operations. Most users should prefer `query()` and `createSession()`.
+Low-level JSON-RPC client for advanced use. Provides typed methods for the underlying protocol operations, including `listTools()` and `renameSession()`. Most users should prefer `query()` and `createSession()`.
 
 ### Error Types
 
@@ -183,6 +253,8 @@ See the [`examples/`](./examples) directory for runnable examples:
 - **[`simple-query.ts`](./examples/simple-query.ts)** — one-shot query with streaming output
 - **[`multi-turn-session.ts`](./examples/multi-turn-session.ts)** — multi-turn session lifecycle
 - **[`permission-handler.ts`](./examples/permission-handler.ts)** — custom permission handling
+- **[`spec-mode-same-session.ts`](./examples/spec-mode-same-session.ts)** — approve a spec and continue in the same session
+- **[`spec-mode-new-session.ts`](./examples/spec-mode-new-session.ts)** — approve a spec and hand off implementation to a new session
 
 ## License
 
