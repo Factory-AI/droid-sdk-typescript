@@ -3,7 +3,6 @@ import { z } from 'zod';
 import { JSONRPC_VERSION, LEGACY_FACTORY_API_VERSION } from './constants.js';
 import { JsonRpcErrorCode } from './enums.js';
 
-
 /** JSON-compatible primitive values. */
 export type JsonPrimitive = string | number | boolean | null;
 
@@ -48,8 +47,6 @@ export const ToolSelectionOverridesSchema = z.object({
   disabledToolIds: z.array(z.string()).optional(),
 });
 
-
-
 /** JSON-RPC 2.0 envelope with Factory protocol extensions. */
 export const JsonRpcEnvelopeSchema = z.object({
   jsonrpc: z.literal(JSONRPC_VERSION),
@@ -60,7 +57,6 @@ export const JsonRpcEnvelopeSchema = z.object({
 
 export type JsonRpcEnvelope = z.infer<typeof JsonRpcEnvelopeSchema>;
 
-
 /** JSON-RPC 2.0 error object. */
 export const JsonRpcErrorSchema = z.object({
   code: z.nativeEnum(JsonRpcErrorCode),
@@ -69,7 +65,6 @@ export const JsonRpcErrorSchema = z.object({
 });
 
 export type JsonRpcError = z.infer<typeof JsonRpcErrorSchema>;
-
 
 /** Base JSON-RPC request. */
 export const BaseRequestSchema = z.object({
@@ -107,7 +102,6 @@ export const BaseNotificationSchema = z.object({
 });
 
 export type BaseNotification = z.infer<typeof BaseNotificationSchema>;
-
 
 /** Full JSON-RPC request with envelope fields. */
 export const JsonRpcRequestSchema = JsonRpcEnvelopeSchema.extend(

@@ -30,7 +30,6 @@ import {
   ToolSelectionOverridesSchema,
 } from './shared.js';
 
-
 /** Session tag metadata. */
 export const SessionTagSchema = z
   .object({
@@ -208,7 +207,6 @@ export const SkillInfoSchema = z
   .passthrough();
 
 export type SkillInfo = z.infer<typeof SkillInfoSchema>;
-
 
 /** Parameters for droid.initialize_session request. */
 export const InitializeSessionRequestParamsSchema = z
@@ -480,7 +478,6 @@ export type SubmitBugReportRequestParams = z.infer<
   typeof SubmitBugReportRequestParamsSchema
 >;
 
-
 /** File snapshot for rewind operations. */
 export const RewindFileSnapshotSchema = z
   .object({
@@ -510,7 +507,6 @@ export const RewindEvictedFileSchema = z
   .passthrough();
 
 export type RewindEvictedFile = z.infer<typeof RewindEvictedFileSchema>;
-
 
 /** Parameters for droid.get_rewind_info request. */
 export const GetRewindInfoRequestParamsSchema = z
@@ -565,7 +561,6 @@ export const ForkSessionRequestParamsSchema = z.object({}).passthrough();
 export type ForkSessionRequestParams = z.infer<
   typeof ForkSessionRequestParamsSchema
 >;
-
 
 export const InitializeSessionRequestSchema = JsonRpcRequestSchema.extend({
   method: z.literal(DroidServerMethod.INITIALIZE_SESSION),
@@ -792,7 +787,6 @@ export const ClientRequestSchema = z.discriminatedUnion('method', [
 ]);
 
 export type ClientRequest = z.infer<typeof ClientRequestSchema>;
-
 
 /** Mission state snapshot (for orchestrator sessions). */
 export const MissionSnapshotSchema = z
@@ -1030,7 +1024,6 @@ export const RenameSessionResultSchema = z
   .passthrough();
 
 export type RenameSessionResult = z.infer<typeof RenameSessionResultSchema>;
-
 
 export const InitializeSessionResponseSchema = z.union([
   JsonRpcResponseSuccessSchema.extend({

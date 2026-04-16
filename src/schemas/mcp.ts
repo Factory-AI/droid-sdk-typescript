@@ -8,7 +8,6 @@ import {
 } from './enums.js';
 import { JsonObjectSchema } from './shared.js';
 
-
 /** Stdio MCP server configuration fields. */
 export const McpStdioServerConfigFieldsSchema = z.object({
   command: z.string().optional(),
@@ -37,7 +36,6 @@ export const McpSseServerConfigFieldsSchema = z.object({
 export type McpSseServerConfigFields = z.infer<
   typeof McpSseServerConfigFieldsSchema
 >;
-
 
 /** MCP server status information. */
 export const McpServerStatusInfoSchema = z
@@ -68,7 +66,6 @@ export const McpStatusSummarySchema = z
 
 export type McpStatusSummary = z.infer<typeof McpStatusSummarySchema>;
 
-
 /** MCP registry server entity. */
 export const McpRegistryServerSchema = z
   .object({
@@ -87,7 +84,6 @@ export const McpRegistryServerSchema = z
   .passthrough();
 
 export type McpRegistryServer = z.infer<typeof McpRegistryServerSchema>;
-
 
 /** JSON Schema subset for MCP tool input parameters. */
 export const McpToolInputSchemaSchema = z
@@ -113,7 +109,6 @@ export const McpToolInfoSchema = z
   .passthrough();
 
 export type McpToolInfo = z.infer<typeof McpToolInfoSchema>;
-
 
 /** Selectable list item for tool confirmation prompts. */
 export const ToolConfirmationListItemSchema = z

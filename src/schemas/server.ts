@@ -32,7 +32,6 @@ import {
   ToolSelectionOverridesSchema,
 } from './shared.js';
 
-
 /**
  * Tool use block — re-exports ToolUseBlockSchema from messages.ts
  * since the shape is identical (type, id, input, name, thoughtSignature).
@@ -89,7 +88,6 @@ export const SettingsUpdatedPayloadSchema = z
 export type SettingsUpdatedPayload = z.infer<
   typeof SettingsUpdatedPayloadSchema
 >;
-
 
 /** Tool result notification. */
 export const ToolResultNotificationSchema = z
@@ -354,7 +352,6 @@ export type McpAuthCompletedNotification = z.infer<
   typeof McpAuthCompletedNotificationSchema
 >;
 
-
 /** List of all session notification schemas (for discriminatedUnion). */
 export const SessionNotificationSchemaList = [
   ToolResultNotificationSchema,
@@ -435,7 +432,6 @@ export type SessionNotification = z.output<typeof JsonRpcNotificationSchema> & {
   method: 'droid.session_notification';
   params: SessionNotificationParams;
 };
-
 
 export const EditToolConfirmationDetailsSchema = z
   .object({
@@ -603,7 +599,6 @@ export const ToolConfirmationInfoSchema = z
 
 export type ToolConfirmationInfo = z.infer<typeof ToolConfirmationInfoSchema>;
 
-
 /** Parameters for droid.request_permission request. */
 export const RequestPermissionRequestParamsSchema = z
   .object({
@@ -661,7 +656,6 @@ export type RequestPermissionResponse = z.infer<
   typeof RequestPermissionResponseSchema
 >;
 
-
 /** Parameters for droid.ask_user request. */
 export const AskUserRequestParamsSchema = z
   .object({
@@ -710,7 +704,6 @@ export const AskUserResponseSchema = z.union([
 ]);
 
 export type AskUserResponse = z.infer<typeof AskUserResponseSchema>;
-
 
 /** Union over all 3 server → client methods. */
 const _CliRequestOrNotificationSchema = z.union([

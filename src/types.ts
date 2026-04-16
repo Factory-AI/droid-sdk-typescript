@@ -2,7 +2,6 @@ export type MessageCallback = (message: Record<string, unknown>) => void;
 
 export type ErrorCallback = (error: Error) => void;
 
-
 export interface DroidClientTransport {
   send(message: Record<string, unknown>): void;
 

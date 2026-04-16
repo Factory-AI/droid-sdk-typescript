@@ -109,7 +109,6 @@ export const ContentBlockSchema = z.discriminatedUnion('type', [
 
 export type ContentBlock = z.infer<typeof ContentBlockSchema>;
 
-
 /** Factory Droid message schema (used in CreateMessageNotification and session data). */
 export const FactoryDroidMessageSchema = z
   .object({
