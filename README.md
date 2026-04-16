@@ -1,6 +1,6 @@
 # @factory/droid-sdk
 
-TypeScript SDK for the [Factory](https://factory.ai) Droid CLI. Provides a high-level API for interacting with Droid as a subprocess, with streaming message support, multi-turn sessions, spec mode, tool controls, and tool permission handling.
+TypeScript SDK for the [Factory](https://factory.ai) Droid CLI. Provides a high-level API for interacting with Droid as a subprocess, with streaming message support, multi-turn sessions, spec mode, tool controls, initialization metadata, session forking, and tool permission handling.
 
 ## Requirements
 
@@ -69,6 +69,38 @@ console.log(result.text);
 await session.close();
 ```
 
+The returned `DroidSession` also exposes `session.initResult`, which contains the raw `initialize_session` or `load_session` result returned by the JSON-RPC server.
+
+## Initialization Metadata
+
+Inspect the raw initialization metadata from `query()`, `createSession()`, and `resumeSession()`:
+
+```ts
+import { createSession, query, resumeSession } from '@factory/droid-sdk';
+
+const stream = query({
+  prompt: 'Reply with "ready" and nothing else.',
+  cwd: '/my/project',
+});
+
+console.log(stream.sessionId); // null before initialization
+console.log(stream.initResult); // null before initialization
+
+const initialized = await stream.initialized;
+console.log(initialized.sessionId);
+console.log(initialized.settings.modelId);
+stream.abort();
+
+const session = await createSession({ cwd: '/my/project' });
+console.log(session.initResult.settings.modelId);
+
+const resumed = await resumeSession(session.sessionId, { cwd: '/my/project' });
+console.log(resumed.initResult.cwd);
+
+await resumed.close();
+await session.close();
+```
+
 ## Spec Mode
 
 Start a session directly in spec mode, or enter spec mode later on an existing session:
@@ -127,6 +159,27 @@ await session.updateSettings({
 await session.close();
 ```
 
+## Forking Sessions
+
+Fork the current server-side session and continue from the new session ID:
+
+```ts
+import { createSession, resumeSession } from '@factory/droid-sdk';
+
+const session = await createSession({ cwd: '/my/project' });
+
+await session.send('Remember this phrase: mango sunrise');
+
+const { newSessionId } = await session.forkSession();
+const fork = await resumeSession(newSessionId, { cwd: '/my/project' });
+
+const result = await fork.send('What phrase did I ask you to remember?');
+console.log(result.text);
+
+await fork.close();
+await session.close();
+```
+
 ## Permission Handling
 
 Handle tool confirmation requests with a custom permission handler:
@@ -167,6 +220,8 @@ Returns an async generator that yields `DroidMessage` events. The returned `Droi
 - **`interrupt()`** — gracefully interrupt the agent's current turn
 - **`abort()`** — forcefully kill the subprocess
 - **`sessionId`** — the session ID (available after initialization)
+- **`initResult`** — cached `initialize_session` result, or `null` before initialization
+- **`initialized`** — promise that resolves with the `initialize_session` result
 
 `query(options)` also accepts an `abortSignal` for external cancellation.
 
@@ -180,10 +235,12 @@ Returned by `createSession()` and `resumeSession()`. Key methods:
 - **`close()`** — close the session and release resources
 - **`updateSettings(params)`** — update model, autonomy level, etc.
 - **`enterSpecMode(params?)`** — switch the current session into spec mode
+- **`forkSession()`** — create a forked server-side session and return its new session ID
 - **`addMcpServer(params)`** / **`removeMcpServer(params)`** — manage MCP servers
 - **`listTools(params?)`** — inspect the exec tool catalog and current allow/deny state
 - **`renameSession(params)`** — rename the current session
 - **`sessionId`** — the session ID
+- **`initResult`** — cached `initialize_session` or `load_session` result
 
 ### `DroidResult`
 
@@ -252,9 +309,12 @@ See the [`examples/`](./examples) directory for runnable examples:
 
 - **[`simple-query.ts`](./examples/simple-query.ts)** — one-shot query with streaming output
 - **[`multi-turn-session.ts`](./examples/multi-turn-session.ts)** — multi-turn session lifecycle
+- **[`init-metadata.ts`](./examples/init-metadata.ts)** — read initialization and load metadata from query/session APIs
 - **[`permission-handler.ts`](./examples/permission-handler.ts)** — custom permission handling
 - **[`spec-mode-same-session.ts`](./examples/spec-mode-same-session.ts)** — approve a spec and continue in the same session
 - **[`spec-mode-new-session.ts`](./examples/spec-mode-new-session.ts)** — approve a spec and hand off implementation to a new session
+- **[`tool-controls.ts`](./examples/tool-controls.ts)** — configure allow/deny lists and inspect tool availability
+- **[`fork-session.ts`](./examples/fork-session.ts)** — fork a session and continue from the new session ID
 
 ## License
 
