@@ -62,3 +62,5 @@ export type {
   MessageOptions,
   DroidResult,
 } from './session.js';
+
+export { listSessions } from './session-discovery.js';

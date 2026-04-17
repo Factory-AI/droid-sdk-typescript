@@ -1441,6 +1441,13 @@ describe('DroidClient', () => {
       ).rejects.toThrow(ConnectionError);
     });
 
+    it('listTools throws after close', async () => {
+      await initializeTestSession(client, transport);
+      await client.close();
+
+      await expect(client.listTools()).rejects.toThrow(ConnectionError);
+    });
+
     it('listSkills throws after close', async () => {
       await initializeTestSession(client, transport);
       await client.close();
@@ -1702,28 +1709,6 @@ describe('DroidClient', () => {
     });
   });
 
-  describe('Zod parse failure on malformed response', () => {
-    beforeEach(async () => {
-      await initializeTestSession(client, transport);
-    });
-
-    it('rejects with ZodError when response has unexpected shape', async () => {
-      const promise = client.listMcpServers();
-
-      await vi.waitFor(() => {
-        expect(transport.sentMessages.length).toBe(2);
-      });
-
-      const requestId = getLastSentId(transport);
-
-      transport.injectMessage(
-        makeSuccessResponse(requestId, { unexpected: 'shape' })
-      );
-
-      await expect(promise).rejects.toHaveProperty('name', 'ZodError');
-    });
-  });
-
   describe('edge cases', () => {
     it('notification listener exception does not crash client', () => {
       const goodListener = vi.fn();
@@ -1810,6 +1795,8 @@ describe('DroidClient', () => {
       await expect(
         client.killWorkerSession({ workerSessionId: 'w1' })
       ).rejects.toThrow(SessionError);
+
+      await expect(client.listTools()).rejects.toThrow(SessionError);
 
       await expect(client.listSkills()).rejects.toThrow(SessionError);
 

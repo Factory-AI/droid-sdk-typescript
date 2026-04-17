@@ -1,6 +1,6 @@
 # @factory/droid-sdk
 
-TypeScript SDK for the [Factory](https://factory.ai) Droid CLI. Provides a high-level API for interacting with Droid as a subprocess, with streaming message support, multi-turn sessions, spec mode, tool controls, initialization metadata, session forking, and tool permission handling.
+TypeScript SDK for the [Factory](https://factory.ai) Droid CLI. Provides a high-level API for interacting with Droid as a subprocess, with streaming message support, multi-turn sessions, spec mode, tool controls, initialization metadata, session forking, session discovery, and tool permission handling.
 
 ## Requirements
 
@@ -180,6 +180,45 @@ await fork.close();
 await session.close();
 ```
 
+## Listing Sessions
+
+Discover droid sessions saved on disk (mirrors the CLI's `/sessions` command). Reads `~/.factory/sessions/` directly — no droid process is spawned, so this works even when no session is running:
+
+```ts
+import { listSessions } from '@factory/droid-sdk';
+
+// Sessions for the current project (cwd defaults to process.cwd())
+const current = await listSessions();
+
+// 10 most recent sessions in the current project
+const recent = await listSessions({ numSessions: 10 });
+
+// Every session on disk, most recent first
+const all = await listSessions({ fetchOutsideCWD: true });
+
+// 10 most recent sessions across all projects
+const recentAcrossProjects = await listSessions({
+  fetchOutsideCWD: true,
+  numSessions: 10,
+});
+
+// Sessions for a specific other project
+const other = await listSessions({ cwd: '/Users/me/other-repo' });
+
+for (const s of current) {
+  console.log(`[${s.id}] ${s.title} (${s.messageCount} msgs)`);
+}
+```
+
+Each `SessionMetadata` record includes `id`, `title`, `sessionTitle`, `owner`, `messageCount`, `modifiedTime`, `createdTime`, `isFavorite`, `cwd`, `decompSessionType`, and `decompMissionId`. Archived sessions (those with an `archivedAt` in their settings file) are excluded automatically. Results are sorted by `modifiedTime` descending.
+
+`ListSessionsOptions`:
+
+- **`cwd`** — working directory to scope the listing to (default `process.cwd()`). Ignored when `fetchOutsideCWD` is `true`.
+- **`fetchOutsideCWD`** — return sessions from every working directory on disk (default `false`)
+- **`numSessions`** — cap on total sessions returned
+- **`sessionsDir`** — override the sessions root (default `~/.factory/sessions/`)
+
 ## Permission Handling
 
 Handle tool confirmation requests with a custom permission handler:
@@ -207,11 +246,12 @@ for await (const msg of stream) {
 
 ### Top-Level Functions
 
-| Function                      | Description                                                |
-| ----------------------------- | ---------------------------------------------------------- |
-| `query(options)`              | One-shot prompt → async generator of `DroidMessage` events |
-| `createSession(options?)`     | Create a new multi-turn session → `DroidSession`           |
-| `resumeSession(id, options?)` | Resume an existing session → `DroidSession`                |
+| Function                      | Description                                                      |
+| ----------------------------- | ---------------------------------------------------------------- |
+| `query(options)`              | One-shot prompt → async generator of `DroidMessage` events       |
+| `createSession(options?)`     | Create a new multi-turn session → `DroidSession`                 |
+| `resumeSession(id, options?)` | Resume an existing session → `DroidSession`                      |
+| `listSessions(options?)`      | List droid sessions saved on disk → `Promise<SessionMetadata[]>` |
 
 ### `query(options): DroidQuery`
 
@@ -315,6 +355,7 @@ See the [`examples/`](./examples) directory for runnable examples:
 - **[`spec-mode-new-session.ts`](./examples/spec-mode-new-session.ts)** — approve a spec and hand off implementation to a new session
 - **[`tool-controls.ts`](./examples/tool-controls.ts)** — configure allow/deny lists and inspect tool availability
 - **[`fork-session.ts`](./examples/fork-session.ts)** — fork a session and continue from the new session ID
+- **[`list-sessions.ts`](./examples/list-sessions.ts)** — discover droid sessions saved on disk
 
 ## License
 

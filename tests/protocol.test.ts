@@ -788,6 +788,22 @@ describe('ProtocolEngine', () => {
     });
   });
 
+  describe('isHealthy getter', () => {
+    it('returns true when engine is healthy', () => {
+      expect(engine.isHealthy).toBe(true);
+    });
+
+    it('returns false after transport error', () => {
+      transport.injectError(new Error('disconnected'));
+      expect(engine.isHealthy).toBe(false);
+    });
+
+    it('returns false after close()', async () => {
+      await engine.close();
+      expect(engine.isHealthy).toBe(false);
+    });
+  });
+
   describe('edge cases', () => {
     it('handles send failure by rejecting the pending request', async () => {
       await transport.close();
