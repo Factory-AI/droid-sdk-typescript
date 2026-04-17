@@ -126,6 +126,9 @@ import {
   ForkSessionResultSchema,
   RenameSessionRequestParamsSchema,
   RenameSessionResultSchema,
+  SessionMetadataSchema,
+  SessionStartEventSchema,
+  SessionSettingsFileSchema,
 } from '../src/schemas/index.js';
 
 describe('enums', () => {
@@ -1554,5 +1557,109 @@ describe('RenameSession schemas', () => {
 
   it('RenameSessionResultSchema rejects missing success', () => {
     expect(() => RenameSessionResultSchema.parse({})).toThrow();
+  });
+});
+
+describe('SessionMetadataSchema', () => {
+  it('parses valid session metadata', () => {
+    const data = {
+      id: 'sess-1',
+      title: 'My Session',
+      sessionTitle: 'Alt Title',
+      owner: 'user-1',
+      messageCount: 10,
+      modifiedTime: new Date('2024-06-01T00:00:00Z'),
+      createdTime: new Date('2024-05-01T00:00:00Z'),
+      isFavorite: true,
+      cwd: '/my/project',
+      decompSessionType: 'orchestrator',
+      decompMissionId: 'mission-1',
+    };
+    const result = SessionMetadataSchema.parse(data);
+    expect(result.id).toBe('sess-1');
+    expect(result.title).toBe('My Session');
+    expect(result.owner).toBe('user-1');
+    expect(result.messageCount).toBe(10);
+    expect(result.decompSessionType).toBe('orchestrator');
+  });
+
+  it('preserves extra fields (passthrough)', () => {
+    const data = {
+      id: 'sess-2',
+      title: 'Test',
+      owner: 'user-1',
+      messageCount: 0,
+      modifiedTime: new Date(),
+      createdTime: new Date(),
+      futureField: 'hello',
+    };
+    const result = SessionMetadataSchema.parse(data);
+    expect((result as Record<string, unknown>)['futureField']).toBe('hello');
+  });
+});
+
+describe('SessionStartEventSchema', () => {
+  it('parses valid session start event', () => {
+    const data = {
+      type: 'session_start',
+      sessionId: 'sess-1',
+      title: 'My Session',
+      owner: 'user-1',
+      cwd: '/my/project',
+      decompSessionType: 'worker',
+      decompMissionId: 'mission-1',
+    };
+    const result = SessionStartEventSchema.parse(data);
+    expect(result.type).toBe('session_start');
+    expect(result.sessionId).toBe('sess-1');
+    expect(result.decompSessionType).toBe('worker');
+  });
+
+  it('parses with optional fields omitted', () => {
+    const data = { type: 'session_start' };
+    const result = SessionStartEventSchema.parse(data);
+    expect(result.type).toBe('session_start');
+    expect(result.sessionId).toBeUndefined();
+    expect(result.title).toBeUndefined();
+    expect(result.owner).toBeUndefined();
+    expect(result.cwd).toBeUndefined();
+    expect(result.decompSessionType).toBeUndefined();
+  });
+
+  it('catches invalid decompSessionType and defaults to undefined', () => {
+    const data = {
+      type: 'session_start',
+      decompSessionType: 'invalid_type',
+    };
+    const result = SessionStartEventSchema.parse(data);
+    expect(result.decompSessionType).toBeUndefined();
+  });
+});
+
+describe('SessionSettingsFileSchema', () => {
+  it('parses valid settings file with archivedAt and tags', () => {
+    const data = {
+      archivedAt: '2024-06-15T12:00:00Z',
+      tags: [
+        { name: 'environment', metadata: { value: 'production' } },
+        { name: 'team' },
+      ],
+    };
+    const result = SessionSettingsFileSchema.parse(data);
+    expect(result.archivedAt).toBe('2024-06-15T12:00:00Z');
+    expect(result.tags).toHaveLength(2);
+    expect(result.tags![0].name).toBe('environment');
+  });
+
+  it('parses with optional fields omitted', () => {
+    const result = SessionSettingsFileSchema.parse({});
+    expect(result.archivedAt).toBeUndefined();
+    expect(result.tags).toBeUndefined();
+  });
+
+  it('preserves extra fields (passthrough)', () => {
+    const data = { archivedAt: '2024-01-01', newField: 42 };
+    const result = SessionSettingsFileSchema.parse(data);
+    expect((result as Record<string, unknown>)['newField']).toBe(42);
   });
 });
