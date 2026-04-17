@@ -81,6 +81,18 @@ export type {
 } from './shared.js';
 
 export {
+  SessionMetadataSchema,
+  SessionSettingsFileSchema,
+  SessionStartEventSchema,
+} from './session-metadata.js';
+export type {
+  ListSessionsOptions,
+  SessionMetadata,
+  SessionSettingsFile,
+  SessionStartEvent,
+} from './session-metadata.js';
+
+export {
   Base64ImageSourceSchema,
   ContentBlockSchema,
   DocumentBlockSchema,

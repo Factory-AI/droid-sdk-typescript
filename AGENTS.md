@@ -510,18 +510,21 @@ stream.abort(); // kills the process, generator terminates
 
 ## AbortSignal Support
 
-The `query()` function accepts a standard `AbortSignal` in its options for external cancellation. Note: as of v0.1.4, the `abortSignal` option is declared in `QueryOptions` but not yet wired into the implementation. Use `query.abort()` or `query.interrupt()` for cancellation instead:
+The `query()`, `createSession()`, and `resumeSession()` functions all accept a standard `AbortSignal` for external cancellation. Aborting the signal invokes `query.abort()` (or closes the session), which terminates the subprocess and ends the stream. You can also call `query.abort()` or `query.interrupt()` directly.
 
 ```ts
 import { query } from '@factory/droid-sdk';
 
+const controller = new AbortController();
+
 const stream = query({
   prompt: 'Analyze the entire codebase',
   cwd: '/my/project',
+  abortSignal: controller.signal,
 });
 
-// Cancel after 30 seconds using abort()
-setTimeout(() => stream.abort(), 30_000);
+// Cancel after 30 seconds
+setTimeout(() => controller.abort(), 30_000);
 
 try {
   for await (const msg of stream) {
