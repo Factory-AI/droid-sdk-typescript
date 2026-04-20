@@ -162,7 +162,7 @@ export function setupClientHandlers(
   }
 }
 
-export interface ClientCreationOptions
+interface ClientCreationOptions
   extends TransportCreationOptions, HandlerOptions {}
 
 export async function createConfiguredClient(
