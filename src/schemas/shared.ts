@@ -47,6 +47,22 @@ export const ToolSelectionOverridesSchema = z.object({
   disabledToolIds: z.array(z.string()).optional(),
 });
 
+export type ToolSelectionOverrides = z.infer<
+  typeof ToolSelectionOverridesSchema
+>;
+
+/** Shared empty object result reused by RPC result schemas. */
+export const EmptyResultSchema = z.object({}).passthrough();
+
+export type EmptyResult = z.infer<typeof EmptyResultSchema>;
+
+/** Shared success result reused by RPC result schemas. */
+export const SuccessResultSchema = z
+  .object({ success: z.boolean() })
+  .passthrough();
+
+export type SuccessResult = z.infer<typeof SuccessResultSchema>;
+
 /** JSON-RPC 2.0 envelope with Factory protocol extensions. */
 export const JsonRpcEnvelopeSchema = z.object({
   jsonrpc: z.literal(JSONRPC_VERSION),

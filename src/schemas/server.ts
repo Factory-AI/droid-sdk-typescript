@@ -20,7 +20,10 @@ import {
   McpStatusSummarySchema,
   ToolConfirmationListItemSchema,
 } from './mcp.js';
-import { FactoryDroidMessageSchema, ToolUseBlockSchema } from './messages.js';
+import {
+  FactoryDroidMessageSchema,
+  ToolUseBlockSchema as MessageToolUseBlockSchema,
+} from './messages.js';
 import { MissionFeatureSchema, ProgressLogEntrySchema } from './mission.js';
 import {
   JsonObjectSchema,
@@ -36,9 +39,15 @@ import {
  * Tool use block — re-exports ToolUseBlockSchema from messages.ts
  * since the shape is identical (type, id, input, name, thoughtSignature).
  */
+export const ToolUseBlockSchema = MessageToolUseBlockSchema;
+
+export type ToolUseBlock = z.infer<typeof ToolUseBlockSchema>;
+
+/** @deprecated Use ToolUseBlockSchema/ToolUseBlock for the message block shape. */
 export const ToolUseSchema = ToolUseBlockSchema;
 
-export type ToolUse = z.infer<typeof ToolUseSchema>;
+/** @deprecated Use ToolUseBlock for the message block shape. */
+export type ToolUse = ToolUseBlock;
 
 /** Error detail object within an ErrorNotification. */
 export const ErrorDetailSchema = z

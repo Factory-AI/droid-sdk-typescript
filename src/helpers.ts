@@ -18,6 +18,7 @@ import {
   SessionNotificationSchema,
   type SessionNotificationPayload,
 } from './schemas/server.js';
+import type { ToolSelectionOverrides } from './schemas/shared.js';
 import {
   convertNotificationToStreamMessage,
   StreamStateTracker,
@@ -194,7 +195,7 @@ export async function closeQuietly(
   }
 }
 
-export interface SessionInitOptions {
+export interface SessionInitOptions extends ToolSelectionOverrides {
   cwd?: string;
   machineId?: string;
   modelId?: string;
@@ -204,8 +205,6 @@ export interface SessionInitOptions {
   specModeModelId?: string;
   specModeReasoningEffort?: ReasoningEffort;
   mcpServers?: McpServerConfig[];
-  enabledToolIds?: string[];
-  disabledToolIds?: string[];
   tags?: SessionTag[];
 }
 

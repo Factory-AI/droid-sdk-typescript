@@ -22,13 +22,22 @@ import {
 import { Base64ImageSourceSchema, DocumentSourceSchema } from './messages.js';
 import { MissionFeatureSchema, ProgressLogEntrySchema } from './mission.js';
 import {
+  EmptyResultSchema,
   JsonObjectSchema,
   type JsonRpcResponseFailure,
   JsonRpcRequestSchema,
   JsonRpcResponseFailureSchema,
   JsonRpcResponseSuccessSchema,
+  SuccessResultSchema,
   ToolSelectionOverridesSchema,
 } from './shared.js';
+
+const SessionModeRequestFieldsShape = {
+  modelId: z.string().optional(),
+  autonomyMode: z.nativeEnum(AutonomyMode).optional(),
+  interactionMode: z.nativeEnum(DroidInteractionMode).optional(),
+  autonomyLevel: z.nativeEnum(AutonomyLevel).optional(),
+};
 
 /** Session tag metadata. */
 export const SessionTagSchema = z
@@ -216,10 +225,7 @@ export const InitializeSessionRequestParamsSchema = z
     workspaceId: z.string().optional(),
     sessionId: z.string().optional(),
     mcpServers: z.array(McpServerConfigSchema).optional(),
-    autonomyMode: z.nativeEnum(AutonomyMode).optional(),
-    interactionMode: z.nativeEnum(DroidInteractionMode).optional(),
-    autonomyLevel: z.nativeEnum(AutonomyLevel).optional(),
-    modelId: z.string().optional(),
+    ...SessionModeRequestFieldsShape,
     reasoningEffort: z.nativeEnum(ReasoningEffort).optional(),
     specModeModelId: z.string().optional(),
     specModeReasoningEffort: z.nativeEnum(ReasoningEffort).optional(),
@@ -286,11 +292,8 @@ export type KillWorkerSessionRequestParams = z.infer<
 /** Parameters for droid.update_session_settings request. */
 export const UpdateSessionSettingsRequestParamsSchema = z
   .object({
-    modelId: z.string().optional(),
+    ...SessionModeRequestFieldsShape,
     reasoningEffort: z.nativeEnum(ReasoningEffort).optional(),
-    autonomyMode: z.nativeEnum(AutonomyMode).optional(),
-    interactionMode: z.nativeEnum(DroidInteractionMode).optional(),
-    autonomyLevel: z.nativeEnum(AutonomyLevel).optional(),
     specModeModelId: z.string().nullable().optional(),
     specModeReasoningEffort: z
       .nativeEnum(ReasoningEffort)
@@ -424,10 +427,7 @@ export type ExecToolInfo = z.infer<typeof ExecToolInfoSchema>;
 /** Parameters for droid.list_tools. */
 export const ListToolsRequestParamsSchema = z
   .object({
-    modelId: z.string().optional(),
-    autonomyMode: z.nativeEnum(AutonomyMode).optional(),
-    interactionMode: z.nativeEnum(DroidInteractionMode).optional(),
-    autonomyLevel: z.nativeEnum(AutonomyLevel).optional(),
+    ...SessionModeRequestFieldsShape,
     specModeModelId: z.string().nullable().optional(),
     skipPermissionsUnsafe: z.boolean().optional(),
     ...ToolSelectionOverridesSchema.shape,
@@ -843,81 +843,67 @@ export const LoadSessionResultSchema = z
 export type LoadSessionResult = z.infer<typeof LoadSessionResultSchema>;
 
 /** Result for droid.add_user_message response (empty). */
-export const AddUserMessageResultSchema = z.object({}).passthrough();
+export const AddUserMessageResultSchema = EmptyResultSchema;
 
 export type AddUserMessageResult = z.infer<typeof AddUserMessageResultSchema>;
 
 /** Result for droid.interrupt_session response (empty). */
-export const InterruptSessionResultSchema = z.object({}).passthrough();
+export const InterruptSessionResultSchema = EmptyResultSchema;
 
 export type InterruptSessionResult = z.infer<
   typeof InterruptSessionResultSchema
 >;
 
 /** Result for droid.kill_worker_session response (empty). */
-export const KillWorkerSessionResultSchema = z.object({}).passthrough();
+export const KillWorkerSessionResultSchema = EmptyResultSchema;
 
 export type KillWorkerSessionResult = z.infer<
   typeof KillWorkerSessionResultSchema
 >;
 
 /** Result for droid.update_session_settings response (empty). */
-export const UpdateSessionSettingsResultSchema = z.object({}).passthrough();
+export const UpdateSessionSettingsResultSchema = EmptyResultSchema;
 
 export type UpdateSessionSettingsResult = z.infer<
   typeof UpdateSessionSettingsResultSchema
 >;
 
 /** Result for droid.toggle_mcp_server response. */
-export const ToggleMcpServerResultSchema = z
-  .object({ success: z.boolean() })
-  .passthrough();
+export const ToggleMcpServerResultSchema = SuccessResultSchema;
 
 export type ToggleMcpServerResult = z.infer<typeof ToggleMcpServerResultSchema>;
 
 /** Result for droid.authenticate_mcp_server response. */
-export const AuthenticateMcpServerResultSchema = z
-  .object({ success: z.boolean() })
-  .passthrough();
+export const AuthenticateMcpServerResultSchema = SuccessResultSchema;
 
 export type AuthenticateMcpServerResult = z.infer<
   typeof AuthenticateMcpServerResultSchema
 >;
 
 /** Result for droid.cancel_mcp_auth response. */
-export const CancelMcpAuthResultSchema = z
-  .object({ success: z.boolean() })
-  .passthrough();
+export const CancelMcpAuthResultSchema = SuccessResultSchema;
 
 export type CancelMcpAuthResult = z.infer<typeof CancelMcpAuthResultSchema>;
 
 /** Result for droid.clear_mcp_auth response. */
-export const ClearMcpAuthResultSchema = z
-  .object({ success: z.boolean() })
-  .passthrough();
+export const ClearMcpAuthResultSchema = SuccessResultSchema;
 
 export type ClearMcpAuthResult = z.infer<typeof ClearMcpAuthResultSchema>;
 
 /** Result for droid.submit_mcp_auth_code response. */
-export const SubmitMcpAuthCodeResultSchema = z
-  .object({ success: z.boolean() })
-  .passthrough();
+export const SubmitMcpAuthCodeResultSchema = SuccessResultSchema;
 
 export type SubmitMcpAuthCodeResult = z.infer<
   typeof SubmitMcpAuthCodeResultSchema
 >;
 
 /** Result for droid.add_mcp_server response. */
-export const AddMcpServerResultSchema = z
-  .object({ success: z.boolean() })
-  .passthrough();
+export const AddMcpServerResultSchema = SuccessResultSchema;
 
 export type AddMcpServerResult = z.infer<typeof AddMcpServerResultSchema>;
 
 /** Result for droid.remove_mcp_server response. */
-export const RemoveMcpServerResultSchema = z
-  .object({ success: z.boolean() })
-  .passthrough();
+export const RemoveMcpServerResultSchema = SuccessResultSchema;
 
 export type RemoveMcpServerResult = z.infer<typeof RemoveMcpServerResultSchema>;
 
@@ -953,9 +939,7 @@ export const ListMcpServersResultSchema = z
 export type ListMcpServersResult = z.infer<typeof ListMcpServersResultSchema>;
 
 /** Result for droid.toggle_mcp_tool response. */
-export const ToggleMcpToolResultSchema = z
-  .object({ success: z.boolean() })
-  .passthrough();
+export const ToggleMcpToolResultSchema = SuccessResultSchema;
 
 export type ToggleMcpToolResult = z.infer<typeof ToggleMcpToolResultSchema>;
 
@@ -1017,11 +1001,7 @@ export const ForkSessionResultSchema = z
 export type ForkSessionResult = z.infer<typeof ForkSessionResultSchema>;
 
 /** Result for droid.rename_session response. */
-export const RenameSessionResultSchema = z
-  .object({
-    success: z.boolean(),
-  })
-  .passthrough();
+export const RenameSessionResultSchema = SuccessResultSchema;
 
 export type RenameSessionResult = z.infer<typeof RenameSessionResultSchema>;
 

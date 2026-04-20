@@ -46,6 +46,7 @@ export {
   BaseRequestSchema,
   BaseResponseFailureSchema,
   BaseResponseSuccessSchema,
+  EmptyResultSchema,
   JsonArraySchema,
   JsonRpcEnvelopeSchema,
   JsonRpcErrorSchema,
@@ -57,7 +58,9 @@ export {
   JsonRpcResponseSchema,
   JsonRpcResponseSuccessSchema,
   JsonValueSchema,
+  SuccessResultSchema,
   TraceContextMetaSchema,
+  ToolSelectionOverridesSchema,
 } from './shared.js';
 
 export type {
@@ -65,6 +68,7 @@ export type {
   BaseRequest,
   BaseResponseFailure,
   BaseResponseSuccess,
+  EmptyResult,
   JsonArray,
   JsonObject,
   JsonPrimitive,
@@ -77,7 +81,9 @@ export type {
   JsonRpcResponseFailure,
   JsonRpcResponseSuccess,
   JsonValue,
+  SuccessResult,
   TraceContextMeta,
+  ToolSelectionOverrides,
 } from './shared.js';
 
 export {
