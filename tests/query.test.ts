@@ -13,78 +13,19 @@ import {
   DroidInteractionMode,
   DroidServerMethod,
   DroidWorkingState,
-  FACTORY_PROTOCOL_VERSION,
-  JSONRPC_VERSION,
-  LEGACY_FACTORY_API_VERSION,
   ReasoningEffort,
   SessionNotificationType,
 } from '../src/schemas/index.js';
 import type { DroidMessage } from '../src/stream.js';
-import { InMemoryTransport } from './helpers.js';
-
-function makeSuccessResponse(
-  id: string,
-  result: Record<string, unknown> = {}
-): Record<string, unknown> {
-  return {
-    jsonrpc: JSONRPC_VERSION,
-    factoryApiVersion: LEGACY_FACTORY_API_VERSION,
-    factoryProtocolVersion: FACTORY_PROTOCOL_VERSION,
-    type: 'response',
-    id,
-    result,
-  };
-}
-
-function makeErrorResponse(
-  id: string,
-  code: number,
-  message: string
-): Record<string, unknown> {
-  return {
-    jsonrpc: JSONRPC_VERSION,
-    factoryApiVersion: LEGACY_FACTORY_API_VERSION,
-    factoryProtocolVersion: FACTORY_PROTOCOL_VERSION,
-    type: 'response',
-    id,
-    error: { code, message },
-  };
-}
-
-function makeNotification(
-  notificationType: string,
-  payload: Record<string, unknown> = {}
-): Record<string, unknown> {
-  return {
-    jsonrpc: JSONRPC_VERSION,
-    factoryApiVersion: LEGACY_FACTORY_API_VERSION,
-    factoryProtocolVersion: FACTORY_PROTOCOL_VERSION,
-    type: 'notification',
-    method: DroidClientMethod.SESSION_NOTIFICATION,
-    params: {
-      notification: {
-        type: notificationType,
-        ...payload,
-      },
-    },
-  };
-}
-
-function makeServerRequest(
-  id: string,
-  method: string,
-  params: Record<string, unknown> = {}
-): Record<string, unknown> {
-  return {
-    jsonrpc: JSONRPC_VERSION,
-    factoryApiVersion: LEGACY_FACTORY_API_VERSION,
-    factoryProtocolVersion: FACTORY_PROTOCOL_VERSION,
-    type: 'request',
-    id,
-    method,
-    params,
-  };
-}
+import {
+  InMemoryTransport,
+  makeErrorResponse,
+  makeServerRequest,
+  makeSessionNotification,
+  makeSuccessResponse,
+  sendDefaultStreamSequence,
+  wireTransportSend,
+} from './helpers.js';
 
 /**
  * Simulate a full query lifecycle on the transport:
@@ -98,17 +39,7 @@ function simulateQueryLifecycle(
   sessionId: string,
   deltas: string[] = ['Hello', ' world']
 ): void {
-  let _messageCount = 0;
-
-  const originalSend = transport.send.bind(transport);
-  transport.send = (message: Record<string, unknown>) => {
-    originalSend(message);
-    const msg = message as Record<string, unknown>;
-    const method = msg['method'] as string;
-    const id = msg['id'] as string;
-
-    _messageCount++;
-
+  wireTransportSend(transport, ({ method, id }) => {
     if (method === DroidServerMethod.INITIALIZE_SESSION) {
       queueMicrotask(() => {
         transport.injectMessage(
@@ -125,48 +56,20 @@ function simulateQueryLifecycle(
     } else if (method === DroidServerMethod.ADD_USER_MESSAGE) {
       queueMicrotask(() => {
         transport.injectMessage(makeSuccessResponse(id, {}));
-
-        transport.injectMessage(
-          makeNotification(
-            SessionNotificationType.DROID_WORKING_STATE_CHANGED,
-            { newState: DroidWorkingState.StreamingAssistantMessage }
-          )
-        );
-
-        for (const delta of deltas) {
-          transport.injectMessage(
-            makeNotification(SessionNotificationType.ASSISTANT_TEXT_DELTA, {
-              messageId: 'msg-1',
-              blockIndex: 0,
-              textDelta: delta,
-            })
-          );
-        }
-
-        transport.injectMessage(
-          makeNotification(
-            SessionNotificationType.SESSION_TOKEN_USAGE_CHANGED,
-            {
-              tokenUsage: {
-                inputTokens: 100,
-                outputTokens: 50,
-                cacheCreationTokens: 0,
-                cacheReadTokens: 10,
-                thinkingTokens: 0,
-              },
-            }
-          )
-        );
-
-        transport.injectMessage(
-          makeNotification(
-            SessionNotificationType.DROID_WORKING_STATE_CHANGED,
-            { newState: DroidWorkingState.Idle }
-          )
-        );
+        sendDefaultStreamSequence(transport, {
+          deltas,
+          tokenUsage: {
+            inputTokens: 100,
+            outputTokens: 50,
+            cacheCreationTokens: 0,
+            cacheReadTokens: 10,
+            thinkingTokens: 0,
+          },
+          includeTokenUsage: true,
+        });
       });
     }
-  };
+  });
 }
 
 describe('query()', () => {
@@ -284,13 +187,7 @@ describe('query()', () => {
 
       let interruptResponseSent = false;
 
-      const originalSend = transport.send.bind(transport);
-      transport.send = (message: Record<string, unknown>) => {
-        originalSend(message);
-        const msg = message as Record<string, unknown>;
-        const method = msg['method'] as string;
-        const id = msg['id'] as string;
-
+      wireTransportSend(transport, ({ method, id }) => {
         if (method === DroidServerMethod.INITIALIZE_SESSION) {
           queueMicrotask(() => {
             transport.injectMessage(
@@ -306,18 +203,21 @@ describe('query()', () => {
             transport.injectMessage(makeSuccessResponse(id, {}));
 
             transport.injectMessage(
-              makeNotification(
+              makeSessionNotification(
                 SessionNotificationType.DROID_WORKING_STATE_CHANGED,
                 { newState: DroidWorkingState.StreamingAssistantMessage }
               )
             );
 
             transport.injectMessage(
-              makeNotification(SessionNotificationType.ASSISTANT_TEXT_DELTA, {
-                messageId: 'msg-1',
-                blockIndex: 0,
-                textDelta: 'Starting...',
-              })
+              makeSessionNotification(
+                SessionNotificationType.ASSISTANT_TEXT_DELTA,
+                {
+                  messageId: 'msg-1',
+                  blockIndex: 0,
+                  textDelta: 'Starting...',
+                }
+              )
             );
           });
         } else if (method === DroidServerMethod.INTERRUPT_SESSION) {
@@ -326,14 +226,14 @@ describe('query()', () => {
             transport.injectMessage(makeSuccessResponse(id, {}));
 
             transport.injectMessage(
-              makeNotification(
+              makeSessionNotification(
                 SessionNotificationType.DROID_WORKING_STATE_CHANGED,
                 { newState: DroidWorkingState.Idle }
               )
             );
           });
         }
-      };
+      });
 
       const q = query({ prompt: 'Long task', transport });
 
@@ -364,13 +264,7 @@ describe('query()', () => {
       const transport = new InMemoryTransport();
       await transport.connect();
 
-      const originalSend = transport.send.bind(transport);
-      transport.send = (message: Record<string, unknown>) => {
-        originalSend(message);
-        const msg = message as Record<string, unknown>;
-        const method = msg['method'] as string;
-        const id = msg['id'] as string;
-
+      wireTransportSend(transport, ({ method, id }) => {
         if (method === DroidServerMethod.INITIALIZE_SESSION) {
           queueMicrotask(() => {
             transport.injectMessage(
@@ -386,22 +280,25 @@ describe('query()', () => {
             transport.injectMessage(makeSuccessResponse(id, {}));
 
             transport.injectMessage(
-              makeNotification(
+              makeSessionNotification(
                 SessionNotificationType.DROID_WORKING_STATE_CHANGED,
                 { newState: DroidWorkingState.StreamingAssistantMessage }
               )
             );
 
             transport.injectMessage(
-              makeNotification(SessionNotificationType.ASSISTANT_TEXT_DELTA, {
-                messageId: 'msg-1',
-                blockIndex: 0,
-                textDelta: 'Starting...',
-              })
+              makeSessionNotification(
+                SessionNotificationType.ASSISTANT_TEXT_DELTA,
+                {
+                  messageId: 'msg-1',
+                  blockIndex: 0,
+                  textDelta: 'Starting...',
+                }
+              )
             );
           });
         }
-      };
+      });
 
       const q = query({ prompt: 'Abort me', transport });
 
@@ -456,13 +353,7 @@ describe('query()', () => {
       const transport = new InMemoryTransport();
       await transport.connect();
 
-      const originalSend = transport.send.bind(transport);
-      transport.send = (message: Record<string, unknown>) => {
-        originalSend(message);
-        const msg = message as Record<string, unknown>;
-        const method = msg['method'] as string;
-        const id = msg['id'] as string;
-
+      wireTransportSend(transport, ({ method, id }) => {
         if (method === DroidServerMethod.INITIALIZE_SESSION) {
           setTimeout(() => {
             transport.injectMessage(
@@ -475,7 +366,7 @@ describe('query()', () => {
             );
           }, 10);
         }
-      };
+      });
 
       const q = query({ prompt: 'Test', transport });
 
@@ -500,13 +391,7 @@ describe('query()', () => {
       const transport = new InMemoryTransport();
       await transport.connect();
 
-      const originalSend = transport.send.bind(transport);
-      transport.send = (message: Record<string, unknown>) => {
-        originalSend(message);
-        const msg = message as Record<string, unknown>;
-        const method = msg['method'] as string;
-        const id = msg['id'] as string;
-
+      wireTransportSend(transport, ({ method, id }) => {
         if (method === DroidServerMethod.INITIALIZE_SESSION) {
           queueMicrotask(() => {
             transport.injectMessage(
@@ -514,7 +399,7 @@ describe('query()', () => {
             );
           });
         }
-      };
+      });
 
       const q = query({ prompt: 'Test', transport });
 
@@ -527,10 +412,7 @@ describe('query()', () => {
       const transport = new InMemoryTransport();
       await transport.connect();
 
-      const originalSend = transport.send.bind(transport);
-      transport.send = (message: Record<string, unknown>) => {
-        originalSend(message);
-      };
+      wireTransportSend(transport, () => {});
 
       const q = query({ prompt: 'Test', transport });
       const initialized = q.initialized;
@@ -548,13 +430,7 @@ describe('query()', () => {
       const transport = new InMemoryTransport();
       await transport.connect();
 
-      const originalSend = transport.send.bind(transport);
-      transport.send = (message: Record<string, unknown>) => {
-        originalSend(message);
-        const msg = message as Record<string, unknown>;
-        const method = msg['method'] as string;
-        const id = msg['id'] as string;
-
+      wireTransportSend(transport, ({ method, id }) => {
         if (method === DroidServerMethod.INITIALIZE_SESSION) {
           queueMicrotask(() => {
             transport.injectMessage(
@@ -570,7 +446,7 @@ describe('query()', () => {
             transport.injectMessage(makeSuccessResponse(id, {}));
 
             transport.injectMessage(
-              makeNotification(
+              makeSessionNotification(
                 SessionNotificationType.DROID_WORKING_STATE_CHANGED,
                 { newState: DroidWorkingState.StreamingAssistantMessage }
               )
@@ -578,16 +454,19 @@ describe('query()', () => {
 
             for (let i = 0; i < 10; i++) {
               transport.injectMessage(
-                makeNotification(SessionNotificationType.ASSISTANT_TEXT_DELTA, {
-                  messageId: 'msg-1',
-                  blockIndex: 0,
-                  textDelta: `delta-${i} `,
-                })
+                makeSessionNotification(
+                  SessionNotificationType.ASSISTANT_TEXT_DELTA,
+                  {
+                    messageId: 'msg-1',
+                    blockIndex: 0,
+                    textDelta: `delta-${i} `,
+                  }
+                )
               );
             }
           });
         }
-      };
+      });
 
       const q = query({ prompt: 'Long output', transport });
 
@@ -610,10 +489,7 @@ describe('query()', () => {
       const transport = new InMemoryTransport();
       await transport.connect();
 
-      const originalSend = transport.send.bind(transport);
-      transport.send = (message: Record<string, unknown>) => {
-        originalSend(message);
-      };
+      wireTransportSend(transport, () => {});
 
       const q = query({ prompt: 'Test', transport });
 
@@ -640,13 +516,7 @@ describe('query()', () => {
       let askHandlerCalled = false;
       let receivedParams: Record<string, unknown> | null = null;
 
-      const originalSend = transport.send.bind(transport);
-      transport.send = (message: Record<string, unknown>) => {
-        originalSend(message);
-        const msg = message as Record<string, unknown>;
-        const method = msg['method'] as string;
-        const id = msg['id'] as string;
-
+      wireTransportSend(transport, ({ method, id }) => {
         if (method === DroidServerMethod.INITIALIZE_SESSION) {
           queueMicrotask(() => {
             transport.injectMessage(
@@ -662,7 +532,7 @@ describe('query()', () => {
             transport.injectMessage(makeSuccessResponse(id, {}));
 
             transport.injectMessage(
-              makeNotification(
+              makeSessionNotification(
                 SessionNotificationType.DROID_WORKING_STATE_CHANGED,
                 { newState: DroidWorkingState.StreamingAssistantMessage }
               )
@@ -684,15 +554,18 @@ describe('query()', () => {
 
             setTimeout(() => {
               transport.injectMessage(
-                makeNotification(SessionNotificationType.ASSISTANT_TEXT_DELTA, {
-                  messageId: 'msg-1',
-                  blockIndex: 0,
-                  textDelta: 'Using TypeScript.',
-                })
+                makeSessionNotification(
+                  SessionNotificationType.ASSISTANT_TEXT_DELTA,
+                  {
+                    messageId: 'msg-1',
+                    blockIndex: 0,
+                    textDelta: 'Using TypeScript.',
+                  }
+                )
               );
 
               transport.injectMessage(
-                makeNotification(
+                makeSessionNotification(
                   SessionNotificationType.DROID_WORKING_STATE_CHANGED,
                   { newState: DroidWorkingState.Idle }
                 )
@@ -700,7 +573,7 @@ describe('query()', () => {
             }, 30);
           });
         }
-      };
+      });
 
       const q = query({
         prompt: 'Set up project',
@@ -749,13 +622,7 @@ describe('query()', () => {
 
       let permissionCalled = false;
 
-      const originalSend = transport.send.bind(transport);
-      transport.send = (message: Record<string, unknown>) => {
-        originalSend(message);
-        const msg = message as Record<string, unknown>;
-        const method = msg['method'] as string;
-        const id = msg['id'] as string;
-
+      wireTransportSend(transport, ({ method, id }) => {
         if (method === DroidServerMethod.INITIALIZE_SESSION) {
           queueMicrotask(() => {
             transport.injectMessage(
@@ -801,13 +668,13 @@ describe('query()', () => {
 
             setTimeout(() => {
               transport.injectMessage(
-                makeNotification(
+                makeSessionNotification(
                   SessionNotificationType.DROID_WORKING_STATE_CHANGED,
                   { newState: DroidWorkingState.StreamingAssistantMessage }
                 )
               );
               transport.injectMessage(
-                makeNotification(
+                makeSessionNotification(
                   SessionNotificationType.DROID_WORKING_STATE_CHANGED,
                   { newState: DroidWorkingState.Idle }
                 )
@@ -815,7 +682,7 @@ describe('query()', () => {
             }, 20);
           });
         }
-      };
+      });
 
       const q = query({
         prompt: 'Do something',

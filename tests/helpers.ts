@@ -1,36 +1,30 @@
-/**
- * Test helpers for the Factory Droid SDK.
- *
- * InMemoryTransport implements DroidClientTransport for use in unit tests
- * without spawning real processes. It captures sent messages and allows
- * injecting messages and errors for test control.
- */
-
+import {
+  DroidClientMethod,
+  DroidWorkingState,
+  FACTORY_PROTOCOL_VERSION,
+  JSONRPC_VERSION,
+  LEGACY_FACTORY_API_VERSION,
+  SessionNotificationType,
+  ToolConfirmationOutcome,
+} from '../src/schemas/index.js';
 import type {
   DroidClientTransport,
   ErrorCallback,
   MessageCallback,
 } from '../src/types.js';
 
-/**
- * In-memory transport mock for testing.
- *
- * Usage:
- * ```ts
- * const transport = new InMemoryTransport();
- * await transport.connect();
- *
- * transport.onMessage((msg) => { ... });
- * transport.onError((err) => { ... });
- *
- * transport.send({ jsonrpc: "2.0", ... }); // captured in sentMessages
- * transport.injectMessage({ ... });         // fires onMessage handler
- * transport.injectError(new Error("boom")); // fires onError handler
- * ```
- */
+export type JsonRpcTestMessage = Record<string, unknown>;
+
+export type TransportSendHandlerContext = {
+  message: JsonRpcTestMessage;
+  method: string;
+  id: string;
+  params: Record<string, unknown>;
+};
+
 export class InMemoryTransport implements DroidClientTransport {
   /** All messages passed to `send()`, in order. */
-  readonly sentMessages: Record<string, unknown>[] = [];
+  readonly sentMessages: JsonRpcTestMessage[] = [];
 
   private messageHandler: MessageCallback | null = null;
   private errorHandler: ErrorCallback | null = null;
@@ -44,7 +38,7 @@ export class InMemoryTransport implements DroidClientTransport {
     this._isConnected = true;
   }
 
-  send(message: Record<string, unknown>): void {
+  send(message: JsonRpcTestMessage): void {
     if (!this._isConnected) {
       throw new Error('InMemoryTransport is not connected');
     }
@@ -67,7 +61,7 @@ export class InMemoryTransport implements DroidClientTransport {
    * Inject a message as if it were received from the droid process.
    * Fires the registered `onMessage` handler.
    */
-  injectMessage(message: Record<string, unknown>): void {
+  injectMessage(message: JsonRpcTestMessage): void {
     if (this.messageHandler) {
       this.messageHandler(message);
     }
@@ -82,4 +76,202 @@ export class InMemoryTransport implements DroidClientTransport {
       this.errorHandler(error);
     }
   }
+}
+
+export function makeSuccessResponse(
+  id: string,
+  result: JsonRpcTestMessage = {}
+): JsonRpcTestMessage {
+  return {
+    jsonrpc: JSONRPC_VERSION,
+    factoryApiVersion: LEGACY_FACTORY_API_VERSION,
+    factoryProtocolVersion: FACTORY_PROTOCOL_VERSION,
+    type: 'response',
+    id,
+    result,
+  };
+}
+
+export function makeErrorResponse(
+  id: string | null,
+  code: number,
+  message: string,
+  data?: unknown
+): JsonRpcTestMessage {
+  const error: JsonRpcTestMessage = { code, message };
+  if (data !== undefined) {
+    error['data'] = data;
+  }
+
+  return {
+    jsonrpc: JSONRPC_VERSION,
+    factoryApiVersion: LEGACY_FACTORY_API_VERSION,
+    factoryProtocolVersion: FACTORY_PROTOCOL_VERSION,
+    type: 'response',
+    id,
+    error,
+  };
+}
+
+export function makeNotification(
+  method: string,
+  params: Record<string, unknown> = {}
+): JsonRpcTestMessage {
+  return {
+    jsonrpc: JSONRPC_VERSION,
+    factoryApiVersion: LEGACY_FACTORY_API_VERSION,
+    factoryProtocolVersion: FACTORY_PROTOCOL_VERSION,
+    type: 'notification',
+    method,
+    params,
+  };
+}
+
+export function makeSessionNotification(
+  notificationType: string,
+  payload: Record<string, unknown> = {}
+): JsonRpcTestMessage {
+  return makeNotification(DroidClientMethod.SESSION_NOTIFICATION, {
+    notification: {
+      type: notificationType,
+      ...payload,
+    },
+  });
+}
+
+export function makeServerRequest(
+  id: string,
+  method: string,
+  params: Record<string, unknown> = {}
+): JsonRpcTestMessage {
+  return {
+    jsonrpc: JSONRPC_VERSION,
+    factoryApiVersion: LEGACY_FACTORY_API_VERSION,
+    factoryProtocolVersion: FACTORY_PROTOCOL_VERSION,
+    type: 'request',
+    id,
+    method,
+    params,
+  };
+}
+
+export function makePermissionRequestParams(options: {
+  toolUseId: string;
+  toolName: string;
+  confirmationType: 'exec' | 'edit';
+  input?: Record<string, unknown>;
+  details: Record<string, unknown>;
+}): Record<string, unknown> {
+  return {
+    toolUses: [
+      {
+        toolUse: {
+          type: 'tool_use',
+          id: options.toolUseId,
+          name: options.toolName,
+          input: options.input ?? {},
+        },
+        confirmationType: options.confirmationType,
+        details: options.details,
+      },
+    ],
+    options: [
+      {
+        label: 'Proceed once',
+        value: ToolConfirmationOutcome.ProceedOnce,
+      },
+      {
+        label: 'Cancel',
+        value: ToolConfirmationOutcome.Cancel,
+      },
+    ],
+  };
+}
+
+export function getLastSentId(transport: InMemoryTransport): string {
+  const lastMessage = transport.sentMessages[
+    transport.sentMessages.length - 1
+  ] as JsonRpcTestMessage;
+  return lastMessage['id'] as string;
+}
+
+export function wireTransportSend(
+  transport: InMemoryTransport,
+  handler: (context: TransportSendHandlerContext) => void
+): void {
+  const originalSend = transport.send.bind(transport);
+  transport.send = (message: JsonRpcTestMessage) => {
+    originalSend(message);
+
+    const method = String(message['method'] ?? '');
+    const id = String(message['id'] ?? '');
+    const params = (message['params'] as Record<string, unknown>) ?? {};
+
+    handler({ message, method, id, params });
+  };
+}
+
+export function sendDefaultStreamSequence(
+  transport: InMemoryTransport,
+  options?: {
+    deltas?: string[];
+    messageId?: string;
+    tokenUsageSessionId?: string;
+    tokenUsage?: Record<string, unknown>;
+    initialState?: DroidWorkingState;
+    finalState?: DroidWorkingState;
+    includeTokenUsage?: boolean;
+  }
+): void {
+  const {
+    deltas = ['Hello', ' world'],
+    messageId = 'msg-1',
+    tokenUsageSessionId = 'default',
+    tokenUsage = {
+      inputTokens: 100,
+      outputTokens: 50,
+      cacheCreationTokens: 0,
+      cacheReadTokens: 10,
+      thinkingTokens: 5,
+    },
+    initialState = DroidWorkingState.StreamingAssistantMessage,
+    finalState = DroidWorkingState.Idle,
+    includeTokenUsage = true,
+  } = options ?? {};
+
+  transport.injectMessage(
+    makeSessionNotification(
+      SessionNotificationType.DROID_WORKING_STATE_CHANGED,
+      { newState: initialState }
+    )
+  );
+
+  for (const textDelta of deltas) {
+    transport.injectMessage(
+      makeSessionNotification(SessionNotificationType.ASSISTANT_TEXT_DELTA, {
+        messageId,
+        blockIndex: 0,
+        textDelta,
+      })
+    );
+  }
+
+  if (includeTokenUsage) {
+    transport.injectMessage(
+      makeSessionNotification(
+        SessionNotificationType.SESSION_TOKEN_USAGE_CHANGED,
+        {
+          sessionId: tokenUsageSessionId,
+          tokenUsage,
+        }
+      )
+    );
+  }
+
+  transport.injectMessage(
+    makeSessionNotification(
+      SessionNotificationType.DROID_WORKING_STATE_CHANGED,
+      { newState: finalState }
+    )
+  );
 }

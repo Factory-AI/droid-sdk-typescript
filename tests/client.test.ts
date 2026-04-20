@@ -17,130 +17,22 @@ import {
 import {
   DroidClientMethod,
   DroidServerMethod,
-  JsonRpcErrorCode,
-  FACTORY_PROTOCOL_VERSION,
   JSONRPC_VERSION,
-  LEGACY_FACTORY_API_VERSION,
+  JsonRpcErrorCode,
   SettingsLevel,
   McpServerType,
   SessionNotificationType,
   ToolConfirmationOutcome,
 } from '../src/schemas/index.js';
-import { InMemoryTransport } from './helpers.js';
-
-/** Build a JSON-RPC success response for a given request ID. */
-function makeSuccessResponse(
-  id: string,
-  result: Record<string, unknown> = {}
-): Record<string, unknown> {
-  return {
-    jsonrpc: JSONRPC_VERSION,
-    factoryApiVersion: LEGACY_FACTORY_API_VERSION,
-    factoryProtocolVersion: FACTORY_PROTOCOL_VERSION,
-    type: 'response',
-    id,
-    result,
-  };
-}
-
-/** Build a JSON-RPC error response. */
-function makeErrorResponse(
-  id: string | null,
-  code: number,
-  message: string,
-  data?: unknown
-): Record<string, unknown> {
-  const errorObj: Record<string, unknown> = { code, message };
-  if (data !== undefined) {
-    errorObj['data'] = data;
-  }
-  return {
-    jsonrpc: JSONRPC_VERSION,
-    factoryApiVersion: LEGACY_FACTORY_API_VERSION,
-    factoryProtocolVersion: FACTORY_PROTOCOL_VERSION,
-    type: 'response',
-    id,
-    error: errorObj,
-  };
-}
-
-/** Build a JSON-RPC notification. */
-function makeNotification(
-  notificationType: string,
-  payload: Record<string, unknown> = {}
-): Record<string, unknown> {
-  return {
-    jsonrpc: JSONRPC_VERSION,
-    factoryApiVersion: LEGACY_FACTORY_API_VERSION,
-    factoryProtocolVersion: FACTORY_PROTOCOL_VERSION,
-    type: 'notification',
-    method: DroidClientMethod.SESSION_NOTIFICATION,
-    params: {
-      notification: {
-        type: notificationType,
-        ...payload,
-      },
-    },
-  };
-}
-
-/** Build a server→client request. */
-function makeServerRequest(
-  id: string,
-  method: string,
-  params: Record<string, unknown>
-): Record<string, unknown> {
-  return {
-    jsonrpc: JSONRPC_VERSION,
-    factoryApiVersion: LEGACY_FACTORY_API_VERSION,
-    factoryProtocolVersion: FACTORY_PROTOCOL_VERSION,
-    type: 'request',
-    id,
-    method,
-    params,
-  };
-}
-
-function makePermissionRequestParams(options: {
-  toolUseId: string;
-  toolName: string;
-  confirmationType: 'exec' | 'edit';
-  input?: Record<string, unknown>;
-  details: Record<string, unknown>;
-}): Record<string, unknown> {
-  return {
-    toolUses: [
-      {
-        toolUse: {
-          type: 'tool_use',
-          id: options.toolUseId,
-          name: options.toolName,
-          input: options.input ?? {},
-        },
-        confirmationType: options.confirmationType,
-        details: options.details,
-      },
-    ],
-    options: [
-      {
-        label: 'Proceed once',
-        value: ToolConfirmationOutcome.ProceedOnce,
-      },
-      {
-        label: 'Cancel',
-        value: ToolConfirmationOutcome.Cancel,
-      },
-    ],
-  };
-}
-
-/** Extract the request ID from the last sent message. */
-function getLastSentId(transport: InMemoryTransport): string {
-  const lastMsg = transport.sentMessages[
-    transport.sentMessages.length - 1
-  ] as Record<string, unknown>;
-  return lastMsg['id'] as string;
-}
+import {
+  getLastSentId,
+  InMemoryTransport,
+  makeErrorResponse,
+  makePermissionRequestParams,
+  makeServerRequest,
+  makeSessionNotification,
+  makeSuccessResponse,
+} from './helpers.js';
 
 /** Create a DroidClient + InMemoryTransport pair, pre-connected. */
 async function createTestClient(): Promise<{
@@ -1025,12 +917,12 @@ describe('DroidClient', () => {
       client.onNotification((n) => received.push(n));
 
       transport.injectMessage(
-        makeNotification(SessionNotificationType.ASSISTANT_TEXT_DELTA, {
+        makeSessionNotification(SessionNotificationType.ASSISTANT_TEXT_DELTA, {
           text: 'Hello',
         })
       );
       transport.injectMessage(
-        makeNotification(SessionNotificationType.TOOL_RESULT, {
+        makeSessionNotification(SessionNotificationType.TOOL_RESULT, {
           toolName: 'edit',
         })
       );
@@ -1045,14 +937,14 @@ describe('DroidClient', () => {
       });
 
       transport.injectMessage(
-        makeNotification(SessionNotificationType.ASSISTANT_TEXT_DELTA, {
+        makeSessionNotification(SessionNotificationType.ASSISTANT_TEXT_DELTA, {
           messageId: 'msg-1',
           blockIndex: 0,
           textDelta: 'Hello',
         })
       );
       transport.injectMessage(
-        makeNotification(SessionNotificationType.TOOL_RESULT, {
+        makeSessionNotification(SessionNotificationType.TOOL_RESULT, {
           messageId: 'msg-1',
           toolUseId: 'tu-1',
           content: 'done',
@@ -1060,7 +952,7 @@ describe('DroidClient', () => {
         })
       );
       transport.injectMessage(
-        makeNotification(SessionNotificationType.ASSISTANT_TEXT_DELTA, {
+        makeSessionNotification(SessionNotificationType.ASSISTANT_TEXT_DELTA, {
           messageId: 'msg-1',
           blockIndex: 0,
           textDelta: ' World',
@@ -1077,7 +969,7 @@ describe('DroidClient', () => {
       });
 
       transport.injectMessage(
-        makeNotification(SessionNotificationType.ASSISTANT_TEXT_DELTA, {
+        makeSessionNotification(SessionNotificationType.ASSISTANT_TEXT_DELTA, {
           text: 'Hello',
         })
       );
@@ -1092,7 +984,7 @@ describe('DroidClient', () => {
       const unsubscribe = client.onNotification((n) => received.push(n));
 
       transport.injectMessage(
-        makeNotification(SessionNotificationType.ASSISTANT_TEXT_DELTA, {
+        makeSessionNotification(SessionNotificationType.ASSISTANT_TEXT_DELTA, {
           text: 'Before',
         })
       );
@@ -1101,7 +993,7 @@ describe('DroidClient', () => {
       unsubscribe();
 
       transport.injectMessage(
-        makeNotification(SessionNotificationType.ASSISTANT_TEXT_DELTA, {
+        makeSessionNotification(SessionNotificationType.ASSISTANT_TEXT_DELTA, {
           text: 'After',
         })
       );
@@ -1720,7 +1612,7 @@ describe('DroidClient', () => {
       client.onNotification(goodListener);
 
       transport.injectMessage(
-        makeNotification(SessionNotificationType.ASSISTANT_TEXT_DELTA, {
+        makeSessionNotification(SessionNotificationType.ASSISTANT_TEXT_DELTA, {
           text: 'Hello',
         })
       );
@@ -1747,7 +1639,7 @@ describe('DroidClient', () => {
       client.onNotification(listener2);
 
       transport.injectMessage(
-        makeNotification(SessionNotificationType.ASSISTANT_TEXT_DELTA, {
+        makeSessionNotification(SessionNotificationType.ASSISTANT_TEXT_DELTA, {
           text: 'Hello',
         })
       );
@@ -1767,7 +1659,7 @@ describe('DroidClient', () => {
       client.onNotification(listener2);
 
       transport.injectMessage(
-        makeNotification(SessionNotificationType.ASSISTANT_TEXT_DELTA, {
+        makeSessionNotification(SessionNotificationType.ASSISTANT_TEXT_DELTA, {
           text: 'Hello',
         })
       );
@@ -1776,7 +1668,7 @@ describe('DroidClient', () => {
       expect(listener2).toHaveBeenCalledOnce();
 
       transport.injectMessage(
-        makeNotification(SessionNotificationType.ASSISTANT_TEXT_DELTA, {
+        makeSessionNotification(SessionNotificationType.ASSISTANT_TEXT_DELTA, {
           text: 'World',
         })
       );

@@ -17,81 +17,19 @@ import {
 import { ProtocolEngine } from '../src/protocol.js';
 import {
   DroidClientMethod,
-  JsonRpcErrorCode,
   FACTORY_PROTOCOL_VERSION,
   JSONRPC_VERSION,
+  JsonRpcErrorCode,
   LEGACY_FACTORY_API_VERSION,
   ToolConfirmationOutcome,
 } from '../src/schemas/index.js';
-import { InMemoryTransport } from './helpers.js';
-
-/** Build a JSON-RPC success response for a given request ID. */
-function makeSuccessResponse(
-  id: string,
-  result: Record<string, unknown> = {}
-): Record<string, unknown> {
-  return {
-    jsonrpc: JSONRPC_VERSION,
-    factoryApiVersion: LEGACY_FACTORY_API_VERSION,
-    factoryProtocolVersion: FACTORY_PROTOCOL_VERSION,
-    type: 'response',
-    id,
-    result,
-  };
-}
-
-/** Build a JSON-RPC error response. */
-function makeErrorResponse(
-  id: string | null,
-  code: number,
-  message: string,
-  data?: unknown
-): Record<string, unknown> {
-  const errorObj: Record<string, unknown> = { code, message };
-  if (data !== undefined) {
-    errorObj['data'] = data;
-  }
-  return {
-    jsonrpc: JSONRPC_VERSION,
-    factoryApiVersion: LEGACY_FACTORY_API_VERSION,
-    factoryProtocolVersion: FACTORY_PROTOCOL_VERSION,
-    type: 'response',
-    id,
-    error: errorObj,
-  };
-}
-
-/** Build a JSON-RPC notification. */
-function makeNotification(
-  method: string,
-  params: Record<string, unknown>
-): Record<string, unknown> {
-  return {
-    jsonrpc: JSONRPC_VERSION,
-    factoryApiVersion: LEGACY_FACTORY_API_VERSION,
-    factoryProtocolVersion: FACTORY_PROTOCOL_VERSION,
-    type: 'notification',
-    method,
-    params,
-  };
-}
-
-/** Build a server→client request. */
-function makeServerRequest(
-  id: string,
-  method: string,
-  params: Record<string, unknown>
-): Record<string, unknown> {
-  return {
-    jsonrpc: JSONRPC_VERSION,
-    factoryApiVersion: LEGACY_FACTORY_API_VERSION,
-    factoryProtocolVersion: FACTORY_PROTOCOL_VERSION,
-    type: 'request',
-    id,
-    method,
-    params,
-  };
-}
+import {
+  InMemoryTransport,
+  makeErrorResponse,
+  makeNotification,
+  makeServerRequest,
+  makeSuccessResponse,
+} from './helpers.js';
 
 describe('ProtocolEngine', () => {
   let transport: InMemoryTransport;

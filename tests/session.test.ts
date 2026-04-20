@@ -12,14 +12,10 @@ import { SDK_TAG } from '../src/constants.js';
 import { ConnectionError, SessionNotFoundError } from '../src/errors.js';
 import {
   AutonomyLevel,
-  DroidClientMethod,
   DroidInteractionMode,
   DroidServerMethod,
   DroidWorkingState,
-  FACTORY_PROTOCOL_VERSION,
   JsonRpcErrorCode,
-  JSONRPC_VERSION,
-  LEGACY_FACTORY_API_VERSION,
   McpServerType,
   ReasoningEffort,
   SessionNotificationType,
@@ -28,55 +24,14 @@ import {
 import { createSession, resumeSession, DroidSession } from '../src/session.js';
 import type { DroidResult } from '../src/session.js';
 import type { DroidMessage } from '../src/stream.js';
-import { InMemoryTransport } from './helpers.js';
-
-function makeSuccessResponse(
-  id: string,
-  result: Record<string, unknown> = {}
-): Record<string, unknown> {
-  return {
-    jsonrpc: JSONRPC_VERSION,
-    factoryApiVersion: LEGACY_FACTORY_API_VERSION,
-    factoryProtocolVersion: FACTORY_PROTOCOL_VERSION,
-    type: 'response',
-    id,
-    result,
-  };
-}
-
-function makeErrorResponse(
-  id: string,
-  code: number,
-  message: string
-): Record<string, unknown> {
-  return {
-    jsonrpc: JSONRPC_VERSION,
-    factoryApiVersion: LEGACY_FACTORY_API_VERSION,
-    factoryProtocolVersion: FACTORY_PROTOCOL_VERSION,
-    type: 'response',
-    id,
-    error: { code, message },
-  };
-}
-
-function makeNotification(
-  notificationType: string,
-  payload: Record<string, unknown> = {}
-): Record<string, unknown> {
-  return {
-    jsonrpc: JSONRPC_VERSION,
-    factoryApiVersion: LEGACY_FACTORY_API_VERSION,
-    factoryProtocolVersion: FACTORY_PROTOCOL_VERSION,
-    type: 'notification',
-    method: DroidClientMethod.SESSION_NOTIFICATION,
-    params: {
-      notification: {
-        type: notificationType,
-        ...payload,
-      },
-    },
-  };
-}
+import {
+  InMemoryTransport,
+  makeErrorResponse,
+  makeSessionNotification,
+  makeSuccessResponse,
+  sendDefaultStreamSequence,
+  wireTransportSend,
+} from './helpers.js';
 
 /**
  * Set up transport to auto-respond to initializeSession.
@@ -86,13 +41,7 @@ function setupInitResponder(
   transport: InMemoryTransport,
   sessionId: string
 ): void {
-  const originalSend = transport.send.bind(transport);
-  transport.send = (message: Record<string, unknown>) => {
-    originalSend(message);
-    const msg = message as Record<string, unknown>;
-    const method = msg['method'] as string;
-    const id = msg['id'] as string;
-
+  wireTransportSend(transport, ({ method, id }) => {
     if (method === DroidServerMethod.INITIALIZE_SESSION) {
       queueMicrotask(() => {
         transport.injectMessage(
@@ -105,7 +54,7 @@ function setupInitResponder(
         );
       });
     }
-  };
+  });
 }
 
 /**
@@ -115,13 +64,7 @@ function setupLoadResponder(
   transport: InMemoryTransport,
   sessionId: string
 ): void {
-  const originalSend = transport.send.bind(transport);
-  transport.send = (message: Record<string, unknown>) => {
-    originalSend(message);
-    const msg = message as Record<string, unknown>;
-    const method = msg['method'] as string;
-    const id = msg['id'] as string;
-
+  wireTransportSend(transport, ({ method, id }) => {
     if (method === DroidServerMethod.LOAD_SESSION) {
       queueMicrotask(() => {
         transport.injectMessage(
@@ -132,7 +75,7 @@ function setupLoadResponder(
         );
       });
     }
-  };
+  });
 }
 
 /**
@@ -144,13 +87,7 @@ function setupFullResponder(
   sessionId: string,
   responseMethods?: Record<string, (id: string) => void>
 ): void {
-  const originalSend = transport.send.bind(transport);
-  transport.send = (message: Record<string, unknown>) => {
-    originalSend(message);
-    const msg = message as Record<string, unknown>;
-    const method = msg['method'] as string;
-    const id = msg['id'] as string;
-
+  wireTransportSend(transport, ({ method, id }) => {
     if (responseMethods && responseMethods[method]) {
       responseMethods[method](id);
       return;
@@ -178,44 +115,10 @@ function setupFullResponder(
     } else if (method === DroidServerMethod.ADD_USER_MESSAGE) {
       queueMicrotask(() => {
         transport.injectMessage(makeSuccessResponse(id, {}));
-
-        transport.injectMessage(
-          makeNotification(
-            SessionNotificationType.DROID_WORKING_STATE_CHANGED,
-            { newState: DroidWorkingState.StreamingAssistantMessage }
-          )
-        );
-
-        transport.injectMessage(
-          makeNotification(SessionNotificationType.ASSISTANT_TEXT_DELTA, {
-            messageId: 'msg-1',
-            blockIndex: 0,
-            textDelta: 'Hello world',
-          })
-        );
-
-        transport.injectMessage(
-          makeNotification(
-            SessionNotificationType.SESSION_TOKEN_USAGE_CHANGED,
-            {
-              sessionId,
-              tokenUsage: {
-                inputTokens: 100,
-                outputTokens: 50,
-                cacheCreationTokens: 0,
-                cacheReadTokens: 10,
-                thinkingTokens: 5,
-              },
-            }
-          )
-        );
-
-        transport.injectMessage(
-          makeNotification(
-            SessionNotificationType.DROID_WORKING_STATE_CHANGED,
-            { newState: DroidWorkingState.Idle }
-          )
-        );
+        sendDefaultStreamSequence(transport, {
+          deltas: ['Hello world'],
+          tokenUsageSessionId: sessionId,
+        });
       });
     } else if (method === DroidServerMethod.INTERRUPT_SESSION) {
       queueMicrotask(() => {
@@ -259,7 +162,7 @@ function setupFullResponder(
         }
       });
     }
-  };
+  });
 }
 
 describe('createSession()', () => {
@@ -516,36 +419,45 @@ describe('DroidSession', () => {
             transport.injectMessage(makeSuccessResponse(id, {}));
 
             transport.injectMessage(
-              makeNotification(
+              makeSessionNotification(
                 SessionNotificationType.DROID_WORKING_STATE_CHANGED,
                 { newState: DroidWorkingState.StreamingAssistantMessage }
               )
             );
 
             transport.injectMessage(
-              makeNotification(SessionNotificationType.ASSISTANT_TEXT_DELTA, {
-                messageId: 'msg-1',
-                blockIndex: 0,
-                textDelta: 'Hello ',
-              })
+              makeSessionNotification(
+                SessionNotificationType.ASSISTANT_TEXT_DELTA,
+                {
+                  messageId: 'msg-1',
+                  blockIndex: 0,
+                  textDelta: 'Hello ',
+                }
+              )
             );
             transport.injectMessage(
-              makeNotification(SessionNotificationType.ASSISTANT_TEXT_DELTA, {
-                messageId: 'msg-1',
-                blockIndex: 0,
-                textDelta: 'beautiful ',
-              })
+              makeSessionNotification(
+                SessionNotificationType.ASSISTANT_TEXT_DELTA,
+                {
+                  messageId: 'msg-1',
+                  blockIndex: 0,
+                  textDelta: 'beautiful ',
+                }
+              )
             );
             transport.injectMessage(
-              makeNotification(SessionNotificationType.ASSISTANT_TEXT_DELTA, {
-                messageId: 'msg-1',
-                blockIndex: 0,
-                textDelta: 'world!',
-              })
+              makeSessionNotification(
+                SessionNotificationType.ASSISTANT_TEXT_DELTA,
+                {
+                  messageId: 'msg-1',
+                  blockIndex: 0,
+                  textDelta: 'world!',
+                }
+              )
             );
 
             transport.injectMessage(
-              makeNotification(
+              makeSessionNotification(
                 SessionNotificationType.DROID_WORKING_STATE_CHANGED,
                 { newState: DroidWorkingState.Idle }
               )
@@ -852,20 +764,23 @@ describe('DroidSession', () => {
             transport.injectMessage(makeSuccessResponse(id, {}));
 
             transport.injectMessage(
-              makeNotification(
+              makeSessionNotification(
                 SessionNotificationType.DROID_WORKING_STATE_CHANGED,
                 { newState: DroidWorkingState.StreamingAssistantMessage }
               )
             );
             transport.injectMessage(
-              makeNotification(SessionNotificationType.ASSISTANT_TEXT_DELTA, {
-                messageId: 'msg-1',
-                blockIndex: 0,
-                textDelta: 'Hi',
-              })
+              makeSessionNotification(
+                SessionNotificationType.ASSISTANT_TEXT_DELTA,
+                {
+                  messageId: 'msg-1',
+                  blockIndex: 0,
+                  textDelta: 'Hi',
+                }
+              )
             );
             transport.injectMessage(
-              makeNotification(
+              makeSessionNotification(
                 SessionNotificationType.DROID_WORKING_STATE_CHANGED,
                 { newState: DroidWorkingState.Idle }
               )
@@ -1122,7 +1037,7 @@ describe('DroidSession', () => {
       });
 
       transport.injectMessage(
-        makeNotification(SessionNotificationType.SESSION_TITLE_UPDATED, {
+        makeSessionNotification(SessionNotificationType.SESSION_TITLE_UPDATED, {
           title: 'New Title',
         })
       );
@@ -1134,7 +1049,7 @@ describe('DroidSession', () => {
       unsub();
 
       transport.injectMessage(
-        makeNotification(SessionNotificationType.SESSION_TITLE_UPDATED, {
+        makeSessionNotification(SessionNotificationType.SESSION_TITLE_UPDATED, {
           title: 'Another Title',
         })
       );
@@ -1173,22 +1088,25 @@ describe('DroidSession', () => {
             transport.injectMessage(makeSuccessResponse(id, {}));
 
             transport.injectMessage(
-              makeNotification(
+              makeSessionNotification(
                 SessionNotificationType.DROID_WORKING_STATE_CHANGED,
                 { newState: DroidWorkingState.StreamingAssistantMessage }
               )
             );
 
             transport.injectMessage(
-              makeNotification(SessionNotificationType.ASSISTANT_TEXT_DELTA, {
-                messageId: 'msg-1',
-                blockIndex: 0,
-                textDelta: 'Hello',
-              })
+              makeSessionNotification(
+                SessionNotificationType.ASSISTANT_TEXT_DELTA,
+                {
+                  messageId: 'msg-1',
+                  blockIndex: 0,
+                  textDelta: 'Hello',
+                }
+              )
             );
 
             transport.injectMessage(
-              makeNotification(
+              makeSessionNotification(
                 SessionNotificationType.DROID_WORKING_STATE_CHANGED,
                 { newState: DroidWorkingState.Idle }
               )
@@ -1245,22 +1163,25 @@ describe('DroidSession', () => {
             transport.injectMessage(makeSuccessResponse(id, {}));
 
             transport.injectMessage(
-              makeNotification(
+              makeSessionNotification(
                 SessionNotificationType.DROID_WORKING_STATE_CHANGED,
                 { newState: DroidWorkingState.StreamingAssistantMessage }
               )
             );
 
             transport.injectMessage(
-              makeNotification(SessionNotificationType.ASSISTANT_TEXT_DELTA, {
-                messageId: `msg-${callIndex}`,
-                blockIndex: 0,
-                textDelta: `Response ${callIndex}`,
-              })
+              makeSessionNotification(
+                SessionNotificationType.ASSISTANT_TEXT_DELTA,
+                {
+                  messageId: `msg-${callIndex}`,
+                  blockIndex: 0,
+                  textDelta: `Response ${callIndex}`,
+                }
+              )
             );
 
             transport.injectMessage(
-              makeNotification(
+              makeSessionNotification(
                 SessionNotificationType.DROID_WORKING_STATE_CHANGED,
                 { newState: DroidWorkingState.Idle }
               )
@@ -1401,22 +1322,25 @@ describe('DroidSession', () => {
             transport.injectMessage(makeSuccessResponse(id, {}));
 
             transport.injectMessage(
-              makeNotification(
+              makeSessionNotification(
                 SessionNotificationType.DROID_WORKING_STATE_CHANGED,
                 { newState: DroidWorkingState.StreamingAssistantMessage }
               )
             );
 
             transport.injectMessage(
-              makeNotification(SessionNotificationType.ASSISTANT_TEXT_DELTA, {
-                messageId: `msg-${currentTurn}`,
-                blockIndex: 0,
-                textDelta: `Turn ${currentTurn}`,
-              })
+              makeSessionNotification(
+                SessionNotificationType.ASSISTANT_TEXT_DELTA,
+                {
+                  messageId: `msg-${currentTurn}`,
+                  blockIndex: 0,
+                  textDelta: `Turn ${currentTurn}`,
+                }
+              )
             );
 
             transport.injectMessage(
-              makeNotification(
+              makeSessionNotification(
                 SessionNotificationType.SESSION_TOKEN_USAGE_CHANGED,
                 {
                   sessionId: 'sess-token-iso',
@@ -1432,7 +1356,7 @@ describe('DroidSession', () => {
             );
 
             transport.injectMessage(
-              makeNotification(
+              makeSessionNotification(
                 SessionNotificationType.DROID_WORKING_STATE_CHANGED,
                 { newState: DroidWorkingState.Idle }
               )
@@ -1606,22 +1530,25 @@ describe('DroidSession', () => {
               transport.injectMessage(makeSuccessResponse(id, {}));
 
               transport.injectMessage(
-                makeNotification(
+                makeSessionNotification(
                   SessionNotificationType.DROID_WORKING_STATE_CHANGED,
                   { newState: DroidWorkingState.StreamingAssistantMessage }
                 )
               );
 
               transport.injectMessage(
-                makeNotification(SessionNotificationType.ASSISTANT_TEXT_DELTA, {
-                  messageId: 'msg-2',
-                  blockIndex: 0,
-                  textDelta: 'Recovered',
-                })
+                makeSessionNotification(
+                  SessionNotificationType.ASSISTANT_TEXT_DELTA,
+                  {
+                    messageId: 'msg-2',
+                    blockIndex: 0,
+                    textDelta: 'Recovered',
+                  }
+                )
               );
 
               transport.injectMessage(
-                makeNotification(
+                makeSessionNotification(
                   SessionNotificationType.DROID_WORKING_STATE_CHANGED,
                   { newState: DroidWorkingState.Idle }
                 )

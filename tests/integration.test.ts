@@ -23,9 +23,6 @@ import {
   DroidClientMethod,
   DroidServerMethod,
   DroidWorkingState,
-  FACTORY_PROTOCOL_VERSION,
-  JSONRPC_VERSION,
-  LEGACY_FACTORY_API_VERSION,
   SessionNotificationType,
   ToolConfirmationOutcome,
 } from '../src/schemas/index.js';
@@ -35,89 +32,15 @@ import type {
 } from '../src/schemas/index.js';
 import { createSession, resumeSession } from '../src/session.js';
 import type { DroidMessage } from '../src/stream.js';
-import { InMemoryTransport } from './helpers.js';
-
-function makeSuccessResponse(
-  id: string,
-  result: Record<string, unknown> = {}
-): Record<string, unknown> {
-  return {
-    jsonrpc: JSONRPC_VERSION,
-    factoryApiVersion: LEGACY_FACTORY_API_VERSION,
-    factoryProtocolVersion: FACTORY_PROTOCOL_VERSION,
-    type: 'response',
-    id,
-    result,
-  };
-}
-
-function makeNotification(
-  notificationType: string,
-  payload: Record<string, unknown> = {}
-): Record<string, unknown> {
-  return {
-    jsonrpc: JSONRPC_VERSION,
-    factoryApiVersion: LEGACY_FACTORY_API_VERSION,
-    factoryProtocolVersion: FACTORY_PROTOCOL_VERSION,
-    type: 'notification',
-    method: DroidClientMethod.SESSION_NOTIFICATION,
-    params: {
-      notification: {
-        type: notificationType,
-        ...payload,
-      },
-    },
-  };
-}
-
-function makeServerRequest(
-  id: string,
-  method: string,
-  params: Record<string, unknown> = {}
-): Record<string, unknown> {
-  return {
-    jsonrpc: JSONRPC_VERSION,
-    factoryApiVersion: LEGACY_FACTORY_API_VERSION,
-    factoryProtocolVersion: FACTORY_PROTOCOL_VERSION,
-    type: 'request',
-    id,
-    method,
-    params,
-  };
-}
-
-function makePermissionRequestParams(options: {
-  toolUseId: string;
-  toolName: string;
-  confirmationType: 'exec' | 'edit';
-  input?: Record<string, unknown>;
-  details: Record<string, unknown>;
-}): Record<string, unknown> {
-  return {
-    toolUses: [
-      {
-        toolUse: {
-          type: 'tool_use',
-          id: options.toolUseId,
-          name: options.toolName,
-          input: options.input ?? {},
-        },
-        confirmationType: options.confirmationType,
-        details: options.details,
-      },
-    ],
-    options: [
-      {
-        label: 'Proceed once',
-        value: ToolConfirmationOutcome.ProceedOnce,
-      },
-      {
-        label: 'Cancel',
-        value: ToolConfirmationOutcome.Cancel,
-      },
-    ],
-  };
-}
+import {
+  InMemoryTransport,
+  makePermissionRequestParams,
+  makeServerRequest,
+  makeSessionNotification,
+  makeSuccessResponse,
+  sendDefaultStreamSequence,
+  wireTransportSend,
+} from './helpers.js';
 
 /**
  * Wire up an InMemoryTransport to intercept send() calls and auto-respond
@@ -140,15 +63,7 @@ function wireTransport(
     (id: string, params: Record<string, unknown>) => void
   >
 ): void {
-  const originalSend = transport.send.bind(transport);
-
-  transport.send = (message: Record<string, unknown>) => {
-    originalSend(message);
-    const msg = message as Record<string, unknown>;
-    const method = msg['method'] as string;
-    const id = msg['id'] as string;
-    const params = (msg['params'] as Record<string, unknown>) ?? {};
-
+  wireTransportSend(transport, ({ method, id, params }) => {
     if (overrides?.[method]) {
       overrides[method](id, params);
       return;
@@ -203,58 +118,7 @@ function wireTransport(
         });
         break;
     }
-  };
-}
-
-/**
- * Emit the default streaming sequence:
- *   working_state → StreamingAssistantMessage
- *   assistant_text_delta("Hello")
- *   assistant_text_delta(" world")
- *   token_usage_update
- *   working_state → Idle   (triggers TurnComplete)
- */
-function sendDefaultStreamSequence(transport: InMemoryTransport): void {
-  transport.injectMessage(
-    makeNotification(SessionNotificationType.DROID_WORKING_STATE_CHANGED, {
-      newState: DroidWorkingState.StreamingAssistantMessage,
-    })
-  );
-
-  transport.injectMessage(
-    makeNotification(SessionNotificationType.ASSISTANT_TEXT_DELTA, {
-      messageId: 'msg-1',
-      blockIndex: 0,
-      textDelta: 'Hello',
-    })
-  );
-
-  transport.injectMessage(
-    makeNotification(SessionNotificationType.ASSISTANT_TEXT_DELTA, {
-      messageId: 'msg-1',
-      blockIndex: 0,
-      textDelta: ' world',
-    })
-  );
-
-  transport.injectMessage(
-    makeNotification(SessionNotificationType.SESSION_TOKEN_USAGE_CHANGED, {
-      sessionId: 'default',
-      tokenUsage: {
-        inputTokens: 100,
-        outputTokens: 50,
-        cacheCreationTokens: 0,
-        cacheReadTokens: 10,
-        thinkingTokens: 5,
-      },
-    })
-  );
-
-  transport.injectMessage(
-    makeNotification(SessionNotificationType.DROID_WORKING_STATE_CHANGED, {
-      newState: DroidWorkingState.Idle,
-    })
-  );
+  });
 }
 
 describe('Full query lifecycle (VAL-CROSS-001)', () => {
@@ -268,22 +132,25 @@ describe('Full query lifecycle (VAL-CROSS-001)', () => {
           transport.injectMessage(makeSuccessResponse(id, {}));
 
           transport.injectMessage(
-            makeNotification(
+            makeSessionNotification(
               SessionNotificationType.DROID_WORKING_STATE_CHANGED,
               { newState: DroidWorkingState.StreamingAssistantMessage }
             )
           );
 
           transport.injectMessage(
-            makeNotification(SessionNotificationType.ASSISTANT_TEXT_DELTA, {
-              messageId: 'msg-1',
-              blockIndex: 0,
-              textDelta: 'Let me check that.',
-            })
+            makeSessionNotification(
+              SessionNotificationType.ASSISTANT_TEXT_DELTA,
+              {
+                messageId: 'msg-1',
+                blockIndex: 0,
+                textDelta: 'Let me check that.',
+              }
+            )
           );
 
           transport.injectMessage(
-            makeNotification(SessionNotificationType.CREATE_MESSAGE, {
+            makeSessionNotification(SessionNotificationType.CREATE_MESSAGE, {
               message: {
                 id: 'msg-2',
                 role: 'assistant',
@@ -302,14 +169,14 @@ describe('Full query lifecycle (VAL-CROSS-001)', () => {
           );
 
           transport.injectMessage(
-            makeNotification(
+            makeSessionNotification(
               SessionNotificationType.DROID_WORKING_STATE_CHANGED,
               { newState: DroidWorkingState.ExecutingTool }
             )
           );
 
           transport.injectMessage(
-            makeNotification(SessionNotificationType.TOOL_RESULT, {
+            makeSessionNotification(SessionNotificationType.TOOL_RESULT, {
               messageId: 'msg-2',
               toolUseId: 'tu-1',
               content: 'file contents here',
@@ -318,22 +185,25 @@ describe('Full query lifecycle (VAL-CROSS-001)', () => {
           );
 
           transport.injectMessage(
-            makeNotification(
+            makeSessionNotification(
               SessionNotificationType.DROID_WORKING_STATE_CHANGED,
               { newState: DroidWorkingState.StreamingAssistantMessage }
             )
           );
 
           transport.injectMessage(
-            makeNotification(SessionNotificationType.ASSISTANT_TEXT_DELTA, {
-              messageId: 'msg-3',
-              blockIndex: 0,
-              textDelta: 'Done!',
-            })
+            makeSessionNotification(
+              SessionNotificationType.ASSISTANT_TEXT_DELTA,
+              {
+                messageId: 'msg-3',
+                blockIndex: 0,
+                textDelta: 'Done!',
+              }
+            )
           );
 
           transport.injectMessage(
-            makeNotification(
+            makeSessionNotification(
               SessionNotificationType.SESSION_TOKEN_USAGE_CHANGED,
               {
                 sessionId: 'sess-all-msg',
@@ -349,7 +219,7 @@ describe('Full query lifecycle (VAL-CROSS-001)', () => {
           );
 
           transport.injectMessage(
-            makeNotification(
+            makeSessionNotification(
               SessionNotificationType.DROID_WORKING_STATE_CHANGED,
               { newState: DroidWorkingState.Idle }
             )
@@ -455,22 +325,25 @@ describe('Full session lifecycle (VAL-CROSS-002)', () => {
           transport.injectMessage(makeSuccessResponse(id, {}));
 
           transport.injectMessage(
-            makeNotification(
+            makeSessionNotification(
               SessionNotificationType.DROID_WORKING_STATE_CHANGED,
               { newState: DroidWorkingState.StreamingAssistantMessage }
             )
           );
 
           transport.injectMessage(
-            makeNotification(SessionNotificationType.ASSISTANT_TEXT_DELTA, {
-              messageId: `msg-turn-${turnIndex}`,
-              blockIndex: 0,
-              textDelta: `Response to turn ${turnIndex}`,
-            })
+            makeSessionNotification(
+              SessionNotificationType.ASSISTANT_TEXT_DELTA,
+              {
+                messageId: `msg-turn-${turnIndex}`,
+                blockIndex: 0,
+                textDelta: `Response to turn ${turnIndex}`,
+              }
+            )
           );
 
           transport.injectMessage(
-            makeNotification(
+            makeSessionNotification(
               SessionNotificationType.SESSION_TOKEN_USAGE_CHANGED,
               {
                 sessionId: 'sess-multi',
@@ -486,7 +359,7 @@ describe('Full session lifecycle (VAL-CROSS-002)', () => {
           );
 
           transport.injectMessage(
-            makeNotification(
+            makeSessionNotification(
               SessionNotificationType.DROID_WORKING_STATE_CHANGED,
               { newState: DroidWorkingState.Idle }
             )
@@ -569,22 +442,25 @@ describe('Full session lifecycle (VAL-CROSS-002)', () => {
           transport.injectMessage(makeSuccessResponse(id, {}));
 
           transport.injectMessage(
-            makeNotification(
+            makeSessionNotification(
               SessionNotificationType.DROID_WORKING_STATE_CHANGED,
               { newState: DroidWorkingState.StreamingAssistantMessage }
             )
           );
 
           transport.injectMessage(
-            makeNotification(SessionNotificationType.ASSISTANT_TEXT_DELTA, {
-              messageId: `msg-${currentTurn}`,
-              blockIndex: 0,
-              textDelta: `Turn ${currentTurn}`,
-            })
+            makeSessionNotification(
+              SessionNotificationType.ASSISTANT_TEXT_DELTA,
+              {
+                messageId: `msg-${currentTurn}`,
+                blockIndex: 0,
+                textDelta: `Turn ${currentTurn}`,
+              }
+            )
           );
 
           transport.injectMessage(
-            makeNotification(
+            makeSessionNotification(
               SessionNotificationType.DROID_WORKING_STATE_CHANGED,
               { newState: DroidWorkingState.Idle }
             )
@@ -641,20 +517,23 @@ describe('Full session lifecycle (VAL-CROSS-002)', () => {
           transport.injectMessage(makeSuccessResponse(id, {}));
 
           transport.injectMessage(
-            makeNotification(
+            makeSessionNotification(
               SessionNotificationType.DROID_WORKING_STATE_CHANGED,
               { newState: DroidWorkingState.StreamingAssistantMessage }
             )
           );
           transport.injectMessage(
-            makeNotification(SessionNotificationType.ASSISTANT_TEXT_DELTA, {
-              messageId: 'msg-resume',
-              blockIndex: 0,
-              textDelta: 'Resumed response',
-            })
+            makeSessionNotification(
+              SessionNotificationType.ASSISTANT_TEXT_DELTA,
+              {
+                messageId: 'msg-resume',
+                blockIndex: 0,
+                textDelta: 'Resumed response',
+              }
+            )
           );
           transport.injectMessage(
-            makeNotification(
+            makeSessionNotification(
               SessionNotificationType.DROID_WORKING_STATE_CHANGED,
               { newState: DroidWorkingState.Idle }
             )
@@ -693,18 +572,21 @@ describe('Permission handler integration (VAL-CROSS-003)', () => {
           transport.injectMessage(makeSuccessResponse(id, {}));
 
           transport.injectMessage(
-            makeNotification(
+            makeSessionNotification(
               SessionNotificationType.DROID_WORKING_STATE_CHANGED,
               { newState: DroidWorkingState.StreamingAssistantMessage }
             )
           );
 
           transport.injectMessage(
-            makeNotification(SessionNotificationType.ASSISTANT_TEXT_DELTA, {
-              messageId: 'msg-1',
-              blockIndex: 0,
-              textDelta: 'I need to run a command.',
-            })
+            makeSessionNotification(
+              SessionNotificationType.ASSISTANT_TEXT_DELTA,
+              {
+                messageId: 'msg-1',
+                blockIndex: 0,
+                textDelta: 'I need to run a command.',
+              }
+            )
           );
 
           transport.injectMessage(
@@ -727,14 +609,14 @@ describe('Permission handler integration (VAL-CROSS-003)', () => {
 
           setTimeout(() => {
             transport.injectMessage(
-              makeNotification(
+              makeSessionNotification(
                 SessionNotificationType.DROID_WORKING_STATE_CHANGED,
                 { newState: DroidWorkingState.ExecutingTool }
               )
             );
 
             transport.injectMessage(
-              makeNotification(SessionNotificationType.TOOL_RESULT, {
+              makeSessionNotification(SessionNotificationType.TOOL_RESULT, {
                 messageId: 'msg-perm',
                 toolUseId: 'tu-exec-1',
                 content: 'All tests passed',
@@ -743,30 +625,36 @@ describe('Permission handler integration (VAL-CROSS-003)', () => {
             );
 
             transport.injectMessage(
-              makeNotification(SessionNotificationType.PERMISSION_RESOLVED, {
-                requestId: 'perm-req-001',
-                toolUseIds: ['tu-exec-1'],
-                selectedOption: ToolConfirmationOutcome.ProceedOnce,
-              })
+              makeSessionNotification(
+                SessionNotificationType.PERMISSION_RESOLVED,
+                {
+                  requestId: 'perm-req-001',
+                  toolUseIds: ['tu-exec-1'],
+                  selectedOption: ToolConfirmationOutcome.ProceedOnce,
+                }
+              )
             );
 
             transport.injectMessage(
-              makeNotification(
+              makeSessionNotification(
                 SessionNotificationType.DROID_WORKING_STATE_CHANGED,
                 { newState: DroidWorkingState.StreamingAssistantMessage }
               )
             );
 
             transport.injectMessage(
-              makeNotification(SessionNotificationType.ASSISTANT_TEXT_DELTA, {
-                messageId: 'msg-2',
-                blockIndex: 0,
-                textDelta: 'Tests passed!',
-              })
+              makeSessionNotification(
+                SessionNotificationType.ASSISTANT_TEXT_DELTA,
+                {
+                  messageId: 'msg-2',
+                  blockIndex: 0,
+                  textDelta: 'Tests passed!',
+                }
+              )
             );
 
             transport.injectMessage(
-              makeNotification(
+              makeSessionNotification(
                 SessionNotificationType.DROID_WORKING_STATE_CHANGED,
                 { newState: DroidWorkingState.Idle }
               )
@@ -838,18 +726,21 @@ describe('Permission handler integration (VAL-CROSS-003)', () => {
           transport.injectMessage(makeSuccessResponse(id, {}));
 
           transport.injectMessage(
-            makeNotification(
+            makeSessionNotification(
               SessionNotificationType.DROID_WORKING_STATE_CHANGED,
               { newState: DroidWorkingState.StreamingAssistantMessage }
             )
           );
 
           transport.injectMessage(
-            makeNotification(SessionNotificationType.ASSISTANT_TEXT_DELTA, {
-              messageId: 'msg-1',
-              blockIndex: 0,
-              textDelta: 'Need two permissions.',
-            })
+            makeSessionNotification(
+              SessionNotificationType.ASSISTANT_TEXT_DELTA,
+              {
+                messageId: 'msg-1',
+                blockIndex: 0,
+                textDelta: 'Need two permissions.',
+              }
+            )
           );
 
           transport.injectMessage(
@@ -872,7 +763,7 @@ describe('Permission handler integration (VAL-CROSS-003)', () => {
 
           setTimeout(() => {
             transport.injectMessage(
-              makeNotification(SessionNotificationType.TOOL_RESULT, {
+              makeSessionNotification(SessionNotificationType.TOOL_RESULT, {
                 messageId: 'msg-tr-1',
                 toolUseId: 'tu-1',
                 content: 'test output',
@@ -900,7 +791,7 @@ describe('Permission handler integration (VAL-CROSS-003)', () => {
 
             setTimeout(() => {
               transport.injectMessage(
-                makeNotification(SessionNotificationType.TOOL_RESULT, {
+                makeSessionNotification(SessionNotificationType.TOOL_RESULT, {
                   messageId: 'msg-tr-2',
                   toolUseId: 'tu-2',
                   content: 'edited',
@@ -909,7 +800,7 @@ describe('Permission handler integration (VAL-CROSS-003)', () => {
               );
 
               transport.injectMessage(
-                makeNotification(
+                makeSessionNotification(
                   SessionNotificationType.DROID_WORKING_STATE_CHANGED,
                   { newState: DroidWorkingState.Idle }
                 )
@@ -960,18 +851,21 @@ describe('Permission handler integration (VAL-CROSS-003)', () => {
           transport.injectMessage(makeSuccessResponse(id, {}));
 
           transport.injectMessage(
-            makeNotification(
+            makeSessionNotification(
               SessionNotificationType.DROID_WORKING_STATE_CHANGED,
               { newState: DroidWorkingState.StreamingAssistantMessage }
             )
           );
 
           transport.injectMessage(
-            makeNotification(SessionNotificationType.ASSISTANT_TEXT_DELTA, {
-              messageId: 'msg-1',
-              blockIndex: 0,
-              textDelta: 'Need permission.',
-            })
+            makeSessionNotification(
+              SessionNotificationType.ASSISTANT_TEXT_DELTA,
+              {
+                messageId: 'msg-1',
+                blockIndex: 0,
+                textDelta: 'Need permission.',
+              }
+            )
           );
 
           transport.injectMessage(
@@ -994,7 +888,7 @@ describe('Permission handler integration (VAL-CROSS-003)', () => {
 
           setTimeout(() => {
             transport.injectMessage(
-              makeNotification(
+              makeSessionNotification(
                 SessionNotificationType.DROID_WORKING_STATE_CHANGED,
                 { newState: DroidWorkingState.Idle }
               )
@@ -1050,7 +944,7 @@ describe('Permission handler integration (VAL-CROSS-003)', () => {
           transport.injectMessage(makeSuccessResponse(id, {}));
 
           transport.injectMessage(
-            makeNotification(
+            makeSessionNotification(
               SessionNotificationType.DROID_WORKING_STATE_CHANGED,
               { newState: DroidWorkingState.StreamingAssistantMessage }
             )
@@ -1076,14 +970,17 @@ describe('Permission handler integration (VAL-CROSS-003)', () => {
 
           setTimeout(() => {
             transport.injectMessage(
-              makeNotification(SessionNotificationType.ASSISTANT_TEXT_DELTA, {
-                messageId: 'msg-1',
-                blockIndex: 0,
-                textDelta: 'Edited!',
-              })
+              makeSessionNotification(
+                SessionNotificationType.ASSISTANT_TEXT_DELTA,
+                {
+                  messageId: 'msg-1',
+                  blockIndex: 0,
+                  textDelta: 'Edited!',
+                }
+              )
             );
             transport.injectMessage(
-              makeNotification(
+              makeSessionNotification(
                 SessionNotificationType.DROID_WORKING_STATE_CHANGED,
                 { newState: DroidWorkingState.Idle }
               )
@@ -1123,18 +1020,21 @@ describe('Ask-user handler integration (VAL-CROSS-004)', () => {
           transport.injectMessage(makeSuccessResponse(id, {}));
 
           transport.injectMessage(
-            makeNotification(
+            makeSessionNotification(
               SessionNotificationType.DROID_WORKING_STATE_CHANGED,
               { newState: DroidWorkingState.StreamingAssistantMessage }
             )
           );
 
           transport.injectMessage(
-            makeNotification(SessionNotificationType.ASSISTANT_TEXT_DELTA, {
-              messageId: 'msg-1',
-              blockIndex: 0,
-              textDelta: 'I have a question.',
-            })
+            makeSessionNotification(
+              SessionNotificationType.ASSISTANT_TEXT_DELTA,
+              {
+                messageId: 'msg-1',
+                blockIndex: 0,
+                textDelta: 'I have a question.',
+              }
+            )
           );
 
           transport.injectMessage(
@@ -1159,15 +1059,18 @@ describe('Ask-user handler integration (VAL-CROSS-004)', () => {
 
           setTimeout(() => {
             transport.injectMessage(
-              makeNotification(SessionNotificationType.ASSISTANT_TEXT_DELTA, {
-                messageId: 'msg-2',
-                blockIndex: 0,
-                textDelta: 'Got it, using PostgreSQL with tests.',
-              })
+              makeSessionNotification(
+                SessionNotificationType.ASSISTANT_TEXT_DELTA,
+                {
+                  messageId: 'msg-2',
+                  blockIndex: 0,
+                  textDelta: 'Got it, using PostgreSQL with tests.',
+                }
+              )
             );
 
             transport.injectMessage(
-              makeNotification(
+              makeSessionNotification(
                 SessionNotificationType.DROID_WORKING_STATE_CHANGED,
                 { newState: DroidWorkingState.Idle }
               )
@@ -1248,7 +1151,7 @@ describe('Ask-user handler integration (VAL-CROSS-004)', () => {
           transport.injectMessage(makeSuccessResponse(id, {}));
 
           transport.injectMessage(
-            makeNotification(
+            makeSessionNotification(
               SessionNotificationType.DROID_WORKING_STATE_CHANGED,
               { newState: DroidWorkingState.StreamingAssistantMessage }
             )
@@ -1270,14 +1173,17 @@ describe('Ask-user handler integration (VAL-CROSS-004)', () => {
 
           setTimeout(() => {
             transport.injectMessage(
-              makeNotification(SessionNotificationType.ASSISTANT_TEXT_DELTA, {
-                messageId: 'msg-1',
-                blockIndex: 0,
-                textDelta: 'Confirmed!',
-              })
+              makeSessionNotification(
+                SessionNotificationType.ASSISTANT_TEXT_DELTA,
+                {
+                  messageId: 'msg-1',
+                  blockIndex: 0,
+                  textDelta: 'Confirmed!',
+                }
+              )
             );
             transport.injectMessage(
-              makeNotification(
+              makeSessionNotification(
                 SessionNotificationType.DROID_WORKING_STATE_CHANGED,
                 { newState: DroidWorkingState.Idle }
               )
@@ -1320,22 +1226,25 @@ describe('Interrupt during active streaming (VAL-CROSS-005)', () => {
           transport.injectMessage(makeSuccessResponse(id, {}));
 
           transport.injectMessage(
-            makeNotification(
+            makeSessionNotification(
               SessionNotificationType.DROID_WORKING_STATE_CHANGED,
               { newState: DroidWorkingState.StreamingAssistantMessage }
             )
           );
 
           transport.injectMessage(
-            makeNotification(SessionNotificationType.ASSISTANT_TEXT_DELTA, {
-              messageId: 'msg-1',
-              blockIndex: 0,
-              textDelta: 'Running tool...',
-            })
+            makeSessionNotification(
+              SessionNotificationType.ASSISTANT_TEXT_DELTA,
+              {
+                messageId: 'msg-1',
+                blockIndex: 0,
+                textDelta: 'Running tool...',
+              }
+            )
           );
 
           transport.injectMessage(
-            makeNotification(
+            makeSessionNotification(
               SessionNotificationType.DROID_WORKING_STATE_CHANGED,
               { newState: DroidWorkingState.ExecutingTool }
             )
@@ -1348,7 +1257,7 @@ describe('Interrupt during active streaming (VAL-CROSS-005)', () => {
           transport.injectMessage(makeSuccessResponse(id, {}));
 
           transport.injectMessage(
-            makeNotification(
+            makeSessionNotification(
               SessionNotificationType.DROID_WORKING_STATE_CHANGED,
               { newState: DroidWorkingState.Idle }
             )
@@ -1400,18 +1309,21 @@ describe('Interrupt during active streaming (VAL-CROSS-005)', () => {
             transport.injectMessage(makeSuccessResponse(id, {}));
 
             transport.injectMessage(
-              makeNotification(
+              makeSessionNotification(
                 SessionNotificationType.DROID_WORKING_STATE_CHANGED,
                 { newState: DroidWorkingState.StreamingAssistantMessage }
               )
             );
 
             transport.injectMessage(
-              makeNotification(SessionNotificationType.ASSISTANT_TEXT_DELTA, {
-                messageId: 'msg-1',
-                blockIndex: 0,
-                textDelta: 'Partial response',
-              })
+              makeSessionNotification(
+                SessionNotificationType.ASSISTANT_TEXT_DELTA,
+                {
+                  messageId: 'msg-1',
+                  blockIndex: 0,
+                  textDelta: 'Partial response',
+                }
+              )
             );
           });
         } else {
@@ -1419,22 +1331,25 @@ describe('Interrupt during active streaming (VAL-CROSS-005)', () => {
             transport.injectMessage(makeSuccessResponse(id, {}));
 
             transport.injectMessage(
-              makeNotification(
+              makeSessionNotification(
                 SessionNotificationType.DROID_WORKING_STATE_CHANGED,
                 { newState: DroidWorkingState.StreamingAssistantMessage }
               )
             );
 
             transport.injectMessage(
-              makeNotification(SessionNotificationType.ASSISTANT_TEXT_DELTA, {
-                messageId: 'msg-2',
-                blockIndex: 0,
-                textDelta: 'Full second response',
-              })
+              makeSessionNotification(
+                SessionNotificationType.ASSISTANT_TEXT_DELTA,
+                {
+                  messageId: 'msg-2',
+                  blockIndex: 0,
+                  textDelta: 'Full second response',
+                }
+              )
             );
 
             transport.injectMessage(
-              makeNotification(
+              makeSessionNotification(
                 SessionNotificationType.DROID_WORKING_STATE_CHANGED,
                 { newState: DroidWorkingState.Idle }
               )
@@ -1447,7 +1362,7 @@ describe('Interrupt during active streaming (VAL-CROSS-005)', () => {
           transport.injectMessage(makeSuccessResponse(id, {}));
 
           transport.injectMessage(
-            makeNotification(
+            makeSessionNotification(
               SessionNotificationType.DROID_WORKING_STATE_CHANGED,
               { newState: DroidWorkingState.Idle }
             )
@@ -1488,26 +1403,32 @@ describe('Interrupt during active streaming (VAL-CROSS-005)', () => {
           transport.injectMessage(makeSuccessResponse(id, {}));
 
           transport.injectMessage(
-            makeNotification(
+            makeSessionNotification(
               SessionNotificationType.DROID_WORKING_STATE_CHANGED,
               { newState: DroidWorkingState.StreamingAssistantMessage }
             )
           );
 
           transport.injectMessage(
-            makeNotification(SessionNotificationType.ASSISTANT_TEXT_DELTA, {
-              messageId: 'msg-1',
-              blockIndex: 0,
-              textDelta: 'First chunk. ',
-            })
+            makeSessionNotification(
+              SessionNotificationType.ASSISTANT_TEXT_DELTA,
+              {
+                messageId: 'msg-1',
+                blockIndex: 0,
+                textDelta: 'First chunk. ',
+              }
+            )
           );
 
           transport.injectMessage(
-            makeNotification(SessionNotificationType.ASSISTANT_TEXT_DELTA, {
-              messageId: 'msg-1',
-              blockIndex: 0,
-              textDelta: 'Second chunk. ',
-            })
+            makeSessionNotification(
+              SessionNotificationType.ASSISTANT_TEXT_DELTA,
+              {
+                messageId: 'msg-1',
+                blockIndex: 0,
+                textDelta: 'Second chunk. ',
+              }
+            )
           );
         });
       },
@@ -1517,15 +1438,18 @@ describe('Interrupt during active streaming (VAL-CROSS-005)', () => {
           transport.injectMessage(makeSuccessResponse(id, {}));
 
           transport.injectMessage(
-            makeNotification(SessionNotificationType.ASSISTANT_TEXT_DELTA, {
-              messageId: 'msg-1',
-              blockIndex: 0,
-              textDelta: 'Final chunk after interrupt.',
-            })
+            makeSessionNotification(
+              SessionNotificationType.ASSISTANT_TEXT_DELTA,
+              {
+                messageId: 'msg-1',
+                blockIndex: 0,
+                textDelta: 'Final chunk after interrupt.',
+              }
+            )
           );
 
           transport.injectMessage(
-            makeNotification(
+            makeSessionNotification(
               SessionNotificationType.SESSION_TOKEN_USAGE_CHANGED,
               {
                 sessionId: 'sess-interrupt',
@@ -1541,7 +1465,7 @@ describe('Interrupt during active streaming (VAL-CROSS-005)', () => {
           );
 
           transport.injectMessage(
-            makeNotification(
+            makeSessionNotification(
               SessionNotificationType.DROID_WORKING_STATE_CHANGED,
               { newState: DroidWorkingState.Idle }
             )
@@ -1605,18 +1529,21 @@ describe('Interrupt during active streaming (VAL-CROSS-005)', () => {
           transport.injectMessage(makeSuccessResponse(id, {}));
 
           transport.injectMessage(
-            makeNotification(
+            makeSessionNotification(
               SessionNotificationType.DROID_WORKING_STATE_CHANGED,
               { newState: DroidWorkingState.StreamingAssistantMessage }
             )
           );
 
           transport.injectMessage(
-            makeNotification(SessionNotificationType.ASSISTANT_TEXT_DELTA, {
-              messageId: 'msg-1',
-              blockIndex: 0,
-              textDelta: 'Starting...',
-            })
+            makeSessionNotification(
+              SessionNotificationType.ASSISTANT_TEXT_DELTA,
+              {
+                messageId: 'msg-1',
+                blockIndex: 0,
+                textDelta: 'Starting...',
+              }
+            )
           );
         });
       },
@@ -1626,7 +1553,7 @@ describe('Interrupt during active streaming (VAL-CROSS-005)', () => {
           transport.injectMessage(makeSuccessResponse(id, {}));
 
           transport.injectMessage(
-            makeNotification(
+            makeSessionNotification(
               SessionNotificationType.DROID_WORKING_STATE_CHANGED,
               { newState: DroidWorkingState.Idle }
             )
@@ -1831,22 +1758,25 @@ describe('Settings update notification flow (VAL-CROSS-007)', () => {
           transport.injectMessage(makeSuccessResponse(id, {}));
 
           transport.injectMessage(
-            makeNotification(
+            makeSessionNotification(
               SessionNotificationType.DROID_WORKING_STATE_CHANGED,
               { newState: DroidWorkingState.StreamingAssistantMessage }
             )
           );
 
           transport.injectMessage(
-            makeNotification(SessionNotificationType.ASSISTANT_TEXT_DELTA, {
-              messageId: 'msg-1',
-              blockIndex: 0,
-              textDelta: 'Working on it...',
-            })
+            makeSessionNotification(
+              SessionNotificationType.ASSISTANT_TEXT_DELTA,
+              {
+                messageId: 'msg-1',
+                blockIndex: 0,
+                textDelta: 'Working on it...',
+              }
+            )
           );
 
           transport.injectMessage(
-            makeNotification(SessionNotificationType.SETTINGS_UPDATED, {
+            makeSessionNotification(SessionNotificationType.SETTINGS_UPDATED, {
               settings: {
                 modelId: 'new-model',
                 reasoningEffort: 'high',
@@ -1855,15 +1785,18 @@ describe('Settings update notification flow (VAL-CROSS-007)', () => {
           );
 
           transport.injectMessage(
-            makeNotification(SessionNotificationType.ASSISTANT_TEXT_DELTA, {
-              messageId: 'msg-2',
-              blockIndex: 0,
-              textDelta: 'Done!',
-            })
+            makeSessionNotification(
+              SessionNotificationType.ASSISTANT_TEXT_DELTA,
+              {
+                messageId: 'msg-2',
+                blockIndex: 0,
+                textDelta: 'Done!',
+              }
+            )
           );
 
           transport.injectMessage(
-            makeNotification(
+            makeSessionNotification(
               SessionNotificationType.DROID_WORKING_STATE_CHANGED,
               { newState: DroidWorkingState.Idle }
             )
@@ -1875,7 +1808,7 @@ describe('Settings update notification flow (VAL-CROSS-007)', () => {
           transport.injectMessage(makeSuccessResponse(id, {}));
 
           transport.injectMessage(
-            makeNotification(SessionNotificationType.SETTINGS_UPDATED, {
+            makeSessionNotification(SessionNotificationType.SETTINGS_UPDATED, {
               settings: {
                 modelId: 'upgraded-model',
                 reasoningEffort: 'max',
@@ -1963,7 +1896,7 @@ describe('Settings update notification flow (VAL-CROSS-007)', () => {
           transport.injectMessage(makeSuccessResponse(id, {}));
 
           transport.injectMessage(
-            makeNotification(
+            makeSessionNotification(
               SessionNotificationType.DROID_WORKING_STATE_CHANGED,
               { newState: DroidWorkingState.StreamingAssistantMessage }
             )
@@ -1990,7 +1923,7 @@ describe('Settings update notification flow (VAL-CROSS-007)', () => {
 
           setTimeout(() => {
             transport.injectMessage(
-              makeNotification(
+              makeSessionNotification(
                 SessionNotificationType.DROID_WORKING_STATE_CHANGED,
                 { newState: DroidWorkingState.Idle }
               )
@@ -2044,7 +1977,7 @@ describe('Settings update notification flow (VAL-CROSS-007)', () => {
           transport.injectMessage(makeSuccessResponse(id, {}));
 
           transport.injectMessage(
-            makeNotification(
+            makeSessionNotification(
               SessionNotificationType.DROID_WORKING_STATE_CHANGED,
               { newState: DroidWorkingState.StreamingAssistantMessage }
             )
@@ -2066,15 +1999,18 @@ describe('Settings update notification flow (VAL-CROSS-007)', () => {
 
           setTimeout(() => {
             transport.injectMessage(
-              makeNotification(SessionNotificationType.ASSISTANT_TEXT_DELTA, {
-                messageId: 'msg-1',
-                blockIndex: 0,
-                textDelta: 'Understood, skipping.',
-              })
+              makeSessionNotification(
+                SessionNotificationType.ASSISTANT_TEXT_DELTA,
+                {
+                  messageId: 'msg-1',
+                  blockIndex: 0,
+                  textDelta: 'Understood, skipping.',
+                }
+              )
             );
 
             transport.injectMessage(
-              makeNotification(
+              makeSessionNotification(
                 SessionNotificationType.DROID_WORKING_STATE_CHANGED,
                 { newState: DroidWorkingState.Idle }
               )
@@ -2123,14 +2059,14 @@ describe('Settings update notification flow (VAL-CROSS-007)', () => {
           transport.injectMessage(makeSuccessResponse(id, {}));
 
           transport.injectMessage(
-            makeNotification(
+            makeSessionNotification(
               SessionNotificationType.DROID_WORKING_STATE_CHANGED,
               { newState: DroidWorkingState.StreamingAssistantMessage }
             )
           );
 
           transport.injectMessage(
-            makeNotification(SessionNotificationType.SETTINGS_UPDATED, {
+            makeSessionNotification(SessionNotificationType.SETTINGS_UPDATED, {
               settings: {
                 modelId: 'auto-switched-model',
                 reasoningEffort: 'medium',
@@ -2139,15 +2075,18 @@ describe('Settings update notification flow (VAL-CROSS-007)', () => {
           );
 
           transport.injectMessage(
-            makeNotification(SessionNotificationType.ASSISTANT_TEXT_DELTA, {
-              messageId: 'msg-1',
-              blockIndex: 0,
-              textDelta: 'Switched model.',
-            })
+            makeSessionNotification(
+              SessionNotificationType.ASSISTANT_TEXT_DELTA,
+              {
+                messageId: 'msg-1',
+                blockIndex: 0,
+                textDelta: 'Switched model.',
+              }
+            )
           );
 
           transport.injectMessage(
-            makeNotification(
+            makeSessionNotification(
               SessionNotificationType.DROID_WORKING_STATE_CHANGED,
               { newState: DroidWorkingState.Idle }
             )
