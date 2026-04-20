@@ -6,11 +6,6 @@
  * targets — the snapshot system uses user message IDs as boundary
  * markers.
  *
- * NOTE: As of this writing, getRewindInfo and executeRewind time out
- * because the server does not respond to these RPC methods. The SDK
- * implementation is correct; this script will work once the server
- * adds support.
- *
  * Usage:
  *   npx tsx examples/test-rewind.ts
  */

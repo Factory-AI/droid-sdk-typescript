@@ -2,7 +2,6 @@
  * Unit tests for query() function and DroidQuery type.
  *
  * Uses InMemoryTransport to simulate the full query lifecycle.
- * Covers VAL-API-001, VAL-API-007, VAL-API-008, VAL-API-009, VAL-API-010.
  */
 
 import { describe, expect, it } from 'vitest';

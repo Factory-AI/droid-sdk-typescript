@@ -2,8 +2,6 @@
  * Unit tests for ProtocolEngine.
  *
  * Uses InMemoryTransport to simulate transport communication.
- * Covers all expectedBehavior and fulfills:
- *   VAL-PROTOCOL-001 through VAL-PROTOCOL-008.
  */
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';

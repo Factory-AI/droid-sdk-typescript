@@ -4,15 +4,6 @@
  * These tests use InMemoryTransport to simulate the full stack
  * (transport → protocol → client → stream → query/session) without
  * spawning real processes.
- *
- * Covers:
- * - VAL-CROSS-001: Full query lifecycle integration
- * - VAL-CROSS-002: Full session lifecycle integration
- * - VAL-CROSS-003: Permission handler integration
- * - VAL-CROSS-004: Ask-user handler integration
- * - VAL-CROSS-005: Interrupt during active streaming
- * - VAL-CROSS-006: Transport error propagation end-to-end
- * - VAL-CROSS-007: Settings update notification flow
  */
 
 import { describe, expect, it } from 'vitest';

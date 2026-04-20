@@ -2,8 +2,6 @@
  * Unit tests for DroidClient.
  *
  * Uses InMemoryTransport to simulate transport communication.
- * Covers all expectedBehavior items and fulfills:
- *   VAL-CLIENT-001 through VAL-CLIENT-012.
  */
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';

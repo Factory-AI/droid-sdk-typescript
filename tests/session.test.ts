@@ -2,8 +2,6 @@
  * Unit tests for createSession(), resumeSession(), and DroidSession.
  *
  * Uses InMemoryTransport to simulate the session lifecycle.
- * Covers VAL-API-002, VAL-API-003, VAL-API-004, VAL-API-005, VAL-API-006,
- * VAL-API-011, VAL-API-012, VAL-API-013, VAL-API-014.
  */
 
 import { describe, expect, it } from 'vitest';
