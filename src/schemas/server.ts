@@ -1,6 +1,6 @@
 import { z } from 'zod';
 
-import { ContextStatsSchema, TokenUsageSchema } from './client.js';
+import { TokenUsageSchema } from './client.js';
 import {
   AutonomyLevel,
   AutonomyMode,
@@ -259,18 +259,6 @@ export type SessionTokenUsageChangedNotification = z.infer<
   typeof SessionTokenUsageChangedNotificationSchema
 >;
 
-/** Session context stats changed notification. */
-export const SessionContextStatsChangedNotificationSchema = z
-  .object({
-    type: z.literal(SessionNotificationType.SESSION_CONTEXT_STATS_CHANGED),
-    contextStats: ContextStatsSchema,
-  })
-  .passthrough();
-
-export type SessionContextStatsChangedNotification = z.infer<
-  typeof SessionContextStatsChangedNotificationSchema
->;
-
 /** Mission state changed notification. */
 export const MissionStateChangedNotificationSchema = z
   .object({
@@ -387,7 +375,6 @@ export const SessionNotificationSchemaList = [
   AssistantTextDeltaNotificationSchema,
   ThinkingTextDeltaNotificationSchema,
   SessionTokenUsageChangedNotificationSchema,
-  SessionContextStatsChangedNotificationSchema,
   MissionStateChangedNotificationSchema,
   MissionFeaturesChangedNotificationSchema,
   MissionProgressEntryNotificationSchema,

@@ -173,9 +173,9 @@ describe('enums', () => {
     expect(DroidClientMethod.ASK_USER).toBe('droid.ask_user');
   });
 
-  it('SessionNotificationType has 21 types', () => {
+  it('SessionNotificationType has 20 types', () => {
     const values = Object.values(SessionNotificationType);
-    expect(values).toHaveLength(21);
+    expect(values).toHaveLength(20);
     expect(values).toContain('assistant_text_delta');
     expect(values).toContain('thinking_text_delta');
     expect(values).toContain('tool_result');
@@ -187,7 +187,6 @@ describe('enums', () => {
     expect(values).toContain('settings_updated');
     expect(values).toContain('session_title_updated');
     expect(values).toContain('mcp_status_changed');
-    expect(values).toContain('session_context_stats_changed');
     expect(values).toContain('session_token_usage_changed');
     expect(values).toContain('mission_state_changed');
     expect(values).toContain('mission_features_changed');

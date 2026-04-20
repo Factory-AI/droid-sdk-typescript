@@ -1,4 +1,4 @@
-import type { ContextStats, TokenUsage } from './schemas/client.js';
+import type { TokenUsage } from './schemas/client.js';
 import {
   DroidWorkingState,
   McpAuthOutcome,
@@ -72,11 +72,6 @@ export interface CreateMessage {
   readonly role: CreateMessageNotification['message']['role'];
   readonly content: CreateMessageNotification['message']['content'];
   readonly parentId?: CreateMessageNotification['parentId'];
-}
-
-export interface ContextStatsChanged {
-  readonly type: 'context_stats_changed';
-  readonly stats: ContextStats;
 }
 
 export interface PermissionResolved {
@@ -169,7 +164,6 @@ export type DroidMessage =
   | ToolProgress
   | WorkingStateChanged
   | TokenUsageUpdate
-  | ContextStatsChanged
   | CreateMessage
   | PermissionResolved
   | SettingsUpdated
@@ -251,12 +245,6 @@ export function convertNotificationToStreamMessage(
         thinkingTokens: tu.thinkingTokens,
       };
     }
-
-    case SessionNotificationType.SESSION_CONTEXT_STATS_CHANGED:
-      return {
-        type: 'context_stats_changed',
-        stats: notification.contextStats,
-      };
 
     case SessionNotificationType.CREATE_MESSAGE: {
       const msg = notification.message;

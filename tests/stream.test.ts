@@ -23,7 +23,6 @@ import type {
   ToolProgress,
   WorkingStateChanged,
   TokenUsageUpdate,
-  ContextStatsChanged,
   CreateMessage,
   PermissionResolved,
   SettingsUpdated,
@@ -659,31 +658,6 @@ describe('convertNotificationToStreamMessage', () => {
     });
   });
 
-  describe('session_context_stats_changed', () => {
-    it('converts to ContextStatsChanged', () => {
-      const notification = makeNotification(
-        SessionNotificationType.SESSION_CONTEXT_STATS_CHANGED,
-        {
-          contextStats: {
-            used: 120,
-            remaining: 80,
-            limit: 200,
-            accuracy: 'estimated',
-            updatedAt: '2026-04-20T00:00:00.000Z',
-          },
-        }
-      );
-      const result = convertNotificationToStreamMessage(
-        notification
-      ) as ContextStatsChanged;
-      expect(result.type).toBe('context_stats_changed');
-      expect(result.stats.used).toBe(120);
-      expect(result.stats.remaining).toBe(80);
-      expect(result.stats.limit).toBe(200);
-      expect(result.stats.accuracy).toBe('estimated');
-    });
-  });
-
   describe('create_message', () => {
     it('converts message with tool_use blocks to ToolUse + CreateMessage', () => {
       const notification = makeNotification(
@@ -1042,11 +1016,11 @@ describe('convertNotificationToStreamMessage', () => {
     });
   });
 
-  describe('all 21 notification types are handled', () => {
+  describe('all 20 notification types are handled', () => {
     const allNotificationTypes = Object.values(SessionNotificationType);
 
-    it('covers all 21 SessionNotificationType values', () => {
-      expect(allNotificationTypes).toHaveLength(21);
+    it('covers all 20 SessionNotificationType values', () => {
+      expect(allNotificationTypes).toHaveLength(20);
     });
 
     it('every notification type returns a non-null result (with valid payloads)', () => {
@@ -1085,15 +1059,6 @@ describe('convertNotificationToStreamMessage', () => {
             cacheReadTokens: 0,
             cacheCreationTokens: 0,
             thinkingTokens: 0,
-          },
-        },
-        [SessionNotificationType.SESSION_CONTEXT_STATS_CHANGED]: {
-          contextStats: {
-            used: 1,
-            remaining: 2,
-            limit: 3,
-            accuracy: 'estimated',
-            updatedAt: 't',
           },
         },
         [SessionNotificationType.CREATE_MESSAGE]: {
