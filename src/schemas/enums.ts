@@ -34,6 +34,7 @@ export enum DroidServerMethod {
   COMPACT_SESSION = 'droid.compact_session',
   FORK_SESSION = 'droid.fork_session',
   RENAME_SESSION = 'droid.rename_session',
+  GET_CONTEXT_STATS = 'droid.get_context_stats',
 }
 
 /** Droid client methods (server → client communication). */
@@ -57,6 +58,7 @@ export enum SessionNotificationType {
   ASSISTANT_TEXT_DELTA = 'assistant_text_delta',
   THINKING_TEXT_DELTA = 'thinking_text_delta',
   SESSION_TOKEN_USAGE_CHANGED = 'session_token_usage_changed',
+  SESSION_CONTEXT_STATS_CHANGED = 'session_context_stats_changed',
   MISSION_STATE_CHANGED = 'mission_state_changed',
   MISSION_FEATURES_CHANGED = 'mission_features_changed',
   MISSION_PROGRESS_ENTRY = 'mission_progress_entry',

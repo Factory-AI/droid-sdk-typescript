@@ -178,6 +178,19 @@ export const TokenUsageSchema = z
 
 export type TokenUsage = z.infer<typeof TokenUsageSchema>;
 
+/** Current context window utilization for the active session. */
+export const ContextStatsSchema = z
+  .object({
+    used: z.number(),
+    remaining: z.number(),
+    limit: z.number(),
+    accuracy: z.enum(['exact', 'estimated']),
+    updatedAt: z.string(),
+  })
+  .passthrough();
+
+export type ContextStats = z.infer<typeof ContextStatsSchema>;
+
 /** Worker state information for mission snapshots. */
 export const WorkerStateInfoSchema = z
   .object({
@@ -562,6 +575,13 @@ export type ForkSessionRequestParams = z.infer<
   typeof ForkSessionRequestParamsSchema
 >;
 
+/** Parameters for droid.get_context_stats request (empty). */
+export const GetContextStatsRequestParamsSchema = z.object({}).passthrough();
+
+export type GetContextStatsRequestParams = z.infer<
+  typeof GetContextStatsRequestParamsSchema
+>;
+
 export const InitializeSessionRequestSchema = JsonRpcRequestSchema.extend({
   method: z.literal(DroidServerMethod.INITIALIZE_SESSION),
   params: InitializeSessionRequestParamsSchema,
@@ -750,6 +770,15 @@ export const ForkSessionRequestSchema = JsonRpcRequestSchema.extend({
 
 export type ForkSessionRequest = z.infer<typeof ForkSessionRequestSchema>;
 
+export const GetContextStatsRequestSchema = JsonRpcRequestSchema.extend({
+  method: z.literal(DroidServerMethod.GET_CONTEXT_STATS),
+  params: GetContextStatsRequestParamsSchema,
+});
+
+export type GetContextStatsRequest = z.infer<
+  typeof GetContextStatsRequestSchema
+>;
+
 export const RenameSessionRequestSchema = JsonRpcRequestSchema.extend({
   method: z.literal(DroidServerMethod.RENAME_SESSION),
   params: RenameSessionRequestParamsSchema,
@@ -783,6 +812,7 @@ export const ClientRequestSchema = z.discriminatedUnion('method', [
   ExecuteRewindRequestSchema,
   CompactSessionRequestSchema,
   ForkSessionRequestSchema,
+  GetContextStatsRequestSchema,
   RenameSessionRequestSchema,
 ]);
 
@@ -999,6 +1029,11 @@ export const ForkSessionResultSchema = z
   .passthrough();
 
 export type ForkSessionResult = z.infer<typeof ForkSessionResultSchema>;
+
+/** Result for droid.get_context_stats response. */
+export const GetContextStatsResultSchema = ContextStatsSchema;
+
+export type GetContextStatsResult = z.infer<typeof GetContextStatsResultSchema>;
 
 /** Result for droid.rename_session response. */
 export const RenameSessionResultSchema = SuccessResultSchema;
@@ -1230,6 +1265,15 @@ export const ForkSessionResponseSchema = z.union([
 ]);
 
 export type ForkSessionResponse = z.infer<typeof ForkSessionResponseSchema>;
+
+export const GetContextStatsResponseSchema = z.union([
+  JsonRpcResponseSuccessSchema.extend({ result: GetContextStatsResultSchema }),
+  JsonRpcResponseFailureSchema,
+]);
+
+export type GetContextStatsResponse = z.infer<
+  typeof GetContextStatsResponseSchema
+>;
 
 export const RenameSessionResponseSchema = z.union([
   JsonRpcResponseSuccessSchema.extend({ result: RenameSessionResultSchema }),

@@ -132,9 +132,9 @@ import {
 } from '../src/schemas/index.js';
 
 describe('enums', () => {
-  it('DroidServerMethod has all 25 methods', () => {
+  it('DroidServerMethod has all 26 methods', () => {
     const values = Object.values(DroidServerMethod);
-    expect(values).toHaveLength(25);
+    expect(values).toHaveLength(26);
     expect(values).toContain('droid.initialize_session');
     expect(values).toContain('droid.load_session');
     expect(values).toContain('droid.add_user_message');
@@ -160,6 +160,7 @@ describe('enums', () => {
     expect(values).toContain('droid.compact_session');
     expect(values).toContain('droid.fork_session');
     expect(values).toContain('droid.rename_session');
+    expect(values).toContain('droid.get_context_stats');
   });
 
   it('DroidClientMethod has all 3 methods', () => {
@@ -172,9 +173,9 @@ describe('enums', () => {
     expect(DroidClientMethod.ASK_USER).toBe('droid.ask_user');
   });
 
-  it('SessionNotificationType has 20 types', () => {
+  it('SessionNotificationType has 21 types', () => {
     const values = Object.values(SessionNotificationType);
-    expect(values).toHaveLength(20);
+    expect(values).toHaveLength(21);
     expect(values).toContain('assistant_text_delta');
     expect(values).toContain('thinking_text_delta');
     expect(values).toContain('tool_result');
@@ -186,6 +187,7 @@ describe('enums', () => {
     expect(values).toContain('settings_updated');
     expect(values).toContain('session_title_updated');
     expect(values).toContain('mcp_status_changed');
+    expect(values).toContain('session_context_stats_changed');
     expect(values).toContain('session_token_usage_changed');
     expect(values).toContain('mission_state_changed');
     expect(values).toContain('mission_features_changed');
@@ -339,8 +341,8 @@ describe('constants', () => {
     expect(LEGACY_FACTORY_API_VERSION).toBe('1.0.0');
   });
 
-  it('FACTORY_PROTOCOL_VERSION is 1.2.0', () => {
-    expect(FACTORY_PROTOCOL_VERSION).toBe('1.2.0');
+  it('FACTORY_PROTOCOL_VERSION is 1.3.0', () => {
+    expect(FACTORY_PROTOCOL_VERSION).toBe('1.3.0');
   });
 
   it('FACTORY_CLIENT_HEADER is X-Factory-Client', () => {

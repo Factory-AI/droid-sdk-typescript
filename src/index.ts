@@ -34,6 +34,7 @@ export type {
   ToolProgress,
   WorkingStateChanged,
   TokenUsageUpdate,
+  ContextStatsChanged,
   CreateMessage,
   PermissionResolved,
   SettingsUpdated,
