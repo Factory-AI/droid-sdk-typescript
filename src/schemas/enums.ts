@@ -34,6 +34,7 @@ export enum DroidServerMethod {
   COMPACT_SESSION = 'droid.compact_session',
   FORK_SESSION = 'droid.fork_session',
   RENAME_SESSION = 'droid.rename_session',
+  GET_CONTEXT_STATS = 'droid.get_context_stats',
 }
 
 /** Droid client methods (server → client communication). */
@@ -103,6 +104,12 @@ export enum DroidWorkingState {
   WaitingForToolConfirmation = 'waiting_for_tool_confirmation',
   ExecutingTool = 'executing_tool',
   CompactingConversation = 'compacting_conversation',
+}
+
+/** Accuracy of reported context stats. */
+export enum ContextStatsAccuracy {
+  Exact = 'exact',
+  Estimated = 'estimated',
 }
 
 /** Error types for error notifications. */

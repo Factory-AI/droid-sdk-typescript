@@ -3,6 +3,7 @@ import { describe, it, expect } from 'vitest';
 import {
   AutonomyLevel,
   AutonomyMode,
+  ContextStatsAccuracy,
   DecompSessionType,
   DismissalType,
   DroidClientMethod,
@@ -132,9 +133,9 @@ import {
 } from '../src/schemas/index.js';
 
 describe('enums', () => {
-  it('DroidServerMethod has all 25 methods', () => {
+  it('DroidServerMethod has all 26 methods', () => {
     const values = Object.values(DroidServerMethod);
-    expect(values).toHaveLength(25);
+    expect(values).toHaveLength(26);
     expect(values).toContain('droid.initialize_session');
     expect(values).toContain('droid.load_session');
     expect(values).toContain('droid.add_user_message');
@@ -160,6 +161,7 @@ describe('enums', () => {
     expect(values).toContain('droid.compact_session');
     expect(values).toContain('droid.fork_session');
     expect(values).toContain('droid.rename_session');
+    expect(values).toContain('droid.get_context_stats');
   });
 
   it('DroidClientMethod has all 3 methods', () => {
@@ -232,6 +234,12 @@ describe('enums', () => {
     );
     expect(DroidWorkingState.ExecutingTool).toBe('executing_tool');
     expect(Object.values(DroidWorkingState)).toHaveLength(5);
+  });
+
+  it('ContextStatsAccuracy has correct values', () => {
+    expect(ContextStatsAccuracy.Exact).toBe('exact');
+    expect(ContextStatsAccuracy.Estimated).toBe('estimated');
+    expect(Object.values(ContextStatsAccuracy)).toHaveLength(2);
   });
 
   it('DroidErrorType has correct values', () => {
@@ -339,8 +347,8 @@ describe('constants', () => {
     expect(LEGACY_FACTORY_API_VERSION).toBe('1.0.0');
   });
 
-  it('FACTORY_PROTOCOL_VERSION is 1.2.0', () => {
-    expect(FACTORY_PROTOCOL_VERSION).toBe('1.2.0');
+  it('FACTORY_PROTOCOL_VERSION is 1.3.0', () => {
+    expect(FACTORY_PROTOCOL_VERSION).toBe('1.3.0');
   });
 
   it('FACTORY_CLIENT_HEADER is X-Factory-Client', () => {

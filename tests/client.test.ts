@@ -13,6 +13,7 @@ import {
   SessionNotFoundError,
 } from '../src/errors.js';
 import {
+  ContextStatsAccuracy,
   DroidClientMethod,
   DroidServerMethod,
   JSONRPC_VERSION,
@@ -1574,6 +1575,40 @@ describe('DroidClient', () => {
 
       const result = await promise;
       expect(result.success).toBe(true);
+    });
+  });
+
+  describe('getContextStats', () => {
+    beforeEach(async () => {
+      await initializeTestSession(client, transport);
+    });
+
+    it('sends correct request and returns parsed result', async () => {
+      const promise = client.getContextStats();
+
+      await vi.waitFor(() => {
+        expect(transport.sentMessages.length).toBe(2);
+      });
+
+      const sent = transport.sentMessages[1] as Record<string, unknown>;
+      expect(sent['method']).toBe(DroidServerMethod.GET_CONTEXT_STATS);
+
+      const requestId = sent['id'] as string;
+      transport.injectMessage(
+        makeSuccessResponse(requestId, {
+          used: 42,
+          remaining: 58,
+          limit: 100,
+          accuracy: ContextStatsAccuracy.Estimated,
+          updatedAt: '2026-04-20T00:00:00.000Z',
+        })
+      );
+
+      const result = await promise;
+      expect(result.used).toBe(42);
+      expect(result.remaining).toBe(58);
+      expect(result.limit).toBe(100);
+      expect(result.accuracy).toBe(ContextStatsAccuracy.Estimated);
     });
   });
 

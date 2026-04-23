@@ -21,6 +21,7 @@ import type {
   ClearMcpAuthResult,
   CompactSessionRequestParams,
   CompactSessionResult,
+  GetContextStatsResult,
   ExecuteRewindRequestParams,
   ExecuteRewindResult,
   ForkSessionResult,
@@ -61,6 +62,7 @@ import {
   CancelMcpAuthResultSchema,
   ClearMcpAuthResultSchema,
   CompactSessionResultSchema,
+  GetContextStatsResultSchema,
   ExecuteRewindResultSchema,
   ForkSessionResultSchema,
   RenameSessionResultSchema,
@@ -421,6 +423,13 @@ export class DroidClient {
     return this._sessionRpcWithoutParams(
       DroidServerMethod.FORK_SESSION,
       ForkSessionResultSchema
+    );
+  }
+
+  async getContextStats(): Promise<GetContextStatsResult> {
+    return this._sessionRpcWithoutParams(
+      DroidServerMethod.GET_CONTEXT_STATS,
+      GetContextStatsResultSchema
     );
   }
 

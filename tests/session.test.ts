@@ -10,6 +10,7 @@ import { SDK_TAG } from '../src/constants.js';
 import { ConnectionError, SessionNotFoundError } from '../src/errors.js';
 import {
   AutonomyLevel,
+  ContextStatsAccuracy,
   DroidInteractionMode,
   DroidServerMethod,
   DroidWorkingState,
@@ -997,6 +998,39 @@ describe('DroidSession', () => {
       const result = await session.renameSession({ title: 'My New Title' });
 
       expect(result.success).toBe(true);
+
+      await session.close();
+    });
+  });
+
+  describe('getContextStats()', () => {
+    it('delegates getContextStats to client', async () => {
+      const transport = new InMemoryTransport();
+      await transport.connect();
+
+      setupFullResponder(transport, 'sess-context-001', {
+        [DroidServerMethod.GET_CONTEXT_STATS]: (id) => {
+          queueMicrotask(() => {
+            transport.injectMessage(
+              makeSuccessResponse(id, {
+                used: 25,
+                remaining: 75,
+                limit: 100,
+                accuracy: ContextStatsAccuracy.Estimated,
+                updatedAt: '2026-04-20T00:00:00.000Z',
+              })
+            );
+          });
+        },
+      });
+
+      const session = await createSession({ transport });
+
+      const result = await session.getContextStats();
+
+      expect(result.used).toBe(25);
+      expect(result.remaining).toBe(75);
+      expect(result.limit).toBe(100);
 
       await session.close();
     });

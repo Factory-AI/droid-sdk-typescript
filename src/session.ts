@@ -20,6 +20,7 @@ import type {
   AuthenticateMcpServerResult,
   CompactSessionRequestParams,
   CompactSessionResult,
+  GetContextStatsResult,
   ExecuteRewindRequestParams,
   ExecuteRewindResult,
   ForkSessionResult,
@@ -266,6 +267,11 @@ export class DroidSession {
   async forkSession(): Promise<ForkSessionResult> {
     this._ensureNotClosed();
     return this._client.forkSession();
+  }
+
+  async getContextStats(): Promise<GetContextStatsResult> {
+    this._ensureNotClosed();
+    return this._client.getContextStats();
   }
 
   async renameSession(
