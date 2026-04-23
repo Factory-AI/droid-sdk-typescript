@@ -3,6 +3,7 @@ import { z } from 'zod';
 import {
   AutonomyLevel,
   AutonomyMode,
+  ContextStatsAccuracy,
   DecompSessionType,
   DroidInteractionMode,
   DroidServerMethod,
@@ -184,7 +185,7 @@ export const ContextStatsSchema = z
     used: z.number(),
     remaining: z.number(),
     limit: z.number(),
-    accuracy: z.enum(['exact', 'estimated']),
+    accuracy: z.nativeEnum(ContextStatsAccuracy),
     updatedAt: z.string(),
   })
   .passthrough();

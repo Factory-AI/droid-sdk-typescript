@@ -10,6 +10,7 @@ import { SDK_TAG } from '../src/constants.js';
 import { ConnectionError, SessionNotFoundError } from '../src/errors.js';
 import {
   AutonomyLevel,
+  ContextStatsAccuracy,
   DroidInteractionMode,
   DroidServerMethod,
   DroidWorkingState,
@@ -1015,7 +1016,7 @@ describe('DroidSession', () => {
                 used: 25,
                 remaining: 75,
                 limit: 100,
-                accuracy: 'estimated',
+                accuracy: ContextStatsAccuracy.Estimated,
                 updatedAt: '2026-04-20T00:00:00.000Z',
               })
             );

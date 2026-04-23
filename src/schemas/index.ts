@@ -1,6 +1,7 @@
 export {
   AutonomyLevel,
   AutonomyMode,
+  ContextStatsAccuracy,
   DecompSessionType,
   DismissalType,
   DroidClientMethod,

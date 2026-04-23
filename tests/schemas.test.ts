@@ -3,6 +3,7 @@ import { describe, it, expect } from 'vitest';
 import {
   AutonomyLevel,
   AutonomyMode,
+  ContextStatsAccuracy,
   DecompSessionType,
   DismissalType,
   DroidClientMethod,
@@ -233,6 +234,12 @@ describe('enums', () => {
     );
     expect(DroidWorkingState.ExecutingTool).toBe('executing_tool');
     expect(Object.values(DroidWorkingState)).toHaveLength(5);
+  });
+
+  it('ContextStatsAccuracy has correct values', () => {
+    expect(ContextStatsAccuracy.Exact).toBe('exact');
+    expect(ContextStatsAccuracy.Estimated).toBe('estimated');
+    expect(Object.values(ContextStatsAccuracy)).toHaveLength(2);
   });
 
   it('DroidErrorType has correct values', () => {

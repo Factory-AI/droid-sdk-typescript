@@ -13,6 +13,7 @@ import {
   SessionNotFoundError,
 } from '../src/errors.js';
 import {
+  ContextStatsAccuracy,
   DroidClientMethod,
   DroidServerMethod,
   JSONRPC_VERSION,
@@ -1598,7 +1599,7 @@ describe('DroidClient', () => {
           used: 42,
           remaining: 58,
           limit: 100,
-          accuracy: 'estimated',
+          accuracy: ContextStatsAccuracy.Estimated,
           updatedAt: '2026-04-20T00:00:00.000Z',
         })
       );
@@ -1607,7 +1608,7 @@ describe('DroidClient', () => {
       expect(result.used).toBe(42);
       expect(result.remaining).toBe(58);
       expect(result.limit).toBe(100);
-      expect(result.accuracy).toBe('estimated');
+      expect(result.accuracy).toBe(ContextStatsAccuracy.Estimated);
     });
   });
 

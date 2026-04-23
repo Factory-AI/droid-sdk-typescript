@@ -106,6 +106,12 @@ export enum DroidWorkingState {
   CompactingConversation = 'compacting_conversation',
 }
 
+/** Accuracy of reported context stats. */
+export enum ContextStatsAccuracy {
+  Exact = 'exact',
+  Estimated = 'estimated',
+}
+
 /** Error types for error notifications. */
 export enum DroidErrorType {
   CONNECTION_ERROR = 'ConnectionError',
