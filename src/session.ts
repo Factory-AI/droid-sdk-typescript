@@ -80,6 +80,14 @@ export interface MessageOptions {
   files?: DocumentSource[];
 }
 
+export type DroidMessageHandler = (
+  message: DroidMessage
+) => void | Promise<void>;
+
+export interface SendMessageOptions extends MessageOptions {
+  onMessage?: DroidMessageHandler;
+}
+
 /** Create instances via {@link createSession} or {@link resumeSession}. */
 export class DroidSession {
   private _client: DroidClient;
@@ -130,7 +138,7 @@ export class DroidSession {
   }
 
   /** Consumes the stream and returns an aggregated {@link DroidResult}. */
-  async send(text: string, options?: MessageOptions): Promise<DroidResult> {
+  async send(text: string, options?: SendMessageOptions): Promise<DroidResult> {
     this._ensureNotClosed();
 
     const messages: DroidMessage[] = [];
@@ -139,6 +147,7 @@ export class DroidSession {
 
     for await (const msg of this.stream(text, options)) {
       messages.push(msg);
+      await options?.onMessage?.(msg);
 
       if (msg.type === DroidMessageType.AssistantTextDelta) {
         fullText += msg.text;

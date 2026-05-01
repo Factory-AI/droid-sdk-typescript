@@ -60,7 +60,9 @@ export { createSession, resumeSession, DroidSession } from './session.js';
 export type {
   CreateSessionOptions,
   ResumeSessionOptions,
+  DroidMessageHandler,
   MessageOptions,
+  SendMessageOptions,
   DroidResult,
 } from './session.js';
 
