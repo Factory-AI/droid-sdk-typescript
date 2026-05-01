@@ -46,6 +46,7 @@ import type {
 } from './schemas/client.js';
 import { DroidInteractionMode } from './schemas/enums.js';
 import type { Base64ImageSource, DocumentSource } from './schemas/messages.js';
+import { DroidMessageType } from './stream.js';
 import type { DroidMessage, TokenUsageUpdate } from './stream.js';
 
 /** Aggregated result from a non-streaming `session.send()` call. */
@@ -139,15 +140,15 @@ export class DroidSession {
     for await (const msg of this.stream(text, options)) {
       messages.push(msg);
 
-      if (msg.type === 'assistant_text_delta') {
+      if (msg.type === DroidMessageType.AssistantTextDelta) {
         fullText += msg.text;
       }
 
-      if (msg.type === 'token_usage_update') {
+      if (msg.type === DroidMessageType.TokenUsageUpdate) {
         lastTokenUsage = msg;
       }
 
-      if (msg.type === 'turn_complete' && msg.tokenUsage) {
+      if (msg.type === DroidMessageType.TurnComplete && msg.tokenUsage) {
         // Prefer the final synthesized token usage when available.
         lastTokenUsage = msg.tokenUsage;
       }
