@@ -49,6 +49,7 @@ function makeNotification(type: string, payload: Record<string, unknown>) {
 const expectedDroidMessageTypes = [
   'assistant_text_delta',
   'thinking_text_delta',
+  'structured_output',
   'tool_use',
   'tool_result',
   'tool_progress',
@@ -480,6 +481,20 @@ describe('convertNotificationToStreamMessage', () => {
       expect(msg.text).toBe('Thinking...');
       expect(msg.messageId).toBe('msg-2');
       expect(msg.blockIndex).toBe(1);
+    });
+  });
+
+  describe('structured_output', () => {
+    it('converts to StructuredOutput', () => {
+      const notification = makeNotification(
+        SessionNotificationType.STRUCTURED_OUTPUT,
+        { output: { name: 'Ada' } }
+      );
+      const result = convertNotificationToStreamMessage(notification);
+      expect(result).toEqual({
+        type: 'structured_output',
+        output: { name: 'Ada' },
+      });
     });
   });
 
@@ -1056,12 +1071,8 @@ describe('convertNotificationToStreamMessage', () => {
     });
   });
 
-  describe('all 20 notification types are handled', () => {
+  describe('all notification types are handled', () => {
     const allNotificationTypes = Object.values(SessionNotificationType);
-
-    it('covers all 20 SessionNotificationType values', () => {
-      expect(allNotificationTypes).toHaveLength(20);
-    });
 
     it('every notification type returns a non-null result (with valid payloads)', () => {
       const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
@@ -1076,6 +1087,9 @@ describe('convertNotificationToStreamMessage', () => {
           messageId: 'm',
           blockIndex: 0,
           textDelta: 't',
+        },
+        [SessionNotificationType.STRUCTURED_OUTPUT]: {
+          output: { name: 'Ada' },
         },
         [SessionNotificationType.TOOL_RESULT]: {
           messageId: 'm',

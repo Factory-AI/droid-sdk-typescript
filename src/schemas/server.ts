@@ -246,6 +246,18 @@ export type ThinkingTextDeltaNotification = z.infer<
   typeof ThinkingTextDeltaNotificationSchema
 >;
 
+/** Structured output notification. */
+export const StructuredOutputNotificationSchema = z
+  .object({
+    type: z.literal(SessionNotificationType.STRUCTURED_OUTPUT),
+    output: JsonObjectSchema,
+  })
+  .passthrough();
+
+export type StructuredOutputNotification = z.infer<
+  typeof StructuredOutputNotificationSchema
+>;
+
 /** Session token usage changed notification. */
 export const SessionTokenUsageChangedNotificationSchema = z
   .object({
@@ -374,6 +386,7 @@ export const SessionNotificationSchemaList = [
   McpStatusChangedNotificationSchema,
   AssistantTextDeltaNotificationSchema,
   ThinkingTextDeltaNotificationSchema,
+  StructuredOutputNotificationSchema,
   SessionTokenUsageChangedNotificationSchema,
   MissionStateChangedNotificationSchema,
   MissionFeaturesChangedNotificationSchema,

@@ -174,29 +174,32 @@ describe('enums', () => {
     expect(DroidClientMethod.ASK_USER).toBe('droid.ask_user');
   });
 
-  it('SessionNotificationType has 20 types', () => {
-    const values = Object.values(SessionNotificationType);
-    expect(values).toHaveLength(20);
-    expect(values).toContain('assistant_text_delta');
-    expect(values).toContain('thinking_text_delta');
-    expect(values).toContain('tool_result');
-    expect(values).toContain('tool_progress_update');
-    expect(values).toContain('create_message');
-    expect(values).toContain('error');
-    expect(values).toContain('droid_working_state_changed');
-    expect(values).toContain('permission_resolved');
-    expect(values).toContain('settings_updated');
-    expect(values).toContain('session_title_updated');
-    expect(values).toContain('mcp_status_changed');
-    expect(values).toContain('session_token_usage_changed');
-    expect(values).toContain('mission_state_changed');
-    expect(values).toContain('mission_features_changed');
-    expect(values).toContain('mission_progress_entry');
-    expect(values).toContain('mission_heartbeat');
-    expect(values).toContain('mission_worker_started');
-    expect(values).toContain('mission_worker_completed');
-    expect(values).toContain('mcp_auth_required');
-    expect(values).toContain('mcp_auth_completed');
+  it('SessionNotificationType has correct values', () => {
+    expect(Object.values(SessionNotificationType).sort()).toEqual(
+      [
+        'assistant_text_delta',
+        'thinking_text_delta',
+        'structured_output',
+        'tool_result',
+        'tool_progress_update',
+        'create_message',
+        'error',
+        'droid_working_state_changed',
+        'permission_resolved',
+        'settings_updated',
+        'session_title_updated',
+        'mcp_status_changed',
+        'session_token_usage_changed',
+        'mission_state_changed',
+        'mission_features_changed',
+        'mission_progress_entry',
+        'mission_heartbeat',
+        'mission_worker_started',
+        'mission_worker_completed',
+        'mcp_auth_required',
+        'mcp_auth_completed',
+      ].sort()
+    );
   });
 
   it('ToolConfirmationOutcome has correct values', () => {

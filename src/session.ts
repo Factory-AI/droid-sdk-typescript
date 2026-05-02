@@ -37,6 +37,7 @@ import type {
   LoadSessionRequestParams,
   LoadSessionResult,
   McpServerConfig,
+  OutputFormat,
   RemoveMcpServerRequestParams,
   RemoveMcpServerResult,
   ToggleMcpServerRequestParams,
@@ -46,6 +47,7 @@ import type {
 } from './schemas/client.js';
 import { DroidInteractionMode } from './schemas/enums.js';
 import type { Base64ImageSource, DocumentSource } from './schemas/messages.js';
+import type { JsonObject } from './schemas/shared.js';
 import { DroidMessageType } from './stream.js';
 import type { DroidMessage, ErrorEvent, TokenUsageUpdate } from './stream.js';
 
@@ -65,6 +67,8 @@ export interface DroidResult {
   turnCount: number;
   /** First error event emitted during the turn, if any. */
   error: ErrorEvent | null;
+  /** Structured output emitted by the turn, when requested. */
+  structuredOutput: JsonObject | null;
   /** True when the stream completed without an error event. */
   success: boolean;
 }
@@ -91,6 +95,7 @@ export interface ResumeSessionOptions extends Pick<
 export interface MessageOptions {
   images?: Base64ImageSource[];
   files?: DocumentSource[];
+  outputFormat?: OutputFormat;
   abortSignal?: AbortSignal;
 }
 
@@ -168,6 +173,7 @@ export class DroidSession {
           text,
           images: options?.images,
           files: options?.files,
+          outputFormat: options?.outputFormat,
         }),
         abortPromise,
       ]);
@@ -192,6 +198,7 @@ export class DroidSession {
     let fullText = '';
     let lastTokenUsage: TokenUsageUpdate | null = null;
     let firstError: ErrorEvent | null = null;
+    let structuredOutput: JsonObject | null = null;
     let turnCount = 0;
     const startedAt = Date.now();
 
@@ -208,6 +215,10 @@ export class DroidSession {
 
       if (msg.type === DroidMessageType.Error && firstError === null) {
         firstError = msg;
+      }
+
+      if (msg.type === DroidMessageType.StructuredOutput) {
+        structuredOutput = msg.output;
       }
 
       if (msg.type === DroidMessageType.TurnComplete) {
@@ -227,6 +238,7 @@ export class DroidSession {
       durationMs: Date.now() - startedAt,
       turnCount,
       error: firstError,
+      structuredOutput,
       success: firstError === null,
     };
   }

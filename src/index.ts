@@ -30,6 +30,7 @@ export {
 export type {
   AssistantTextDelta,
   ThinkingTextDelta,
+  StructuredOutput,
   ToolUse,
   ToolResult,
   ToolProgress,

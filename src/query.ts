@@ -6,11 +6,16 @@ import {
   wireAbortSignal,
 } from './helpers.js';
 import type { InitializeSessionResult } from './schemas/client.js';
-import { DroidSession, type CreateSessionOptions } from './session.js';
+import {
+  DroidSession,
+  type CreateSessionOptions,
+  type MessageOptions,
+} from './session.js';
 import type { DroidMessage } from './stream.js';
 import type { DroidClientTransport } from './types.js';
 
-export interface QueryOptions extends CreateSessionOptions {
+export interface QueryOptions
+  extends CreateSessionOptions, Pick<MessageOptions, 'outputFormat'> {
   prompt: string;
 }
 
@@ -167,6 +172,7 @@ export function query(options: QueryOptions): DroidQuery {
     try {
       for await (const msg of session.stream(options.prompt, {
         abortSignal: operationAbortController.signal,
+        outputFormat: options.outputFormat,
       })) {
         if (aborted) return;
         yield msg;

@@ -459,6 +459,69 @@ describe('DroidSession', () => {
       await session.close();
     });
 
+    it('passes outputFormat and aggregates structured output', async () => {
+      const transport = new InMemoryTransport();
+      await transport.connect();
+
+      setupFullResponder(transport, 'sess-structured-output', {
+        [DroidServerMethod.ADD_USER_MESSAGE]: (id) => {
+          queueMicrotask(() => {
+            transport.injectMessage(makeSuccessResponse(id, {}));
+            transport.injectMessage(
+              makeSessionNotification(
+                SessionNotificationType.DROID_WORKING_STATE_CHANGED,
+                { newState: DroidWorkingState.StreamingAssistantMessage }
+              )
+            );
+            transport.injectMessage(
+              makeSessionNotification(
+                SessionNotificationType.STRUCTURED_OUTPUT,
+                {
+                  output: { name: 'Ada' },
+                }
+              )
+            );
+            transport.injectMessage(
+              makeSessionNotification(
+                SessionNotificationType.DROID_WORKING_STATE_CHANGED,
+                { newState: DroidWorkingState.Idle }
+              )
+            );
+          });
+        },
+      });
+
+      const session = await createSession({ transport });
+      const outputFormat = {
+        type: 'json_schema' as const,
+        schema: {
+          type: 'object',
+          properties: {
+            name: { type: 'string' },
+          },
+          required: ['name'],
+        },
+      };
+
+      const result = await session.send('Return a person', { outputFormat });
+      const addUserMessage = transport.sentMessages.find(
+        (message) =>
+          (message as Record<string, unknown>)['method'] ===
+          DroidServerMethod.ADD_USER_MESSAGE
+      ) as Record<string, unknown>;
+
+      expect(
+        (addUserMessage['params'] as Record<string, unknown>)['outputFormat']
+      ).toEqual(outputFormat);
+      expect(result.structuredOutput).toEqual({ name: 'Ada' });
+      expect(result.messages).toContainEqual({
+        type: 'structured_output',
+        output: { name: 'Ada' },
+      });
+
+      await session.close();
+    });
+
     it('concatenates multiple text deltas', async () => {
       const transport = new InMemoryTransport();
       await transport.connect();

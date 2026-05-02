@@ -21,6 +21,7 @@ import type { JsonObject, JsonValue } from './schemas/shared.js';
 export const DroidMessageType = {
   AssistantTextDelta: 'assistant_text_delta',
   ThinkingTextDelta: 'thinking_text_delta',
+  StructuredOutput: 'structured_output',
   ToolUse: 'tool_use',
   ToolResult: 'tool_result',
   ToolProgress: 'tool_progress',
@@ -55,6 +56,11 @@ export interface ThinkingTextDelta {
   readonly messageId: string;
   readonly blockIndex: number;
   readonly text: string;
+}
+
+export interface StructuredOutput {
+  readonly type: 'structured_output';
+  readonly output: JsonObject;
 }
 
 export interface ToolUse {
@@ -184,6 +190,7 @@ export interface TurnComplete {
 export type DroidMessage =
   | AssistantTextDelta
   | ThinkingTextDelta
+  | StructuredOutput
   | ToolUse
   | ToolResult
   | ToolProgress
@@ -233,6 +240,12 @@ export function convertNotificationToStreamMessage(
         messageId: notification.messageId,
         blockIndex: notification.blockIndex,
         text: notification.textDelta,
+      };
+
+    case SessionNotificationType.STRUCTURED_OUTPUT:
+      return {
+        type: 'structured_output',
+        output: notification.output,
       };
 
     case SessionNotificationType.TOOL_RESULT:
