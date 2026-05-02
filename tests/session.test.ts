@@ -11,6 +11,7 @@ import { ConnectionError, SessionNotFoundError } from '../src/errors.js';
 import {
   AutonomyLevel,
   ContextStatsAccuracy,
+  DroidErrorType,
   DroidInteractionMode,
   DroidServerMethod,
   DroidWorkingState,
@@ -388,6 +389,72 @@ describe('DroidSession', () => {
       expect(result.tokenUsage).toBeDefined();
       expect(result.tokenUsage!.inputTokens).toBe(100);
       expect(result.tokenUsage!.outputTokens).toBe(50);
+      expect(result.sessionId).toBe('sess-send-001');
+      expect(result.durationMs).toBeGreaterThanOrEqual(0);
+      expect(result.turnCount).toBe(1);
+      expect(result.error).toBeNull();
+      expect(result.success).toBe(true);
+
+      await session.close();
+    });
+
+    it('reports error metadata when an error event is emitted', async () => {
+      const transport = new InMemoryTransport();
+      await transport.connect();
+
+      const originalSend = transport.send.bind(transport);
+      transport.send = (message: Record<string, unknown>) => {
+        originalSend(message);
+        const msg = message as Record<string, unknown>;
+        const method = msg['method'] as string;
+        const id = msg['id'] as string;
+
+        if (method === DroidServerMethod.INITIALIZE_SESSION) {
+          queueMicrotask(() => {
+            transport.injectMessage(
+              makeSuccessResponse(id, {
+                sessionId: 'sess-send-error-metadata',
+                session: {},
+                settings: { modelId: 'test', reasoningEffort: 'medium' },
+              })
+            );
+          });
+        } else if (method === DroidServerMethod.ADD_USER_MESSAGE) {
+          queueMicrotask(() => {
+            transport.injectMessage(makeSuccessResponse(id, {}));
+            transport.injectMessage(
+              makeSessionNotification(
+                SessionNotificationType.DROID_WORKING_STATE_CHANGED,
+                { newState: DroidWorkingState.StreamingAssistantMessage }
+              )
+            );
+            transport.injectMessage(
+              makeSessionNotification(SessionNotificationType.ERROR, {
+                message: 'Something went wrong',
+                errorType: DroidErrorType.ERROR,
+                timestamp: '2026-05-02T00:00:00.000Z',
+              })
+            );
+            transport.injectMessage(
+              makeSessionNotification(
+                SessionNotificationType.DROID_WORKING_STATE_CHANGED,
+                { newState: DroidWorkingState.Idle }
+              )
+            );
+          });
+        }
+      };
+
+      const session = await createSession({ transport });
+      const result = await session.send('Test error metadata');
+
+      expect(result.success).toBe(false);
+      expect(result.error).toMatchObject({
+        type: 'error',
+        message: 'Something went wrong',
+        errorType: DroidErrorType.ERROR,
+      });
+      expect(result.turnCount).toBe(1);
 
       await session.close();
     });

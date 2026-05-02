@@ -47,13 +47,26 @@ import type {
 import { DroidInteractionMode } from './schemas/enums.js';
 import type { Base64ImageSource, DocumentSource } from './schemas/messages.js';
 import { DroidMessageType } from './stream.js';
-import type { DroidMessage, TokenUsageUpdate } from './stream.js';
+import type { DroidMessage, ErrorEvent, TokenUsageUpdate } from './stream.js';
 
 /** Aggregated result from a non-streaming `session.send()` call. */
 export interface DroidResult {
+  /** Session that produced this result. */
+  sessionId: string;
+  /** Concatenated assistant text deltas emitted during the turn. */
   text: string;
+  /** All stream messages emitted during the turn. */
   messages: DroidMessage[];
+  /** Latest token usage update for the turn, when reported by Droid. */
   tokenUsage: TokenUsageUpdate | null;
+  /** Wall-clock duration spent consuming the turn. */
+  durationMs: number;
+  /** Number of completed turns observed while consuming the stream. */
+  turnCount: number;
+  /** First error event emitted during the turn, if any. */
+  error: ErrorEvent | null;
+  /** True when the stream completed without an error event. */
+  success: boolean;
 }
 
 export interface CreateSessionOptions
@@ -178,6 +191,9 @@ export class DroidSession {
     const messages: DroidMessage[] = [];
     let fullText = '';
     let lastTokenUsage: TokenUsageUpdate | null = null;
+    let firstError: ErrorEvent | null = null;
+    let turnCount = 0;
+    const startedAt = Date.now();
 
     for await (const msg of this.stream(text, options)) {
       messages.push(msg);
@@ -190,16 +206,28 @@ export class DroidSession {
         lastTokenUsage = msg;
       }
 
-      if (msg.type === DroidMessageType.TurnComplete && msg.tokenUsage) {
-        // Prefer the final synthesized token usage when available.
-        lastTokenUsage = msg.tokenUsage;
+      if (msg.type === DroidMessageType.Error && firstError === null) {
+        firstError = msg;
+      }
+
+      if (msg.type === DroidMessageType.TurnComplete) {
+        turnCount++;
+        if (msg.tokenUsage) {
+          // Prefer the final synthesized token usage when available.
+          lastTokenUsage = msg.tokenUsage;
+        }
       }
     }
 
     return {
+      sessionId: this._sessionId,
       text: fullText,
       messages,
       tokenUsage: lastTokenUsage,
+      durationMs: Date.now() - startedAt,
+      turnCount,
+      error: firstError,
+      success: firstError === null,
     };
   }
 
