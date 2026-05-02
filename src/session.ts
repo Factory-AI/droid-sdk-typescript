@@ -103,6 +103,7 @@ export class DroidSession {
   private _sessionId: string;
   private _initResult: InitializeSessionResult | LoadSessionResult;
   private _closed = false;
+  private _cleanupAbortSignal: (() => void) | null = null;
 
   /** @internal */
   constructor(
@@ -121,6 +122,11 @@ export class DroidSession {
 
   get initResult(): InitializeSessionResult | LoadSessionResult {
     return this._initResult;
+  }
+
+  /** @internal */
+  setAbortSignalCleanup(cleanup: () => void): void {
+    this._cleanupAbortSignal = cleanup;
   }
 
   /** Yields {@link DroidMessage} events until `turn_complete`. */
@@ -207,6 +213,8 @@ export class DroidSession {
       return;
     }
     this._closed = true;
+    this._cleanupAbortSignal?.();
+    this._cleanupAbortSignal = null;
     await this._client.close();
   }
 
@@ -343,7 +351,9 @@ export async function createSession(
   try {
     const initResult = await client.initializeSession(initParams);
     const session = new DroidSession(client, initResult.sessionId, initResult);
-    wireAbortSignal(options.abortSignal, () => void session.close());
+    session.setAbortSignalCleanup(
+      wireAbortSignal(options.abortSignal, () => void session.close())
+    );
 
     return session;
   } catch (error) {
@@ -367,7 +377,9 @@ export async function resumeSession(
   try {
     const loadResult = await client.loadSession(loadParams);
     const session = new DroidSession(client, sessionId, loadResult);
-    wireAbortSignal(options.abortSignal, () => void session.close());
+    session.setAbortSignalCleanup(
+      wireAbortSignal(options.abortSignal, () => void session.close())
+    );
 
     return session;
   } catch (error) {

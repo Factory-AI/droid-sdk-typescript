@@ -104,6 +104,7 @@ export function query(options: QueryOptions): DroidQuery {
   let aborted = false;
   let initializationPromise: Promise<InitializeSessionResult> | null = null;
   let promptPromise: Promise<void> | null = null;
+  let cleanupAbortSignal: () => void = () => {};
 
   const bridge = new MessageBridge();
 
@@ -189,6 +190,7 @@ export function query(options: QueryOptions): DroidQuery {
     try {
       yield* generator;
     } finally {
+      cleanupAbortSignal();
       const closer = client ?? transport;
       client = null;
       transport = null;
@@ -209,6 +211,7 @@ export function query(options: QueryOptions): DroidQuery {
     () => {
       aborted = true;
       bridge.signalDone();
+      cleanupAbortSignal();
       const closer = client ?? transport;
       client = null;
       transport = null;
@@ -216,7 +219,9 @@ export function query(options: QueryOptions): DroidQuery {
     }
   );
 
-  wireAbortSignal(options.abortSignal, () => droidQuery.abort());
+  cleanupAbortSignal = wireAbortSignal(options.abortSignal, () =>
+    droidQuery.abort()
+  );
 
   return droidQuery;
 }
