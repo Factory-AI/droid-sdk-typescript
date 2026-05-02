@@ -13,6 +13,7 @@ import {
 } from '../src/schemas/index.js';
 import {
   convertNotificationToStreamMessage,
+  DroidMessageType,
   StreamStateTracker,
 } from '../src/stream.js';
 import type {
@@ -45,7 +46,46 @@ function makeNotification(type: string, payload: Record<string, unknown>) {
   return { type, ...payload };
 }
 
+const expectedDroidMessageTypes = [
+  'assistant_text_delta',
+  'thinking_text_delta',
+  'tool_use',
+  'tool_result',
+  'tool_progress',
+  'working_state_changed',
+  'token_usage_update',
+  'create_message',
+  'permission_resolved',
+  'settings_updated',
+  'session_title_updated',
+  'mcp_status_changed',
+  'mission_state_changed',
+  'mission_features_changed',
+  'mission_progress_entry',
+  'mission_heartbeat',
+  'mission_worker_started',
+  'mission_worker_completed',
+  'mcp_auth_required',
+  'mcp_auth_completed',
+  'error',
+  'turn_complete',
+] as const satisfies readonly DroidMessage['type'][];
+
+const allMessageTypesCovered: Exclude<
+  DroidMessage['type'],
+  (typeof expectedDroidMessageTypes)[number]
+> extends never
+  ? true
+  : never = true;
+void allMessageTypesCovered;
+
 describe('DroidMessage types', () => {
+  it('DroidMessageType covers every message discriminant', () => {
+    expect(Object.values(DroidMessageType).sort()).toEqual(
+      [...expectedDroidMessageTypes].sort()
+    );
+  });
+
   it('AssistantTextDelta has correct structure', () => {
     const msg: AssistantTextDelta = {
       type: 'assistant_text_delta',

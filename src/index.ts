@@ -24,6 +24,7 @@ export type {
 
 export {
   convertNotificationToStreamMessage,
+  DroidMessageType,
   StreamStateTracker,
 } from './stream.js';
 export type {

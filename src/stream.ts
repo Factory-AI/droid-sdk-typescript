@@ -18,6 +18,31 @@ import {
 } from './schemas/server.js';
 import type { JsonObject, JsonValue } from './schemas/shared.js';
 
+export const DroidMessageType = {
+  AssistantTextDelta: 'assistant_text_delta',
+  ThinkingTextDelta: 'thinking_text_delta',
+  ToolUse: 'tool_use',
+  ToolResult: 'tool_result',
+  ToolProgress: 'tool_progress',
+  WorkingStateChanged: 'working_state_changed',
+  TokenUsageUpdate: 'token_usage_update',
+  CreateMessage: 'create_message',
+  PermissionResolved: 'permission_resolved',
+  SettingsUpdated: 'settings_updated',
+  SessionTitleUpdated: 'session_title_updated',
+  McpStatusChanged: 'mcp_status_changed',
+  MissionStateChanged: 'mission_state_changed',
+  MissionFeaturesChanged: 'mission_features_changed',
+  MissionProgressEntry: 'mission_progress_entry',
+  MissionHeartbeat: 'mission_heartbeat',
+  MissionWorkerStarted: 'mission_worker_started',
+  MissionWorkerCompleted: 'mission_worker_completed',
+  McpAuthRequired: 'mcp_auth_required',
+  McpAuthCompleted: 'mcp_auth_completed',
+  Error: 'error',
+  TurnComplete: 'turn_complete',
+} as const;
+
 export interface AssistantTextDelta {
   readonly type: 'assistant_text_delta';
   readonly messageId: string;
@@ -179,6 +204,9 @@ export type DroidMessage =
   | McpAuthCompleted
   | ErrorEvent
   | TurnComplete;
+
+export type DroidMessageType =
+  (typeof DroidMessageType)[keyof typeof DroidMessageType];
 
 export function convertNotificationToStreamMessage(
   raw: unknown
