@@ -15,38 +15,33 @@ npm install @factory/droid-sdk
 
 ## Quick Start
 
-Send a one-shot prompt and stream the response:
+Send a one-shot prompt and get the final response:
 
 ```ts
-import { query } from '@factory/droid-sdk';
+import { prompt } from '@factory/droid-sdk';
 
-const stream = query({
-  prompt: 'What files are in the current directory?',
+const result = await prompt('What files are in the current directory?', {
   cwd: '/my/project',
 });
 
-for await (const msg of stream) {
-  if (msg.type === 'assistant_text_delta') {
-    process.stdout.write(msg.text);
-  }
-  if (msg.type === 'turn_complete') {
-    console.log('\nDone!');
-  }
-}
+console.log(result.text);
 ```
+
+`prompt()` returns a successful `DroidResult` or throws an SDK error such as
+`ConnectionError`, `TimeoutError`, or `ProcessExitError`.
 
 ## Multi-Turn Sessions
 
 Use `createSession()` for persistent conversations with multiple turns:
 
 ```ts
-import { createSession } from '@factory/droid-sdk';
+import { createSession, DroidMessageType } from '@factory/droid-sdk';
 
 const session = await createSession({ cwd: '/my/project' });
 
 // Streaming turn
 for await (const msg of session.stream('List all TypeScript files')) {
-  if (msg.type === 'assistant_text_delta') {
+  if (msg.type === DroidMessageType.AssistantTextDelta) {
     process.stdout.write(msg.text);
   }
 }
@@ -224,7 +219,11 @@ Each `SessionMetadata` record includes `id`, `title`, `sessionTitle`, `owner`, `
 Handle tool confirmation requests with a custom permission handler:
 
 ```ts
-import { query, ToolConfirmationOutcome } from '@factory/droid-sdk';
+import {
+  DroidMessageType,
+  query,
+  ToolConfirmationOutcome,
+} from '@factory/droid-sdk';
 
 const stream = query({
   prompt: 'Create a hello.txt file',
@@ -236,7 +235,7 @@ const stream = query({
 });
 
 for await (const msg of stream) {
-  if (msg.type === 'assistant_text_delta') {
+  if (msg.type === DroidMessageType.AssistantTextDelta) {
     process.stdout.write(msg.text);
   }
 }
@@ -248,10 +247,17 @@ for await (const msg of stream) {
 
 | Function                      | Description                                                      |
 | ----------------------------- | ---------------------------------------------------------------- |
+| `prompt(text, options?)`      | One-shot prompt → `Promise<DroidResult>`                         |
 | `query(options)`              | One-shot prompt → async generator of `DroidMessage` events       |
 | `createSession(options?)`     | Create a new multi-turn session → `DroidSession`                 |
 | `resumeSession(id, options?)` | Resume an existing session → `DroidSession`                      |
 | `listSessions(options?)`      | List droid sessions saved on disk → `Promise<SessionMetadata[]>` |
+
+### `prompt(text, options?): Promise<DroidResult>`
+
+Creates a temporary session, sends one prompt, returns the aggregated
+`DroidResult`, and closes the session automatically. It accepts the same session
+creation options as `createSession()` plus message attachment options.
 
 ### `query(options): DroidQuery`
 
@@ -293,6 +299,14 @@ Returned by `session.send()`:
 ### `DroidMessage` Types
 
 All messages have a discriminated `type` field:
+
+```ts
+import { DroidMessageType } from '@factory/droid-sdk';
+
+if (msg.type === DroidMessageType.AssistantTextDelta) {
+  process.stdout.write(msg.text);
+}
+```
 
 | Type                    | Description                             |
 | ----------------------- | --------------------------------------- |
@@ -347,8 +361,10 @@ Low-level JSON-RPC client for advanced use. Provides typed methods for the under
 
 See the [`examples/`](./examples) directory for runnable examples:
 
+- **[`prompt.ts`](./examples/prompt.ts)** — one-shot prompt with aggregated result
 - **[`simple-query.ts`](./examples/simple-query.ts)** — one-shot query with streaming output
 - **[`multi-turn-session.ts`](./examples/multi-turn-session.ts)** — multi-turn session lifecycle
+- **[`abort-session-send.ts`](./examples/abort-session-send.ts)** — cancel an in-flight session turn with `AbortSignal`
 - **[`init-metadata.ts`](./examples/init-metadata.ts)** — read initialization and load metadata from query/session APIs
 - **[`permission-handler.ts`](./examples/permission-handler.ts)** — custom permission handling
 - **[`spec-mode-same-session.ts`](./examples/spec-mode-same-session.ts)** — approve a spec and continue in the same session
