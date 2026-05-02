@@ -1,13 +1,12 @@
 import { DroidClient } from './client.js';
 import {
-  MessageBridge,
   buildInitParams,
   closeQuietly,
   createConfiguredClient,
   wireAbortSignal,
 } from './helpers.js';
 import type { InitializeSessionResult } from './schemas/client.js';
-import type { CreateSessionOptions } from './session.js';
+import { DroidSession, type CreateSessionOptions } from './session.js';
 import type { DroidMessage } from './stream.js';
 import type { DroidClientTransport } from './types.js';
 
@@ -99,14 +98,21 @@ class DroidQueryImpl implements DroidQuery {
 export function query(options: QueryOptions): DroidQuery {
   let transport: DroidClientTransport | null = null;
   let client: DroidClient | null = null;
+  let session: DroidSession | null = null;
   let sessionId: string | null = null;
   let initResult: InitializeSessionResult | null = null;
   let aborted = false;
   let initializationPromise: Promise<InitializeSessionResult> | null = null;
-  let promptPromise: Promise<void> | null = null;
   let cleanupAbortSignal: () => void = () => {};
+  const operationAbortController = new AbortController();
 
-  const bridge = new MessageBridge();
+  const closeActiveResource = async (): Promise<void> => {
+    const closer = session ?? client ?? transport;
+    session = null;
+    client = null;
+    transport = null;
+    await closeQuietly(closer);
+  };
 
   const ensureInitialized = (): Promise<InitializeSessionResult> => {
     if (initResult) {
@@ -125,7 +131,6 @@ export function query(options: QueryOptions): DroidQuery {
         const configuredClient = await createConfiguredClient(options);
         transport = configuredClient.transport;
         client = configuredClient.client;
-        client.onNotification(bridge.notificationHandler);
 
         if (aborted) {
           throw new Error('Query aborted before initialization');
@@ -134,34 +139,15 @@ export function query(options: QueryOptions): DroidQuery {
         const result = await client.initializeSession(buildInitParams(options));
         sessionId = result.sessionId;
         initResult = result;
+        session = new DroidSession(client, result.sessionId, result);
         return result;
       } catch (error) {
-        const closer = client ?? transport;
-        client = null;
-        transport = null;
-        await closeQuietly(closer);
+        await closeActiveResource();
         throw error;
       }
     })();
 
     return initializationPromise;
-  };
-
-  const ensurePromptSent = (): Promise<void> => {
-    if (promptPromise) {
-      return promptPromise;
-    }
-
-    promptPromise = (async () => {
-      await ensureInitialized();
-      if (aborted || client === null) {
-        return;
-      }
-
-      await client.addUserMessage({ text: options.prompt });
-    })();
-
-    return promptPromise;
   };
 
   async function* generateMessages(): AsyncGenerator<
@@ -171,12 +157,23 @@ export function query(options: QueryOptions): DroidQuery {
   > {
     if (aborted) return;
 
-    await ensurePromptSent();
+    await ensureInitialized();
     if (aborted) return;
 
-    for await (const msg of bridge.messages()) {
+    if (session === null) {
+      return;
+    }
+
+    try {
+      for await (const msg of session.stream(options.prompt, {
+        abortSignal: operationAbortController.signal,
+      })) {
+        if (aborted) return;
+        yield msg;
+      }
+    } catch (error) {
       if (aborted) return;
-      yield msg;
+      throw error;
     }
   }
 
@@ -191,10 +188,7 @@ export function query(options: QueryOptions): DroidQuery {
       yield* generator;
     } finally {
       cleanupAbortSignal();
-      const closer = client ?? transport;
-      client = null;
-      transport = null;
-      await closeQuietly(closer);
+      await closeActiveResource();
     }
   }
 
@@ -204,18 +198,17 @@ export function query(options: QueryOptions): DroidQuery {
     () => initResult,
     () => ensureInitialized(),
     async () => {
-      if (client && !aborted) {
-        await client.interruptSession();
+      if (session && !aborted) {
+        await session.interrupt();
       }
     },
     () => {
       aborted = true;
-      bridge.signalDone();
+      if (!operationAbortController.signal.aborted) {
+        operationAbortController.abort(new Error('Query aborted'));
+      }
       cleanupAbortSignal();
-      const closer = client ?? transport;
-      client = null;
-      transport = null;
-      void closeQuietly(closer);
+      void closeActiveResource();
     }
   );
 
