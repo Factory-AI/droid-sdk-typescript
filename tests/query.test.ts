@@ -14,6 +14,7 @@ import {
   DroidWorkingState,
   ReasoningEffort,
   SessionNotificationType,
+  ToolConfirmationOutcome,
 } from '../src/schemas/index.js';
 import type { DroidMessage } from '../src/stream.js';
 import {
@@ -658,8 +659,11 @@ describe('query()', () => {
                     },
                   ],
                   options: [
-                    { label: 'Proceed once', value: 'proceed_once' },
-                    { label: 'Cancel', value: 'cancel' },
+                    {
+                      label: 'Proceed once',
+                      value: ToolConfirmationOutcome.ProceedOnce,
+                    },
+                    { label: 'Cancel', value: ToolConfirmationOutcome.Cancel },
                   ],
                 }
               )
@@ -688,7 +692,7 @@ describe('query()', () => {
         transport,
         permissionHandler: (_params) => {
           permissionCalled = true;
-          return 'proceed_once';
+          return ToolConfirmationOutcome.ProceedOnce;
         },
       });
 

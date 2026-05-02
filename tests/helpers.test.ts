@@ -25,6 +25,7 @@ import {
   JSONRPC_VERSION,
   LEGACY_FACTORY_API_VERSION,
   SessionNotificationType,
+  ToolConfirmationOutcome,
 } from '../src/schemas/index.js';
 import { InMemoryTransport } from './helpers.js';
 
@@ -268,7 +269,9 @@ describe('setupClientHandlers', () => {
   });
 
   it('sets permission handler on client when provided', () => {
-    const permissionHandler = vi.fn().mockReturnValue('proceed_once');
+    const permissionHandler = vi
+      .fn()
+      .mockReturnValue(ToolConfirmationOutcome.ProceedOnce);
     const spy = vi.spyOn(client, 'setPermissionHandler');
 
     setupClientHandlers(client, { permissionHandler });

@@ -708,7 +708,9 @@ describe('DroidClient', () => {
     });
 
     it('invokes registered handler and sends response back', async () => {
-      const handler = vi.fn().mockResolvedValue('proceed_once');
+      const handler = vi
+        .fn()
+        .mockResolvedValue(ToolConfirmationOutcome.ProceedOnce);
       client.setPermissionHandler(handler);
 
       transport.injectMessage(
@@ -743,7 +745,9 @@ describe('DroidClient', () => {
           (msg as Record<string, unknown>)['id'] === 'perm-req-1'
       ) as Record<string, unknown>;
 
-      expect(response['result']).toEqual({ selectedOption: 'proceed_once' });
+      expect(response['result']).toEqual({
+        selectedOption: ToolConfirmationOutcome.ProceedOnce,
+      });
     });
 
     it.each(
@@ -795,7 +799,9 @@ describe('DroidClient', () => {
     );
 
     it('invokes sync handler correctly', async () => {
-      const handler = vi.fn().mockReturnValue('proceed_always');
+      const handler = vi
+        .fn()
+        .mockReturnValue(ToolConfirmationOutcome.ProceedAlways);
       client.setPermissionHandler(handler);
 
       transport.injectMessage(
@@ -829,7 +835,7 @@ describe('DroidClient', () => {
       ) as Record<string, unknown>;
 
       expect(response['result']).toEqual({
-        selectedOption: 'proceed_always',
+        selectedOption: ToolConfirmationOutcome.ProceedAlways,
       });
     });
   });
@@ -1124,7 +1130,9 @@ describe('DroidClient', () => {
           (msg as Record<string, unknown>)['id'] === 'perm-default-1'
       ) as Record<string, unknown>;
 
-      expect(response['result']).toEqual({ selectedOption: 'cancel' });
+      expect(response['result']).toEqual({
+        selectedOption: ToolConfirmationOutcome.Cancel,
+      });
     });
 
     it('returns cancelled for ask-user requests when no handler registered', async () => {
@@ -1154,7 +1162,9 @@ describe('DroidClient', () => {
     });
 
     it('clearPermissionHandler restores default cancel behavior', async () => {
-      const handler = vi.fn().mockReturnValue('proceed_once');
+      const handler = vi
+        .fn()
+        .mockReturnValue(ToolConfirmationOutcome.ProceedOnce);
       client.setPermissionHandler(handler);
       client.clearPermissionHandler();
 
@@ -1192,7 +1202,9 @@ describe('DroidClient', () => {
           (msg as Record<string, unknown>)['id'] === 'perm-clear-1'
       ) as Record<string, unknown>;
 
-      expect(response['result']).toEqual({ selectedOption: 'cancel' });
+      expect(response['result']).toEqual({
+        selectedOption: ToolConfirmationOutcome.Cancel,
+      });
     });
 
     it('clearAskUserHandler restores default cancelled behavior', async () => {

@@ -89,7 +89,7 @@ import {
   REWIND_TIMEOUT,
   SESSION_INIT_TIMEOUT,
 } from './schemas/constants.js';
-import { DroidServerMethod } from './schemas/enums.js';
+import { DroidServerMethod, ToolConfirmationOutcome } from './schemas/enums.js';
 import { SessionNotificationParamsSchema } from './schemas/server.js';
 import type {
   AskUserRequestParams,
@@ -522,7 +522,7 @@ export class DroidClient {
   ): RequestPermissionHandlerResult | Promise<RequestPermissionHandlerResult> {
     const handler = this._permissionHandler;
     if (handler == null) {
-      return 'cancel';
+      return ToolConfirmationOutcome.Cancel;
     }
     return handler(params);
   }
