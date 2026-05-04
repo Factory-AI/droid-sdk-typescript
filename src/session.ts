@@ -436,23 +436,33 @@ export async function createSession(
   options: CreateSessionOptions = {}
 ): Promise<DroidSession> {
   const { client } = await createConfiguredClient(options);
+  let cleanupInitAbortSignal = options.abortSignal?.aborted
+    ? () => {}
+    : wireAbortSignal(options.abortSignal, () => {
+        void closeQuietly(client);
+      });
   let sdkMcpServers: Awaited<ReturnType<typeof startSdkMcpServers>> | undefined;
 
   try {
     sdkMcpServers = await startSdkMcpServers(options.mcpServers);
+
     const initParams = buildInitParams({
       ...options,
       mcpServers: sdkMcpServers.mcpServers,
     });
     const initResult = await client.initializeSession(initParams);
+
     const session = new DroidSession(client, initResult.sessionId, initResult);
     session.addCleanup(sdkMcpServers.cleanup);
+    cleanupInitAbortSignal();
+    cleanupInitAbortSignal = () => {};
     session.setAbortSignalCleanup(
       wireAbortSignal(options.abortSignal, () => void session.close())
     );
 
     return session;
   } catch (error) {
+    cleanupInitAbortSignal();
     await sdkMcpServers?.cleanup();
     await closeQuietly(client);
     throw error;

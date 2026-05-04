@@ -1,19 +1,12 @@
-import { DroidClient } from './client.js';
-import {
-  buildInitParams,
-  closeQuietly,
-  createConfiguredClient,
-  wireAbortSignal,
-} from './helpers.js';
-import { startSdkMcpServers } from './mcp.js';
+import { closeQuietly, wireAbortSignal } from './helpers.js';
 import type { InitializeSessionResult } from './schemas/client.js';
 import {
   DroidSession,
+  createSession,
   type CreateSessionOptions,
   type MessageOptions,
 } from './session.js';
 import type { DroidMessage } from './stream.js';
-import type { DroidClientTransport } from './types.js';
 
 export interface QueryOptions
   extends CreateSessionOptions, Pick<MessageOptions, 'outputFormat'> {
@@ -97,33 +90,52 @@ class DroidQueryImpl implements DroidQuery {
   }
 }
 
+function isInitializeSessionResult(
+  result: DroidSession['initResult']
+): result is InitializeSessionResult {
+  return 'sessionId' in result;
+}
+
+function waitForAbort(signal: AbortSignal): {
+  promise: Promise<never>;
+  cleanup: () => void;
+} {
+  if (signal.aborted) {
+    return {
+      promise: Promise.reject(new Error('Query aborted before initialization')),
+      cleanup: () => {},
+    };
+  }
+
+  let cleanup = () => {};
+  const promise = new Promise<never>((_, reject) => {
+    const listener = () => {
+      reject(new Error('Query aborted before initialization'));
+    };
+    signal.addEventListener('abort', listener, { once: true });
+    cleanup = () => signal.removeEventListener('abort', listener);
+  });
+
+  return { promise, cleanup };
+}
+
 /**
  * Spawns a droid process, initializes a session, sends the prompt, and
  * yields {@link DroidMessage} events. Resources are cleaned up automatically.
  */
 export function query(options: QueryOptions): DroidQuery {
-  let transport: DroidClientTransport | null = null;
-  let client: DroidClient | null = null;
   let session: DroidSession | null = null;
   let sessionId: string | null = null;
   let initResult: InitializeSessionResult | null = null;
   let aborted = false;
   let initializationPromise: Promise<InitializeSessionResult> | null = null;
   let cleanupAbortSignal: () => void = () => {};
-  let cleanupSdkMcpServers: () => Promise<void> = async () => {};
   const operationAbortController = new AbortController();
 
-  const closeActiveResource = async (): Promise<void> => {
-    const closer = session ?? client ?? transport;
+  const closeActiveSession = async (): Promise<void> => {
+    const closer = session;
     session = null;
-    client = null;
-    transport = null;
-    try {
-      await closeQuietly(closer);
-    } finally {
-      await cleanupSdkMcpServers();
-      cleanupSdkMcpServers = async () => {};
-    }
+    await closeQuietly(closer);
   };
 
   const ensureInitialized = (): Promise<InitializeSessionResult> => {
@@ -140,30 +152,42 @@ export function query(options: QueryOptions): DroidQuery {
           throw new Error('Query aborted before initialization');
         }
 
-        const configuredClient = await createConfiguredClient(options);
-        transport = configuredClient.transport;
-        client = configuredClient.client;
+        const sessionPromise = createSession({
+          ...options,
+          abortSignal: operationAbortController.signal,
+        });
+        void sessionPromise.then(
+          (lateSession) => {
+            if (aborted) {
+              void closeQuietly(lateSession);
+            }
+          },
+          () => {}
+        );
+
+        const abortWait = waitForAbort(operationAbortController.signal);
+        const createdSession = await Promise.race([
+          sessionPromise,
+          abortWait.promise,
+        ]).finally(abortWait.cleanup);
 
         if (aborted) {
+          await closeQuietly(createdSession);
           throw new Error('Query aborted before initialization');
         }
 
-        const sdkMcpServers = await startSdkMcpServers(options.mcpServers);
-        cleanupSdkMcpServers = sdkMcpServers.cleanup;
-        const result = await client.initializeSession(
-          buildInitParams({
-            ...options,
-            mcpServers: sdkMcpServers.mcpServers,
-          })
-        );
-        sessionId = result.sessionId;
+        const result = createdSession.initResult;
+        if (!isInitializeSessionResult(result)) {
+          await closeQuietly(createdSession);
+          throw new Error('Expected createSession() to return an init result');
+        }
+
+        session = createdSession;
+        sessionId = createdSession.sessionId;
         initResult = result;
-        session = new DroidSession(client, result.sessionId, result);
-        session.addCleanup(sdkMcpServers.cleanup);
-        cleanupSdkMcpServers = async () => {};
         return result;
       } catch (error) {
-        await closeActiveResource();
+        await closeActiveSession();
         throw error;
       }
     })();
@@ -210,7 +234,7 @@ export function query(options: QueryOptions): DroidQuery {
       yield* generator;
     } finally {
       cleanupAbortSignal();
-      await closeActiveResource();
+      await closeActiveSession();
     }
   }
 
@@ -230,7 +254,10 @@ export function query(options: QueryOptions): DroidQuery {
         operationAbortController.abort(new Error('Query aborted'));
       }
       cleanupAbortSignal();
-      void closeActiveResource();
+      if (!session) {
+        void closeQuietly(options.transport);
+      }
+      void closeActiveSession();
     }
   );
 
