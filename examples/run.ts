@@ -1,22 +1,22 @@
 /**
- * Manual smoke test for the one-shot `prompt()` API.
+ * Manual smoke test for the one-shot `run()` API.
  *
  * Sends a single prompt, prints the aggregated result, and exits after the
- * underlying session has been closed by `prompt()`.
+ * underlying session has been closed by `run()`.
  *
  * Usage:
- *   npx tsx examples/prompt.ts
- *   npx tsx examples/prompt.ts "What is 2 + 2?"
+ *   npx tsx examples/run.ts
+ *   npx tsx examples/run.ts "What is 2 + 2?"
  */
 
-import { prompt } from '../src/index.js';
+import { run } from '../src/index.js';
 
 async function main(): Promise<void> {
   const text = process.argv.slice(2).join(' ') || 'What is 2 + 2?';
 
   console.log(`Sending prompt: "${text}"\n`);
 
-  const result = await prompt(text, {
+  const result = await run(text, {
     cwd: process.cwd(),
   });
 

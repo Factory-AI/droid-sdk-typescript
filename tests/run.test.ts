@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { prompt } from '../src/prompt.js';
+import { run } from '../src/run.js';
 import { DroidServerMethod, ReasoningEffort } from '../src/schemas/index.js';
 import {
   InMemoryTransport,
@@ -10,7 +10,7 @@ import {
   wireTransportSend,
 } from './helpers.js';
 
-function setupPromptResponder(
+function setupRunResponder(
   transport: InMemoryTransport,
   sessionId: string
 ): void {
@@ -33,7 +33,7 @@ function setupPromptResponder(
       queueMicrotask(() => {
         transport.injectMessage(makeSuccessResponse(id, {}));
         sendDefaultStreamSequence(transport, {
-          deltas: ['Prompt ', 'result'],
+          deltas: ['Run ', 'result'],
           tokenUsageSessionId: sessionId,
         });
       });
@@ -41,15 +41,15 @@ function setupPromptResponder(
   });
 }
 
-describe('prompt()', () => {
+describe('run()', () => {
   it('returns DroidResult from a one-shot prompt and closes the session', async () => {
     const transport = new InMemoryTransport();
     await transport.connect();
-    setupPromptResponder(transport, 'sess-prompt-success');
+    setupRunResponder(transport, 'sess-run-success');
 
-    const result = await prompt('Say hello', { transport });
+    const result = await run('Say hello', { transport });
 
-    expect(result.text).toBe('Prompt result');
+    expect(result.text).toBe('Run result');
     expect(result.messages.length).toBeGreaterThan(0);
     expect(result.tokenUsage).not.toBeNull();
     expect(transport.isConnected).toBe(false);
@@ -58,9 +58,9 @@ describe('prompt()', () => {
   it('passes session options and message attachments through', async () => {
     const transport = new InMemoryTransport();
     await transport.connect();
-    setupPromptResponder(transport, 'sess-prompt-options');
+    setupRunResponder(transport, 'sess-run-options');
 
-    await prompt('Describe these inputs', {
+    await run('Describe these inputs', {
       transport,
       cwd: '/tmp/project',
       machineId: 'machine-1',
@@ -117,7 +117,7 @@ describe('prompt()', () => {
         queueMicrotask(() => {
           transport.injectMessage(
             makeSuccessResponse(id, {
-              sessionId: 'sess-prompt-send-failure',
+              sessionId: 'sess-run-send-failure',
               session: {},
               settings: { modelId: 'test-model', reasoningEffort: 'medium' },
               availableModels: [],
@@ -131,7 +131,7 @@ describe('prompt()', () => {
       }
     });
 
-    await expect(prompt('This will fail', { transport })).rejects.toThrow(
+    await expect(run('This will fail', { transport })).rejects.toThrow(
       'send failed'
     );
     expect(transport.isConnected).toBe(false);

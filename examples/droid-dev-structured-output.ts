@@ -1,0 +1,44 @@
+/**
+ * One-off integration smoke test for JSON output against droid-dev.
+ *
+ * Usage:
+ *   npx tsx examples/droid-dev-structured-output.ts
+ *   DROID_EXEC_PATH=/path/to/droid-dev npx tsx examples/droid-dev-structured-output.ts
+ */
+
+import { z } from 'zod';
+
+import { run } from '../src/index.js';
+
+const PersonSchema = z.object({
+  name: z.literal('Ada Lovelace'),
+  language: z.literal('TypeScript'),
+  score: z.number(),
+});
+
+async function main(): Promise<void> {
+  const execPath = process.env['DROID_EXEC_PATH'] ?? 'droid-dev';
+
+  const result = await run(
+    [
+      'Return a structured object for Ada Lovelace.',
+      'Use name "Ada Lovelace", language "TypeScript", and score 99.',
+      'Return only valid JSON and do not include markdown fences.',
+    ].join(' '),
+    {
+      execPath,
+      cwd: process.cwd(),
+    }
+  );
+
+  const parsed = PersonSchema.parse(JSON.parse(result.text));
+
+  console.log(`droid executable: ${execPath}`);
+  console.log('structured output:', JSON.stringify(parsed, null, 2));
+  console.log(`messages received: ${result.messages.length}`);
+}
+
+main().catch((error: unknown) => {
+  console.error(error);
+  process.exit(1);
+});

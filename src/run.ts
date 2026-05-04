@@ -5,11 +5,11 @@ import {
   type MessageOptions,
 } from './session.js';
 
-export interface PromptOptions extends CreateSessionOptions, MessageOptions {}
+export interface RunOptions extends CreateSessionOptions, MessageOptions {}
 
-export async function prompt(
+export async function run(
   text: string,
-  options: PromptOptions = {}
+  options: RunOptions = {}
 ): Promise<DroidResult> {
   const session = await createSession(options);
 
