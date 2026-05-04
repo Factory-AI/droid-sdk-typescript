@@ -30,12 +30,15 @@ import type { DroidClientTransport, ProcessTransportOptions } from './types.js';
 export function wireAbortSignal(
   signal: AbortSignal | undefined,
   onAbort: () => void
-): void {
-  if (!signal) return;
+): () => void {
+  if (!signal) return () => {};
   if (signal.aborted) {
     onAbort();
+    return () => {};
   } else {
-    signal.addEventListener('abort', () => onAbort(), { once: true });
+    const listener = () => onAbort();
+    signal.addEventListener('abort', listener, { once: true });
+    return () => signal.removeEventListener('abort', listener);
   }
 }
 

@@ -78,6 +78,23 @@ export interface ResumeSessionOptions extends Pick<
 export interface MessageOptions {
   images?: Base64ImageSource[];
   files?: DocumentSource[];
+  abortSignal?: AbortSignal;
+}
+
+function getAbortError(signal: AbortSignal): Error {
+  if (signal.reason instanceof Error) {
+    return signal.reason;
+  }
+
+  return new Error(
+    typeof signal.reason === 'string' ? signal.reason : 'Operation aborted'
+  );
+}
+
+function throwIfAborted(signal: AbortSignal | undefined): void {
+  if (signal?.aborted) {
+    throw getAbortError(signal);
+  }
 }
 
 /** Create instances via {@link createSession} or {@link resumeSession}. */
@@ -86,6 +103,7 @@ export class DroidSession {
   private _sessionId: string;
   private _initResult: InitializeSessionResult | LoadSessionResult;
   private _closed = false;
+  private _cleanupAbortSignal: (() => void) | null = null;
 
   /** @internal */
   constructor(
@@ -106,25 +124,49 @@ export class DroidSession {
     return this._initResult;
   }
 
+  /** @internal */
+  setAbortSignalCleanup(cleanup: () => void): void {
+    this._cleanupAbortSignal = cleanup;
+  }
+
   /** Yields {@link DroidMessage} events until `turn_complete`. */
   async *stream(
     text: string,
     options?: MessageOptions
   ): AsyncGenerator<DroidMessage, void, undefined> {
     this._ensureNotClosed();
+    throwIfAborted(options?.abortSignal);
 
     const bridge = new MessageBridge();
     const unsubscribe = this._client.onNotification(bridge.notificationHandler);
+    let resolveAbort: () => void = () => {};
+    const abortPromise = new Promise<void>((resolve) => {
+      resolveAbort = resolve;
+    });
+    const cleanupAbortSignal = wireAbortSignal(options?.abortSignal, () => {
+      bridge.signalDone();
+      resolveAbort();
+      void this._client.interruptSession().catch(() => {});
+    });
 
     try {
-      await this._client.addUserMessage({
-        text,
-        images: options?.images,
-        files: options?.files,
-      });
+      await Promise.race([
+        this._client.addUserMessage({
+          text,
+          images: options?.images,
+          files: options?.files,
+        }),
+        abortPromise,
+      ]);
+      throwIfAborted(options?.abortSignal);
 
-      yield* bridge.messages();
+      for await (const msg of bridge.messages()) {
+        throwIfAborted(options?.abortSignal);
+        yield msg;
+      }
+      throwIfAborted(options?.abortSignal);
     } finally {
+      cleanupAbortSignal();
       unsubscribe();
     }
   }
@@ -171,6 +213,8 @@ export class DroidSession {
       return;
     }
     this._closed = true;
+    this._cleanupAbortSignal?.();
+    this._cleanupAbortSignal = null;
     await this._client.close();
   }
 
@@ -307,7 +351,9 @@ export async function createSession(
   try {
     const initResult = await client.initializeSession(initParams);
     const session = new DroidSession(client, initResult.sessionId, initResult);
-    wireAbortSignal(options.abortSignal, () => void session.close());
+    session.setAbortSignalCleanup(
+      wireAbortSignal(options.abortSignal, () => void session.close())
+    );
 
     return session;
   } catch (error) {
@@ -331,7 +377,9 @@ export async function resumeSession(
   try {
     const loadResult = await client.loadSession(loadParams);
     const session = new DroidSession(client, sessionId, loadResult);
-    wireAbortSignal(options.abortSignal, () => void session.close());
+    session.setAbortSignalCleanup(
+      wireAbortSignal(options.abortSignal, () => void session.close())
+    );
 
     return session;
   } catch (error) {

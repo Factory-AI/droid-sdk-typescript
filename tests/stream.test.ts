@@ -1118,7 +1118,7 @@ describe('convertNotificationToStreamMessage', () => {
         [SessionNotificationType.PERMISSION_RESOLVED]: {
           requestId: 'r',
           toolUseIds: [],
-          selectedOption: 'cancel',
+          selectedOption: ToolConfirmationOutcome.Cancel,
         },
         [SessionNotificationType.SETTINGS_UPDATED]: { settings: {} },
         [SessionNotificationType.SESSION_TITLE_UPDATED]: { title: 't' },

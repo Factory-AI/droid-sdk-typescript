@@ -18,6 +18,7 @@ import {
   AutonomyLevel,
   DroidWorkingState,
   SessionNotificationType,
+  ToolConfirmationOutcome,
 } from '../src/index.js';
 
 function uuid(): string {
@@ -81,7 +82,7 @@ async function main(): Promise<void> {
   });
   console.log(`Session ID: ${initResult.sessionId}\n`);
 
-  client.setPermissionHandler(() => 'proceed_once');
+  client.setPermissionHandler(() => ToolConfirmationOutcome.ProceedOnce);
 
   const userMsgId1 = uuid();
   console.log(`=== Turn 1: "hello" (msgId: ${userMsgId1.slice(0, 12)}...) ===`);

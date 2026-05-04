@@ -12,7 +12,11 @@ import {
   JSONRPC_VERSION,
   LEGACY_FACTORY_API_VERSION,
 } from './schemas/constants.js';
-import { DroidClientMethod, JsonRpcErrorCode } from './schemas/enums.js';
+import {
+  DroidClientMethod,
+  JsonRpcErrorCode,
+  ToolConfirmationOutcome,
+} from './schemas/enums.js';
 import {
   AskUserRequestParamsSchema,
   AskUserResultSchema,
@@ -318,7 +322,9 @@ export class ProtocolEngine {
       // Default: Cancel
       this._sendResponse(
         requestId,
-        RequestPermissionResultSchema.parse({ selectedOption: 'cancel' })
+        RequestPermissionResultSchema.parse({
+          selectedOption: ToolConfirmationOutcome.Cancel,
+        })
       );
       return;
     }

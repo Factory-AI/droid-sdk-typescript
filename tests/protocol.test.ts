@@ -277,7 +277,9 @@ describe('ProtocolEngine', () => {
   describe('server→client request handling (VAL-PROTOCOL-004)', () => {
     describe('permission requests', () => {
       it('invokes registered permission handler and sends response', async () => {
-        engine.setPermissionHandler((_params) => 'proceed_once');
+        engine.setPermissionHandler(
+          (_params) => ToolConfirmationOutcome.ProceedOnce
+        );
 
         transport.injectMessage(
           makeServerRequest('perm-1', DroidClientMethod.REQUEST_PERMISSION, {
@@ -293,7 +295,9 @@ describe('ProtocolEngine', () => {
         const response = transport.sentMessages[0] as Record<string, unknown>;
         expect(response['type']).toBe('response');
         expect(response['id']).toBe('perm-1');
-        expect(response['result']).toEqual({ selectedOption: 'proceed_once' });
+        expect(response['result']).toEqual({
+          selectedOption: ToolConfirmationOutcome.ProceedOnce,
+        });
       });
 
       it('sends cancel when no permission handler registered', async () => {
@@ -309,7 +313,9 @@ describe('ProtocolEngine', () => {
         });
 
         const response = transport.sentMessages[0] as Record<string, unknown>;
-        expect(response['result']).toEqual({ selectedOption: 'cancel' });
+        expect(response['result']).toEqual({
+          selectedOption: ToolConfirmationOutcome.Cancel,
+        });
       });
 
       it('sends error response when permission handler throws', async () => {
@@ -338,7 +344,7 @@ describe('ProtocolEngine', () => {
 
       it('supports async permission handler', async () => {
         engine.setPermissionHandler(async () => {
-          return 'proceed_always' as const;
+          return ToolConfirmationOutcome.ProceedAlways;
         });
 
         transport.injectMessage(
@@ -354,13 +360,13 @@ describe('ProtocolEngine', () => {
 
         const response = transport.sentMessages[0] as Record<string, unknown>;
         expect(response['result']).toEqual({
-          selectedOption: 'proceed_always',
+          selectedOption: ToolConfirmationOutcome.ProceedAlways,
         });
       });
 
       it('supports permission handler results with comments', async () => {
         engine.setPermissionHandler(() => ({
-          selectedOption: 'proceed_once',
+          selectedOption: ToolConfirmationOutcome.ProceedOnce,
           comment: 'Looks good, implement it.',
         }));
 
@@ -377,14 +383,14 @@ describe('ProtocolEngine', () => {
 
         const response = transport.sentMessages[0] as Record<string, unknown>;
         expect(response['result']).toEqual({
-          selectedOption: 'proceed_once',
+          selectedOption: ToolConfirmationOutcome.ProceedOnce,
           comment: 'Looks good, implement it.',
         });
       });
 
       it('supports new-session outcomes in permission handler', async () => {
         engine.setPermissionHandler(
-          () => 'proceed_new_session_high' as ToolConfirmationOutcome
+          () => ToolConfirmationOutcome.ProceedNewSessionHigh
         );
 
         transport.injectMessage(
@@ -400,7 +406,7 @@ describe('ProtocolEngine', () => {
 
         const response = transport.sentMessages[0] as Record<string, unknown>;
         expect(response['result']).toEqual({
-          selectedOption: 'proceed_new_session_high',
+          selectedOption: ToolConfirmationOutcome.ProceedNewSessionHigh,
         });
       });
     });
@@ -706,7 +712,7 @@ describe('ProtocolEngine', () => {
       await transport2.connect();
       const engine2 = new ProtocolEngine({ transport: transport2 });
 
-      engine2.setPermissionHandler(() => 'proceed_once');
+      engine2.setPermissionHandler(() => ToolConfirmationOutcome.ProceedOnce);
 
       transport2.send = () => {
         throw new Error('EPIPE: broken pipe');
@@ -753,7 +759,7 @@ describe('ProtocolEngine', () => {
     });
 
     it('clearPermissionHandler restores default cancel behavior', async () => {
-      engine.setPermissionHandler(() => 'proceed_once');
+      engine.setPermissionHandler(() => ToolConfirmationOutcome.ProceedOnce);
       engine.clearPermissionHandler();
 
       transport.injectMessage(
@@ -768,7 +774,9 @@ describe('ProtocolEngine', () => {
       });
 
       const response = transport.sentMessages[0] as Record<string, unknown>;
-      expect(response['result']).toEqual({ selectedOption: 'cancel' });
+      expect(response['result']).toEqual({
+        selectedOption: ToolConfirmationOutcome.Cancel,
+      });
     });
 
     it('clearAskUserHandler restores default cancelled behavior', async () => {
@@ -842,7 +850,7 @@ describe('ProtocolEngine', () => {
     });
 
     it('response envelope includes factory protocol fields', async () => {
-      engine.setPermissionHandler(() => 'proceed_once');
+      engine.setPermissionHandler(() => ToolConfirmationOutcome.ProceedOnce);
 
       transport.injectMessage(
         makeServerRequest('perm-env', DroidClientMethod.REQUEST_PERMISSION, {

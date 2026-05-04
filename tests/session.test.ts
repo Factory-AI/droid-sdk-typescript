@@ -472,6 +472,87 @@ describe('DroidSession', () => {
 
       await session.close();
     });
+    it('rejects send when abortSignal is already aborted', async () => {
+      const transport = new InMemoryTransport();
+      await transport.connect();
+
+      setupFullResponder(transport, 'sess-send-pre-aborted');
+
+      const session = await createSession({ transport });
+      const controller = new AbortController();
+      controller.abort(new Error('send aborted'));
+
+      await expect(
+        session.send('Should not send', { abortSignal: controller.signal })
+      ).rejects.toThrow('send aborted');
+
+      expect(
+        transport.sentMessages.some(
+          (m) =>
+            (m as Record<string, unknown>)['method'] ===
+            DroidServerMethod.ADD_USER_MESSAGE
+        )
+      ).toBe(false);
+
+      await session.close();
+    });
+
+    it('interrupts and rejects an in-flight stream when abortSignal fires', async () => {
+      const transport = new InMemoryTransport();
+      await transport.connect();
+
+      setupFullResponder(transport, 'sess-stream-abort', {
+        [DroidServerMethod.ADD_USER_MESSAGE]: (id) => {
+          queueMicrotask(() => {
+            transport.injectMessage(makeSuccessResponse(id, {}));
+            transport.injectMessage(
+              makeSessionNotification(
+                SessionNotificationType.DROID_WORKING_STATE_CHANGED,
+                { newState: DroidWorkingState.StreamingAssistantMessage }
+              )
+            );
+            transport.injectMessage(
+              makeSessionNotification(
+                SessionNotificationType.ASSISTANT_TEXT_DELTA,
+                {
+                  messageId: 'msg-1',
+                  blockIndex: 0,
+                  textDelta: 'partial',
+                }
+              )
+            );
+          });
+        },
+      });
+
+      const session = await createSession({ transport });
+      const controller = new AbortController();
+      const iterator = session.stream('Start streaming', {
+        abortSignal: controller.signal,
+      });
+
+      await expect(iterator.next()).resolves.toMatchObject({
+        value: { type: 'working_state_changed' },
+        done: false,
+      });
+      await expect(iterator.next()).resolves.toMatchObject({
+        value: { type: 'assistant_text_delta', text: 'partial' },
+        done: false,
+      });
+
+      controller.abort(new Error('stream aborted'));
+
+      await expect(iterator.next()).rejects.toThrow('stream aborted');
+      expect(
+        transport.sentMessages.some(
+          (m) =>
+            (m as Record<string, unknown>)['method'] ===
+            DroidServerMethod.INTERRUPT_SESSION
+        )
+      ).toBe(true);
+
+      await session.close();
+    });
   });
 
   describe('close() (VAL-API-006)', () => {
