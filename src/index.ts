@@ -56,6 +56,9 @@ export type {
 export { query } from './query.js';
 export type { QueryOptions, DroidQuery } from './query.js';
 
+export { run } from './run.js';
+export type { RunOptions } from './run.js';
+
 export { createSession, resumeSession, DroidSession } from './session.js';
 export type {
   CreateSessionOptions,
