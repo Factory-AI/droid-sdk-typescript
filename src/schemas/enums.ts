@@ -57,7 +57,6 @@ export enum SessionNotificationType {
   MCP_STATUS_CHANGED = 'mcp_status_changed',
   ASSISTANT_TEXT_DELTA = 'assistant_text_delta',
   THINKING_TEXT_DELTA = 'thinking_text_delta',
-  STRUCTURED_OUTPUT = 'structured_output',
   SESSION_TOKEN_USAGE_CHANGED = 'session_token_usage_changed',
   MISSION_STATE_CHANGED = 'mission_state_changed',
   MISSION_FEATURES_CHANGED = 'mission_features_changed',

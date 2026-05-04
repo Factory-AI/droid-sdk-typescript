@@ -30,6 +30,8 @@
   },
   "files": [
     "dist",
+    "docs",
+    "examples",
     "README.md",
     "LICENSE"
   ],
@@ -40,8 +42,8 @@
     "typecheck:examples": "tsc --noEmit -p tsconfig.examples.json",
     "test": "vitest run",
     "test:coverage": "vitest run --coverage",
-    "lint": "eslint src/ tests/",
-    "fix": "eslint --fix src/ tests/",
+    "lint": "eslint src/ tests/ examples/",
+    "fix": "eslint --fix src/ tests/ examples/",
     "format": "prettier --write .",
     "format:check": "prettier --check ."
   },
@@ -49,16 +51,22 @@
     "type": "git",
     "url": "git+https://github.com/Factory-AI/droid-sdk-typescript.git"
   },
+  "homepage": "https://github.com/Factory-AI/droid-sdk-typescript#readme",
+  "bugs": {
+    "url": "https://github.com/Factory-AI/droid-sdk-typescript/issues"
+  },
   "engines": {
     "node": ">=18.0.0"
   },
   "dependencies": {
+    "@anthropic-ai/claude-agent-sdk": "^0.2.126",
+    "@modelcontextprotocol/sdk": "^1.29.0",
     "uuid": "^11.1.0",
     "zod": "^3.24.0"
   },
   "devDependencies": {
     "@eslint/js": "^9.39.4",
-    "@types/node": "^22.15.0",
+    "@types/node": "^22.19.17",
     "@types/uuid": "^10.0.0",
     "@vitest/coverage-v8": "^3.1.0",
     "eslint": "^9.24.0",

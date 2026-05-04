@@ -12,6 +12,8 @@ import type {
   SessionInitOptions,
   TransportCreationOptions,
 } from './helpers.js';
+import { startSdkMcpServers } from './mcp.js';
+import type { DroidMcpServerConfig } from './mcp.js';
 import type { NotificationCallback, NotificationFilter } from './protocol.js';
 import type {
   AddMcpServerRequestParams,
@@ -36,7 +38,6 @@ import type {
   ListSkillsResult,
   LoadSessionRequestParams,
   LoadSessionResult,
-  McpServerConfig,
   OutputFormat,
   RemoveMcpServerRequestParams,
   RemoveMcpServerResult,
@@ -47,7 +48,7 @@ import type {
 } from './schemas/client.js';
 import { DroidInteractionMode } from './schemas/enums.js';
 import type { Base64ImageSource, DocumentSource } from './schemas/messages.js';
-import type { JsonObject } from './schemas/shared.js';
+import { JsonObjectSchema, type JsonObject } from './schemas/shared.js';
 import { DroidMessageType } from './stream.js';
 import type { DroidMessage, ErrorEvent, TokenUsageUpdate } from './stream.js';
 
@@ -89,7 +90,7 @@ export interface ResumeSessionOptions extends Pick<
   | 'transport'
   | 'abortSignal'
 > {
-  mcpServers?: McpServerConfig[];
+  mcpServers?: DroidMcpServerConfig[];
 }
 
 export interface MessageOptions {
@@ -115,6 +116,31 @@ function throwIfAborted(signal: AbortSignal | undefined): void {
   }
 }
 
+function parseJsonObject(text: string): JsonObject | null {
+  try {
+    const parsed: unknown = JSON.parse(text);
+    const result = JsonObjectSchema.safeParse(parsed);
+    return result.success ? result.data : null;
+  } catch {
+    return null;
+  }
+}
+
+function extractAssistantText(message: DroidMessage): string {
+  if (message.type !== DroidMessageType.CreateMessage) {
+    return '';
+  }
+
+  if (message.role !== 'assistant') {
+    return '';
+  }
+
+  return message.content
+    .filter((block) => block.type === 'text')
+    .map((block) => block.text)
+    .join('');
+}
+
 /** Create instances via {@link createSession} or {@link resumeSession}. */
 export class DroidSession {
   private _client: DroidClient;
@@ -122,6 +148,7 @@ export class DroidSession {
   private _initResult: InitializeSessionResult | LoadSessionResult;
   private _closed = false;
   private _cleanupAbortSignal: (() => void) | null = null;
+  private _cleanupCallbacks: Array<() => Promise<void> | void> = [];
 
   /** @internal */
   constructor(
@@ -145,6 +172,11 @@ export class DroidSession {
   /** @internal */
   setAbortSignalCleanup(cleanup: () => void): void {
     this._cleanupAbortSignal = cleanup;
+  }
+
+  /** @internal */
+  addCleanup(cleanup: () => Promise<void> | void): void {
+    this._cleanupCallbacks.push(cleanup);
   }
 
   /** Yields {@link DroidMessage} events until `turn_complete`. */
@@ -199,6 +231,7 @@ export class DroidSession {
     let lastTokenUsage: TokenUsageUpdate | null = null;
     let firstError: ErrorEvent | null = null;
     let structuredOutput: JsonObject | null = null;
+    let finalAssistantText = '';
     let turnCount = 0;
     const startedAt = Date.now();
 
@@ -209,6 +242,14 @@ export class DroidSession {
         fullText += msg.text;
       }
 
+      const assistantText = extractAssistantText(msg);
+      if (assistantText) {
+        finalAssistantText = assistantText;
+        if (options?.outputFormat && fullText.length === 0) {
+          fullText = assistantText;
+        }
+      }
+
       if (msg.type === DroidMessageType.TokenUsageUpdate) {
         lastTokenUsage = msg;
       }
@@ -217,8 +258,11 @@ export class DroidSession {
         firstError = msg;
       }
 
-      if (msg.type === DroidMessageType.StructuredOutput) {
-        structuredOutput = msg.output;
+      if (options?.outputFormat && structuredOutput === null) {
+        const textToParse = finalAssistantText || fullText;
+        if (textToParse) {
+          structuredOutput = parseJsonObject(textToParse);
+        }
       }
 
       if (msg.type === DroidMessageType.TurnComplete) {
@@ -255,7 +299,13 @@ export class DroidSession {
     this._closed = true;
     this._cleanupAbortSignal?.();
     this._cleanupAbortSignal = null;
-    await this._client.close();
+
+    try {
+      await this._client.close();
+    } finally {
+      const cleanups = this._cleanupCallbacks.splice(0);
+      await Promise.all(cleanups.map((cleanup) => cleanup()));
+    }
   }
 
   async updateSettings(
@@ -386,17 +436,24 @@ export async function createSession(
   options: CreateSessionOptions = {}
 ): Promise<DroidSession> {
   const { client } = await createConfiguredClient(options);
-  const initParams = buildInitParams(options);
+  let sdkMcpServers: Awaited<ReturnType<typeof startSdkMcpServers>> | undefined;
 
   try {
+    sdkMcpServers = await startSdkMcpServers(options.mcpServers);
+    const initParams = buildInitParams({
+      ...options,
+      mcpServers: sdkMcpServers.mcpServers,
+    });
     const initResult = await client.initializeSession(initParams);
     const session = new DroidSession(client, initResult.sessionId, initResult);
+    session.addCleanup(sdkMcpServers.cleanup);
     session.setAbortSignalCleanup(
       wireAbortSignal(options.abortSignal, () => void session.close())
     );
 
     return session;
   } catch (error) {
+    await sdkMcpServers?.cleanup();
     await closeQuietly(client);
     throw error;
   }
@@ -408,21 +465,24 @@ export async function resumeSession(
   options: ResumeSessionOptions = {}
 ): Promise<DroidSession> {
   const { client } = await createConfiguredClient(options);
-
-  const loadParams: LoadSessionRequestParams = {
-    sessionId,
-    mcpServers: options.mcpServers,
-  };
+  let sdkMcpServers: Awaited<ReturnType<typeof startSdkMcpServers>> | undefined;
 
   try {
+    sdkMcpServers = await startSdkMcpServers(options.mcpServers);
+    const loadParams: LoadSessionRequestParams = {
+      sessionId,
+      mcpServers: sdkMcpServers.mcpServers,
+    };
     const loadResult = await client.loadSession(loadParams);
     const session = new DroidSession(client, sessionId, loadResult);
+    session.addCleanup(sdkMcpServers.cleanup);
     session.setAbortSignalCleanup(
       wireAbortSignal(options.abortSignal, () => void session.close())
     );
 
     return session;
   } catch (error) {
+    await sdkMcpServers?.cleanup();
     await closeQuietly(client);
     throw error;
   }

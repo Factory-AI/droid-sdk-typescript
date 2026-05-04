@@ -1,8 +1,8 @@
 /**
  * Offline structured output check.
  *
- * Verifies that `prompt()` sends a Claude-style outputFormat and aggregates
- * the emitted structured output into `result.structuredOutput`.
+ * Verifies that `prompt()` sends a Claude-style outputFormat and parses
+ * the assistant JSON text into `result.structuredOutput`.
  *
  * Usage:
  *   npx tsx examples/structured-output.ts
@@ -97,8 +97,22 @@ class StructuredOutputTransport implements DroidClientTransport {
       )
     );
     this.injectMessage(
-      makeSessionNotification(SessionNotificationType.STRUCTURED_OUTPUT, {
-        output: { name: 'Ada Lovelace', language: 'TypeScript' },
+      makeSessionNotification(SessionNotificationType.CREATE_MESSAGE, {
+        message: {
+          id: 'msg-structured',
+          role: 'assistant',
+          content: [
+            {
+              type: 'text',
+              text: JSON.stringify({
+                name: 'Ada Lovelace',
+                language: 'TypeScript',
+              }),
+            },
+          ],
+          createdAt: Date.now(),
+          updatedAt: Date.now(),
+        },
       })
     );
     this.injectMessage(

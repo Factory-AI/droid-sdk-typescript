@@ -179,7 +179,6 @@ describe('enums', () => {
       [
         'assistant_text_delta',
         'thinking_text_delta',
-        'structured_output',
         'tool_result',
         'tool_progress_update',
         'create_message',

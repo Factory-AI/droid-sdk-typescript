@@ -474,12 +474,20 @@ describe('DroidSession', () => {
               )
             );
             transport.injectMessage(
-              makeSessionNotification(
-                SessionNotificationType.STRUCTURED_OUTPUT,
-                {
-                  output: { name: 'Ada' },
-                }
-              )
+              makeSessionNotification(SessionNotificationType.CREATE_MESSAGE, {
+                message: {
+                  id: 'msg-structured',
+                  role: 'assistant',
+                  content: [
+                    {
+                      type: 'text',
+                      text: JSON.stringify({ name: 'Ada' }),
+                    },
+                  ],
+                  createdAt: Date.now(),
+                  updatedAt: Date.now(),
+                },
+              })
             );
             transport.injectMessage(
               makeSessionNotification(
@@ -513,10 +521,18 @@ describe('DroidSession', () => {
       expect(
         (addUserMessage['params'] as Record<string, unknown>)['outputFormat']
       ).toEqual(outputFormat);
+      expect(result.text).toEqual(JSON.stringify({ name: 'Ada' }));
       expect(result.structuredOutput).toEqual({ name: 'Ada' });
       expect(result.messages).toContainEqual({
-        type: 'structured_output',
-        output: { name: 'Ada' },
+        type: 'create_message',
+        messageId: 'msg-structured',
+        role: 'assistant',
+        content: [
+          {
+            type: 'text',
+            text: JSON.stringify({ name: 'Ada' }),
+          },
+        ],
       });
 
       await session.close();

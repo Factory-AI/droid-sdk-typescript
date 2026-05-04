@@ -49,7 +49,6 @@ function makeNotification(type: string, payload: Record<string, unknown>) {
 const expectedDroidMessageTypes = [
   'assistant_text_delta',
   'thinking_text_delta',
-  'structured_output',
   'tool_use',
   'tool_result',
   'tool_progress',
@@ -481,20 +480,6 @@ describe('convertNotificationToStreamMessage', () => {
       expect(msg.text).toBe('Thinking...');
       expect(msg.messageId).toBe('msg-2');
       expect(msg.blockIndex).toBe(1);
-    });
-  });
-
-  describe('structured_output', () => {
-    it('converts to StructuredOutput', () => {
-      const notification = makeNotification(
-        SessionNotificationType.STRUCTURED_OUTPUT,
-        { output: { name: 'Ada' } }
-      );
-      const result = convertNotificationToStreamMessage(notification);
-      expect(result).toEqual({
-        type: 'structured_output',
-        output: { name: 'Ada' },
-      });
     });
   });
 
@@ -1087,9 +1072,6 @@ describe('convertNotificationToStreamMessage', () => {
           messageId: 'm',
           blockIndex: 0,
           textDelta: 't',
-        },
-        [SessionNotificationType.STRUCTURED_OUTPUT]: {
-          output: { name: 'Ada' },
         },
         [SessionNotificationType.TOOL_RESULT]: {
           messageId: 'm',

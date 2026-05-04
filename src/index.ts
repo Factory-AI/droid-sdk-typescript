@@ -30,7 +30,6 @@ export {
 export type {
   AssistantTextDelta,
   ThinkingTextDelta,
-  StructuredOutput,
   ToolUse,
   ToolResult,
   ToolProgress,
@@ -59,6 +58,14 @@ export type { QueryOptions, DroidQuery } from './query.js';
 
 export { run } from './run.js';
 export type { RunOptions } from './run.js';
+
+export { createSdkMcpServer, tool, SdkMcpServer } from './mcp.js';
+export type {
+  DroidMcpServerConfig,
+  DroidTool,
+  DroidToolResult,
+  SdkMcpServerOptions,
+} from './mcp.js';
 
 export { createSession, resumeSession, DroidSession } from './session.js';
 export type {
