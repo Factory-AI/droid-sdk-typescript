@@ -84,6 +84,7 @@ export interface ResumeSessionOptions extends Pick<
   CreateSessionOptions,
   | 'execPath'
   | 'execArgs'
+  | 'systemPrompt'
   | 'cwd'
   | 'env'
   | 'permissionHandler'

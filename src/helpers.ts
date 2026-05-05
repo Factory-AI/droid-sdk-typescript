@@ -4,6 +4,7 @@ import type {
   ClientPermissionHandler,
 } from './client.js';
 import { SDK_TAG } from './constants.js';
+import { ConnectionError } from './errors.js';
 import type { DroidMcpServerConfig } from './mcp.js';
 import type {
   InitializeSessionRequestParams,
@@ -127,7 +128,7 @@ export class MessageBridge {
 
 export interface TransportCreationOptions extends Pick<
   ProcessTransportOptions,
-  'execPath' | 'execArgs' | 'cwd' | 'env'
+  'execPath' | 'execArgs' | 'systemPrompt' | 'cwd' | 'env'
 > {
   transport?: DroidClientTransport;
 }
@@ -136,12 +137,18 @@ export async function createTransport(
   options: TransportCreationOptions
 ): Promise<DroidClientTransport> {
   if (options.transport) {
+    if (options.systemPrompt !== undefined) {
+      throw new ConnectionError(
+        'systemPrompt only works when the SDK creates the Droid process; omit transport or configure the custom transport directly'
+      );
+    }
     return options.transport;
   }
 
   const transportOptions: ProcessTransportOptions = {
     execPath: options.execPath,
     execArgs: options.execArgs,
+    systemPrompt: options.systemPrompt,
     cwd: options.cwd,
     env: options.env,
   };

@@ -21,6 +21,8 @@ export interface ProcessTransportOptions {
 
   execArgs?: string[];
 
+  systemPrompt?: string;
+
   cwd?: string;
 
   env?: Record<string, string>;

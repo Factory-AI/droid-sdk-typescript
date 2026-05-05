@@ -113,6 +113,49 @@ describe('ProcessTransport', () => {
     });
   });
 
+  describe('systemPrompt startup option', () => {
+    it('appends --system-prompt when systemPrompt is provided', async () => {
+      const script = `
+        process.stdout.write(JSON.stringify({ argv: process.argv.slice(1) }) + '\\n');
+        setTimeout(() => process.exit(0), 200);
+      `;
+      const transport = new ProcessTransport({
+        execPath: 'node',
+        execArgs: ['-e', script, '--'],
+        systemPrompt: 'You are concise.',
+      });
+
+      const messagePromise = collectMessages(transport, 1);
+      await transport.connect!();
+
+      const messages = await messagePromise;
+      expect(messages[0]).toEqual({
+        argv: ['--system-prompt', 'You are concise.'],
+      });
+
+      await transport.close();
+    });
+
+    it('throws when systemPrompt is empty', () => {
+      expect(() => new ProcessTransport({ systemPrompt: '   ' })).toThrowError(
+        ConnectionError
+      );
+    });
+
+    it.each([['--system-prompt'], ['--system-prompt=Existing prompt']])(
+      'throws when execArgs already include %s',
+      (arg) => {
+        expect(
+          () =>
+            new ProcessTransport({
+              execArgs: ['exec', arg],
+              systemPrompt: 'Replacement prompt',
+            })
+        ).toThrowError(ConnectionError);
+      }
+    );
+  });
+
   describe('JSONL stdin (send)', () => {
     it('sends JSONL via stdin — one JSON object per newline', async () => {
       const script = `

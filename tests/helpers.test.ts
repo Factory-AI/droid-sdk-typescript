@@ -9,6 +9,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { DroidClient } from '../src/client.js';
 import { SDK_TAG } from '../src/constants.js';
+import { ConnectionError } from '../src/errors.js';
 import {
   buildInitParams,
   closeQuietly,
@@ -251,6 +252,17 @@ describe('createTransport', () => {
     const result = await createTransport({ transport: customTransport });
 
     expect(result).toStrictEqual(customTransport);
+  });
+
+  it('throws when systemPrompt is used with a custom transport', async () => {
+    const customTransport = new InMemoryTransport();
+
+    await expect(
+      createTransport({
+        transport: customTransport,
+        systemPrompt: 'You are concise.',
+      })
+    ).rejects.toThrow(ConnectionError);
   });
 });
 

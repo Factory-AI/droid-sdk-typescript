@@ -20,6 +20,44 @@ const DEFAULT_EXEC_ARGS = [
 
 const DEFAULT_GRACE_PERIOD_MS = 5_000;
 
+function hasSystemPromptArg(args: string[]): boolean {
+  return args.some(
+    (arg) => arg === '--system-prompt' || arg.startsWith('--system-prompt=')
+  );
+}
+
+function buildExecArgs(options: ProcessTransportOptions): string[] {
+  const args = options.execArgs
+    ? [...options.execArgs]
+    : [...DEFAULT_EXEC_ARGS];
+
+  if (options.systemPrompt !== undefined) {
+    if (
+      typeof options.systemPrompt !== 'string' ||
+      options.systemPrompt.trim() === ''
+    ) {
+      throw new ConnectionError('systemPrompt must be a non-empty string', {
+        execPath: options.execPath,
+        cwd: options.cwd,
+      });
+    }
+
+    if (hasSystemPromptArg(args)) {
+      throw new ConnectionError(
+        'systemPrompt cannot be used with execArgs that already include --system-prompt',
+        {
+          execPath: options.execPath,
+          cwd: options.cwd,
+        }
+      );
+    }
+
+    args.push('--system-prompt', options.systemPrompt);
+  }
+
+  return args;
+}
+
 export class ProcessTransport implements DroidClientTransport {
   private readonly execPath: string;
   private readonly execArgs: string[];
@@ -43,9 +81,7 @@ export class ProcessTransport implements DroidClientTransport {
 
   constructor(options: ProcessTransportOptions = {}) {
     this.execPath = options.execPath ?? 'droid';
-    this.execArgs = options.execArgs
-      ? [...options.execArgs]
-      : [...DEFAULT_EXEC_ARGS];
+    this.execArgs = buildExecArgs(options);
     this.cwd = options.cwd;
     this.env = options.env;
     this.gracePeriodMs =
