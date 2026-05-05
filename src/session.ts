@@ -12,6 +12,8 @@ import type {
   SessionInitOptions,
   TransportCreationOptions,
 } from './helpers.js';
+import { startSdkMcpServers } from './mcp.js';
+import type { DroidMcpServerConfig } from './mcp.js';
 import type { NotificationCallback, NotificationFilter } from './protocol.js';
 import type {
   AddMcpServerRequestParams,
@@ -36,7 +38,6 @@ import type {
   ListSkillsResult,
   LoadSessionRequestParams,
   LoadSessionResult,
-  McpServerConfig,
   OutputFormat,
   RemoveMcpServerRequestParams,
   RemoveMcpServerResult,
@@ -90,7 +91,7 @@ export interface ResumeSessionOptions extends Pick<
   | 'transport'
   | 'abortSignal'
 > {
-  mcpServers?: McpServerConfig[];
+  mcpServers?: DroidMcpServerConfig[];
 }
 
 export interface MessageOptions {
@@ -148,6 +149,7 @@ export class DroidSession {
   private _initResult: InitializeSessionResult | LoadSessionResult;
   private _closed = false;
   private _cleanupAbortSignal: (() => void) | null = null;
+  private _cleanupCallbacks: Array<() => Promise<void> | void> = [];
 
   /** @internal */
   constructor(
@@ -171,6 +173,11 @@ export class DroidSession {
   /** @internal */
   setAbortSignalCleanup(cleanup: () => void): void {
     this._cleanupAbortSignal = cleanup;
+  }
+
+  /** @internal */
+  addCleanup(cleanup: () => Promise<void> | void): void {
+    this._cleanupCallbacks.push(cleanup);
   }
 
   /** Yields {@link DroidMessage} events until `turn_complete`. */
@@ -293,7 +300,13 @@ export class DroidSession {
     this._closed = true;
     this._cleanupAbortSignal?.();
     this._cleanupAbortSignal = null;
-    await this._client.close();
+
+    try {
+      await this._client.close();
+    } finally {
+      const cleanups = this._cleanupCallbacks.splice(0);
+      await Promise.all(cleanups.map((cleanup) => cleanup()));
+    }
   }
 
   async updateSettings(
@@ -424,17 +437,32 @@ export async function createSession(
   options: CreateSessionOptions = {}
 ): Promise<DroidSession> {
   const { client } = await createConfiguredClient(options);
-  const initParams = buildInitParams(options);
+  let cleanupInitAbortSignal = options.abortSignal?.aborted
+    ? () => {}
+    : wireAbortSignal(options.abortSignal, () => {
+        void closeQuietly(client);
+      });
+  let sdkMcpServers: Awaited<ReturnType<typeof startSdkMcpServers>> | undefined;
 
   try {
+    sdkMcpServers = await startSdkMcpServers(options.mcpServers);
+    const initParams = buildInitParams({
+      ...options,
+      mcpServers: sdkMcpServers.mcpServers,
+    });
     const initResult = await client.initializeSession(initParams);
     const session = new DroidSession(client, initResult.sessionId, initResult);
+    session.addCleanup(sdkMcpServers.cleanup);
+    cleanupInitAbortSignal();
+    cleanupInitAbortSignal = () => {};
     session.setAbortSignalCleanup(
       wireAbortSignal(options.abortSignal, () => void session.close())
     );
 
     return session;
   } catch (error) {
+    cleanupInitAbortSignal();
+    await sdkMcpServers?.cleanup();
     await closeQuietly(client);
     throw error;
   }
@@ -446,21 +474,24 @@ export async function resumeSession(
   options: ResumeSessionOptions = {}
 ): Promise<DroidSession> {
   const { client } = await createConfiguredClient(options);
-
-  const loadParams: LoadSessionRequestParams = {
-    sessionId,
-    mcpServers: options.mcpServers,
-  };
+  let sdkMcpServers: Awaited<ReturnType<typeof startSdkMcpServers>> | undefined;
 
   try {
+    sdkMcpServers = await startSdkMcpServers(options.mcpServers);
+    const loadParams: LoadSessionRequestParams = {
+      sessionId,
+      mcpServers: sdkMcpServers.mcpServers,
+    };
     const loadResult = await client.loadSession(loadParams);
     const session = new DroidSession(client, sessionId, loadResult);
+    session.addCleanup(sdkMcpServers.cleanup);
     session.setAbortSignalCleanup(
       wireAbortSignal(options.abortSignal, () => void session.close())
     );
 
     return session;
   } catch (error) {
+    await sdkMcpServers?.cleanup();
     await closeQuietly(client);
     throw error;
   }
