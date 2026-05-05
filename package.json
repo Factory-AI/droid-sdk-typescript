@@ -30,6 +30,8 @@
   },
   "files": [
     "dist",
+    "docs",
+    "examples",
     "README.md",
     "LICENSE"
   ],
@@ -40,8 +42,8 @@
     "typecheck:examples": "tsc --noEmit -p tsconfig.examples.json",
     "test": "vitest run",
     "test:coverage": "vitest run --coverage",
-    "lint": "eslint src/ tests/",
-    "fix": "eslint --fix src/ tests/",
+    "lint": "eslint src/ tests/ examples/",
+    "fix": "eslint --fix src/ tests/ examples/",
     "format": "prettier --write .",
     "format:check": "prettier --check ."
   },
@@ -70,5 +72,9 @@
     "typescript": "^5.8.0",
     "typescript-eslint": "^8.57.2",
     "vitest": "^3.1.0"
+  },
+  "homepage": "https://github.com/Factory-AI/droid-sdk-typescript#readme",
+  "bugs": {
+    "url": "https://github.com/Factory-AI/droid-sdk-typescript/issues"
   }
 }
