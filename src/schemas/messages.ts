@@ -109,11 +109,26 @@ export const ContentBlockSchema = z.discriminatedUnion('type', [
 
 export type ContentBlock = z.infer<typeof ContentBlockSchema>;
 
+export const FactoryDroidMessageRole = {
+  User: 'user',
+  Assistant: 'assistant',
+  Tool: 'tool',
+  System: 'system',
+} as const;
+
+export type FactoryDroidMessageRole =
+  (typeof FactoryDroidMessageRole)[keyof typeof FactoryDroidMessageRole];
+
 /** Factory Droid message schema (used in CreateMessageNotification and session data). */
 export const FactoryDroidMessageSchema = z
   .object({
     id: z.string(),
-    role: z.enum(['user', 'assistant', 'tool', 'system']),
+    role: z.enum([
+      FactoryDroidMessageRole.User,
+      FactoryDroidMessageRole.Assistant,
+      FactoryDroidMessageRole.Tool,
+      FactoryDroidMessageRole.System,
+    ]),
     content: z.array(ContentBlockSchema),
     createdAt: z.number(),
     updatedAt: z.number(),

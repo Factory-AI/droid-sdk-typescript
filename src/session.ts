@@ -47,6 +47,7 @@ import type {
 } from './schemas/client.js';
 import { DroidInteractionMode } from './schemas/enums.js';
 import type { Base64ImageSource, DocumentSource } from './schemas/messages.js';
+import { FactoryDroidMessageRole } from './schemas/messages.js';
 import { JsonObjectSchema, type JsonObject } from './schemas/shared.js';
 import { DroidMessageType } from './stream.js';
 import type { DroidMessage, ErrorEvent, TokenUsageUpdate } from './stream.js';
@@ -130,7 +131,7 @@ function extractAssistantText(message: DroidMessage): string {
     return '';
   }
 
-  if (message.role !== 'assistant') {
+  if (message.role !== FactoryDroidMessageRole.Assistant) {
     return '';
   }
 

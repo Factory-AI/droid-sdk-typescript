@@ -104,6 +104,7 @@ export {
   ContentBlockSchema,
   DocumentBlockSchema,
   DocumentSourceSchema,
+  FactoryDroidMessageRole,
   FactoryDroidMessageSchema,
   ImageBlockSchema,
   RedactedThinkingBlockSchema,
