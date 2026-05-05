@@ -12,7 +12,7 @@ Use spec mode when you want Droid to propose a plan first and only implement aft
 
 ```ts
 const stream = query({
-  prompt: PROMPT,
+  prompt,
   cwd: process.cwd(),
   interactionMode: DroidInteractionMode.Spec,
   specModeReasoningEffort: ReasoningEffort.High,
@@ -39,39 +39,58 @@ Choose the outcome you want:
 
 ```ts
 import {
-  query,
+  DroidMessageType,
   DroidInteractionMode,
+  query,
   ReasoningEffort,
   ToolConfirmationOutcome,
   ToolConfirmationType,
 } from '@factory/droid-sdk';
-
-const PROMPT =
-  'Plan how to create a small hello-from-droid.txt file in the current directory containing the text "Hello from Droid". Keep the plan short and concrete.';
+import { mkdtemp, rm } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 
 async function main(): Promise<void> {
-  const stream = query({
-    prompt: PROMPT,
-    cwd: process.cwd(),
-    interactionMode: DroidInteractionMode.Spec,
-    specModeReasoningEffort: ReasoningEffort.High,
-    permissionHandler(params) {
-      const exitSpec = params.toolUses.find(
-        (t) => t.confirmationType === ToolConfirmationType.ExitSpecMode
-      );
+  const tempDir = await mkdtemp(join(tmpdir(), 'droid-sdk-spec-'));
+  const outputPath = join(tempDir, 'hello-from-droid.txt');
+  const prompt =
+    `Plan how to create a small ${outputPath} file containing the text ` +
+    '"Hello from Droid". Keep the plan short and concrete.';
 
-      if (exitSpec) {
-        return ToolConfirmationOutcome.ProceedOnce;
+  try {
+    const stream = query({
+      prompt,
+      cwd: process.cwd(),
+      interactionMode: DroidInteractionMode.Spec,
+      specModeReasoningEffort: ReasoningEffort.High,
+      permissionHandler(params) {
+        const exitSpec = params.toolUses.find(
+          (item) => item.details.type === ToolConfirmationType.ExitSpecMode
+        );
+
+        if (exitSpec) {
+          return ToolConfirmationOutcome.ProceedOnce;
+        }
+
+        const onlyAllowedCreate = params.toolUses.every(
+          (item) =>
+            item.details.type === ToolConfirmationType.Create &&
+            item.details.filePath === outputPath
+        );
+
+        return onlyAllowedCreate
+          ? ToolConfirmationOutcome.ProceedOnce
+          : ToolConfirmationOutcome.Cancel;
+      },
+    });
+
+    for await (const msg of stream) {
+      if (msg.type === DroidMessageType.AssistantTextDelta) {
+        process.stdout.write(msg.text);
       }
-
-      return ToolConfirmationOutcome.ProceedOnce;
-    },
-  });
-
-  for await (const msg of stream) {
-    if (msg.type === 'assistant_text_delta') {
-      process.stdout.write(msg.text);
     }
+  } finally {
+    await rm(tempDir, { recursive: true, force: true });
   }
 }
 

@@ -10,46 +10,48 @@
  *   npx tsx examples/test-compact.ts
  */
 
-import { createSession } from '../src/index.js';
+import { createSession, DroidMessageType } from '../src/index.js';
 
 async function main(): Promise<void> {
   const session = await createSession({ cwd: process.cwd() });
-  console.log(`Session created: ${session.sessionId}\n`);
+  try {
+    console.log(`Session created: ${session.sessionId}\n`);
 
-  const prompts = [
-    'Say "one" and nothing else',
-    'Say "two" and nothing else',
-    'Say "three" and nothing else',
-  ];
+    const prompts = [
+      'Say "one" and nothing else',
+      'Say "two" and nothing else',
+      'Say "three" and nothing else',
+    ];
 
-  for (let i = 0; i < prompts.length; i++) {
-    console.log(`=== Turn ${i + 1} ===`);
-    console.log(`Prompt: "${prompts[i]}"\n`);
+    for (let i = 0; i < prompts.length; i++) {
+      console.log(`=== Turn ${i + 1} ===`);
+      console.log(`Prompt: "${prompts[i]}"\n`);
 
-    for await (const msg of session.stream(prompts[i])) {
-      if (msg.type === 'assistant_text_delta') {
-        process.stdout.write(msg.text);
-      }
-      if (msg.type === 'turn_complete') {
-        console.log('\n');
+      for await (const msg of session.stream(prompts[i])) {
+        if (msg.type === DroidMessageType.AssistantTextDelta) {
+          process.stdout.write(msg.text);
+        }
+        if (msg.type === DroidMessageType.TurnComplete) {
+          console.log('\n');
+        }
       }
     }
+
+    console.log('=== Compacting session ===');
+    const compactResult = await session.compactSession({});
+    console.log(`Original session: ${session.sessionId}`);
+    console.log(`New session:      ${compactResult.newSessionId}`);
+    console.log(`Removed messages: ${compactResult.removedCount}`);
+
+    if (compactResult.newSessionId && compactResult.removedCount > 0) {
+      console.log('\nCompaction succeeded.');
+    } else {
+      console.log('\nCompaction returned unexpected results.');
+    }
+  } finally {
+    await session.close();
+    console.log('Session closed.');
   }
-
-  console.log('=== Compacting session ===');
-  const compactResult = await session.compactSession({});
-  console.log(`Original session: ${session.sessionId}`);
-  console.log(`New session:      ${compactResult.newSessionId}`);
-  console.log(`Removed messages: ${compactResult.removedCount}`);
-
-  if (compactResult.newSessionId && compactResult.removedCount > 0) {
-    console.log('\nCompaction succeeded.');
-  } else {
-    console.log('\nCompaction returned unexpected results.');
-  }
-
-  await session.close();
-  console.log('Session closed.');
 }
 
 main().catch((err: unknown) => {

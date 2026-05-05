@@ -10,7 +10,12 @@
  *   npx tsx examples/init-metadata.ts
  */
 
-import { createSession, query, resumeSession } from '../src/index.js';
+import {
+  createSession,
+  DroidMessageType,
+  query,
+  resumeSession,
+} from '../src/index.js';
 
 async function main(): Promise<void> {
   const stream = query({
@@ -31,7 +36,7 @@ async function main(): Promise<void> {
 
   let text = '';
   for await (const msg of stream) {
-    if (msg.type === 'assistant_text_delta') {
+    if (msg.type === DroidMessageType.AssistantTextDelta) {
       text += msg.text;
     }
   }
