@@ -7,7 +7,7 @@ export default tseslint.config(
   eslint.configs.recommended,
   ...tseslint.configs.recommended,
   {
-    files: ['src/**/*.ts', 'tests/**/*.ts'],
+    files: ['src/**/*.ts', 'tests/**/*.ts', 'examples/**/*.ts'],
     plugins: {
       'unused-imports': unusedImports,
       import: importPlugin,
@@ -65,6 +65,20 @@ export default tseslint.config(
     },
   },
   {
-    ignores: ['dist/', 'node_modules/', '*.config.*', 'examples/'],
+    files: ['examples/**/*.ts'],
+    languageOptions: {
+      parserOptions: {
+        projectService: false,
+        project: './tsconfig.examples.json',
+        tsconfigRootDir: import.meta.dirname,
+      },
+    },
+    rules: {
+      '@typescript-eslint/consistent-type-assertions': 'off',
+      'no-console': 'off',
+    },
+  },
+  {
+    ignores: ['dist/', 'node_modules/', '*.config.*'],
   }
 );

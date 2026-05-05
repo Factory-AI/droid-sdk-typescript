@@ -18,16 +18,16 @@ npm install @factory/droid-sdk
 Send a one-shot prompt and get the final response:
 
 ```ts
-import { prompt } from '@factory/droid-sdk';
+import { run } from '@factory/droid-sdk';
 
-const result = await prompt('What files are in the current directory?', {
+const result = await run('What files are in the current directory?', {
   cwd: '/my/project',
 });
 
 console.log(result.text);
 ```
 
-`prompt()` returns a successful `DroidResult` or throws an SDK error such as
+`run()` returns a successful `DroidResult` or throws an SDK error such as
 `ConnectionError`, `TimeoutError`, or `ProcessExitError`.
 
 ## Multi-Turn Sessions
@@ -247,13 +247,13 @@ for await (const msg of stream) {
 
 | Function                      | Description                                                      |
 | ----------------------------- | ---------------------------------------------------------------- |
-| `prompt(text, options?)`      | One-shot prompt → `Promise<DroidResult>`                         |
+| `run(text, options?)`         | One-shot prompt → `Promise<DroidResult>`                         |
 | `query(options)`              | One-shot prompt → async generator of `DroidMessage` events       |
 | `createSession(options?)`     | Create a new multi-turn session → `DroidSession`                 |
 | `resumeSession(id, options?)` | Resume an existing session → `DroidSession`                      |
 | `listSessions(options?)`      | List droid sessions saved on disk → `Promise<SessionMetadata[]>` |
 
-### `prompt(text, options?): Promise<DroidResult>`
+### `run(text, options?): Promise<DroidResult>`
 
 Creates a temporary session, sends one prompt, returns the aggregated
 `DroidResult`, and closes the session automatically. It accepts the same session
@@ -361,7 +361,7 @@ Low-level JSON-RPC client for advanced use. Provides typed methods for the under
 
 See the [`examples/`](./examples) directory for runnable examples:
 
-- **[`prompt.ts`](./examples/prompt.ts)** — one-shot prompt with aggregated result
+- **[`run.ts`](./examples/run.ts)** — one-shot run with aggregated result
 - **[`simple-query.ts`](./examples/simple-query.ts)** — one-shot query with streaming output
 - **[`multi-turn-session.ts`](./examples/multi-turn-session.ts)** — multi-turn session lifecycle
 - **[`abort-session-send.ts`](./examples/abort-session-send.ts)** — cancel an in-flight session turn with `AbortSignal`

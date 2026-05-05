@@ -1,7 +1,7 @@
 /**
  * Offline structured output check.
  *
- * Verifies that `prompt()` sends a Claude-style outputFormat and parses
+ * Verifies that `run()` sends a Claude-style outputFormat and parses
  * the assistant JSON text into `result.structuredOutput`.
  *
  * Usage:
@@ -20,7 +20,7 @@ import {
   JSONRPC_VERSION,
   LEGACY_FACTORY_API_VERSION,
   SessionNotificationType,
-  prompt,
+  run,
   type DroidClientTransport,
   type ErrorCallback,
   type MessageCallback,
@@ -170,7 +170,7 @@ async function main(): Promise<void> {
     },
   };
 
-  const result = await prompt('Return a person as JSON', {
+  const result = await run('Return a person as JSON', {
     transport,
     outputFormat,
   });

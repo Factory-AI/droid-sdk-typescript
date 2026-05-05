@@ -1,7 +1,7 @@
 /**
  * Offline DroidResult metadata check.
  *
- * Verifies that `prompt()` / `session.send()` results include sessionId,
+ * Verifies that `run()` / `session.send()` results include sessionId,
  * durationMs, turnCount, success, and error metadata.
  *
  * Usage:
@@ -19,7 +19,7 @@ import {
   JSONRPC_VERSION,
   LEGACY_FACTORY_API_VERSION,
   SessionNotificationType,
-  prompt,
+  run,
   type DroidClientTransport,
   type ErrorCallback,
   type MessageCallback,
@@ -180,7 +180,7 @@ async function main(): Promise<void> {
   );
   await successTransport.connect();
 
-  const success = await prompt('Check result metadata', {
+  const success = await run('Check result metadata', {
     transport: successTransport,
   });
 
@@ -200,7 +200,7 @@ async function main(): Promise<void> {
   );
   await errorTransport.connect();
 
-  const error = await prompt('Check error metadata', {
+  const error = await run('Check error metadata', {
     transport: errorTransport,
   });
 
