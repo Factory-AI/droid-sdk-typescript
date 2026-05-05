@@ -37,6 +37,7 @@ import type {
   LoadSessionRequestParams,
   LoadSessionResult,
   McpServerConfig,
+  OutputFormat,
   RemoveMcpServerRequestParams,
   RemoveMcpServerResult,
   ToggleMcpServerRequestParams,
@@ -46,6 +47,8 @@ import type {
 } from './schemas/client.js';
 import { DroidInteractionMode } from './schemas/enums.js';
 import type { Base64ImageSource, DocumentSource } from './schemas/messages.js';
+import { FactoryDroidMessageRole } from './schemas/messages.js';
+import { JsonObjectSchema, type JsonObject } from './schemas/shared.js';
 import { DroidMessageType } from './stream.js';
 import type { DroidMessage, ErrorEvent, TokenUsageUpdate } from './stream.js';
 
@@ -65,6 +68,8 @@ export interface DroidResult {
   turnCount: number;
   /** First error event emitted during the turn, if any. */
   error: ErrorEvent | null;
+  /** Structured JSON object emitted by the turn, when requested. */
+  structuredOutput: JsonObject | null;
   /** True when the stream completed without an error event. */
   success: boolean;
 }
@@ -91,6 +96,7 @@ export interface ResumeSessionOptions extends Pick<
 export interface MessageOptions {
   images?: Base64ImageSource[];
   files?: DocumentSource[];
+  outputFormat?: OutputFormat;
   abortSignal?: AbortSignal;
 }
 
@@ -108,6 +114,31 @@ function throwIfAborted(signal: AbortSignal | undefined): void {
   if (signal?.aborted) {
     throw getAbortError(signal);
   }
+}
+
+function parseJsonObject(text: string): JsonObject | null {
+  try {
+    const parsed: unknown = JSON.parse(text);
+    const result = JsonObjectSchema.safeParse(parsed);
+    return result.success ? result.data : null;
+  } catch {
+    return null;
+  }
+}
+
+function extractAssistantText(message: DroidMessage): string {
+  if (message.type !== DroidMessageType.CreateMessage) {
+    return '';
+  }
+
+  if (message.role !== FactoryDroidMessageRole.Assistant) {
+    return '';
+  }
+
+  return message.content
+    .filter((block) => block.type === 'text')
+    .map((block) => block.text)
+    .join('');
 }
 
 /** Create instances via {@link createSession} or {@link resumeSession}. */
@@ -168,6 +199,7 @@ export class DroidSession {
           text,
           images: options?.images,
           files: options?.files,
+          outputFormat: options?.outputFormat,
         }),
         abortPromise,
       ]);
@@ -192,6 +224,8 @@ export class DroidSession {
     let fullText = '';
     let lastTokenUsage: TokenUsageUpdate | null = null;
     let firstError: ErrorEvent | null = null;
+    let structuredOutput: JsonObject | null = null;
+    let finalAssistantText = '';
     let turnCount = 0;
     const startedAt = Date.now();
 
@@ -202,12 +236,27 @@ export class DroidSession {
         fullText += msg.text;
       }
 
+      const assistantText = extractAssistantText(msg);
+      if (assistantText) {
+        finalAssistantText = assistantText;
+        if (options?.outputFormat && fullText.length === 0) {
+          fullText = assistantText;
+        }
+      }
+
       if (msg.type === DroidMessageType.TokenUsageUpdate) {
         lastTokenUsage = msg;
       }
 
       if (msg.type === DroidMessageType.Error && firstError === null) {
         firstError = msg;
+      }
+
+      if (options?.outputFormat && structuredOutput === null) {
+        const textToParse = finalAssistantText || fullText;
+        if (textToParse) {
+          structuredOutput = parseJsonObject(textToParse);
+        }
       }
 
       if (msg.type === DroidMessageType.TurnComplete) {
@@ -227,6 +276,7 @@ export class DroidSession {
       durationMs: Date.now() - startedAt,
       turnCount,
       error: firstError,
+      structuredOutput,
       success: firstError === null,
     };
   }

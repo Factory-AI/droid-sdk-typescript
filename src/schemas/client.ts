@@ -271,6 +271,24 @@ export type LoadSessionRequestParams = z.infer<
   typeof LoadSessionRequestParamsSchema
 >;
 
+/** Structured output format type names. */
+export const OutputFormatType = {
+  JsonSchema: 'json_schema',
+} as const;
+
+export type OutputFormatType =
+  (typeof OutputFormatType)[keyof typeof OutputFormatType];
+
+/** Structured output format for droid.add_user_message request. */
+export const OutputFormatSchema = z
+  .object({
+    type: z.literal(OutputFormatType.JsonSchema),
+    schema: JsonObjectSchema,
+  })
+  .strict();
+
+export type OutputFormat = z.infer<typeof OutputFormatSchema>;
+
 /** Parameters for droid.add_user_message request. */
 export const AddUserMessageRequestParamsSchema = z
   .object({
@@ -278,6 +296,7 @@ export const AddUserMessageRequestParamsSchema = z
     text: z.string(),
     images: z.array(Base64ImageSourceSchema).optional(),
     files: z.array(DocumentSourceSchema).optional(),
+    outputFormat: OutputFormatSchema.optional(),
   })
   .strict();
 
