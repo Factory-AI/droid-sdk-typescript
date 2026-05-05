@@ -5,11 +5,11 @@
  * verifies the stream rejects with the abort reason.
  *
  * Usage:
- *   npx tsx examples/abort-session-send.ts
- *   npx tsx examples/abort-session-send.ts 3000
+ *   npx tsx examples/abort-session-stream.ts
+ *   npx tsx examples/abort-session-stream.ts 3000
  */
 
-import { createSession } from '../src/index.js';
+import { createSession, DroidMessageType } from '../src/index.js';
 
 async function main(): Promise<void> {
   const abortAfterMs = Number(process.argv[2] ?? 2000);
@@ -37,7 +37,7 @@ async function main(): Promise<void> {
     for await (const message of session.stream(prompt, {
       abortSignal: controller.signal,
     })) {
-      if (message.type === 'assistant_text_delta') {
+      if (message.type === DroidMessageType.AssistantTextDelta) {
         textDeltaCount++;
         receivedText += message.text;
         process.stdout.write(message.text);

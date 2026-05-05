@@ -12,12 +12,18 @@ Use a `permissionHandler` when your app needs to inspect or approve tool calls.
 
 ```ts
 function permissionHandler(
+  allowedFilePath: string,
   params: RequestPermissionRequestParams
 ): ToolConfirmationOutcome {
-  for (const item of params.toolUses) {
-    console.log(item.toolUse.name, item.confirmationType);
-  }
-  return ToolConfirmationOutcome.ProceedOnce;
+  const onlyAllowedCreate = params.toolUses.every(
+    (item) =>
+      item.details.type === ToolConfirmationType.Create &&
+      item.details.filePath === allowedFilePath
+  );
+
+  return onlyAllowedCreate
+    ? ToolConfirmationOutcome.ProceedOnce
+    : ToolConfirmationOutcome.Cancel;
 }
 ```
 
@@ -28,9 +34,9 @@ function permissionHandler(
 
 ```ts
 const stream = query({
-  prompt: "Create a file called hello.txt with the text 'Hello, World!'",
+  prompt: `Create a file called ${outputPath} with the text 'Hello, World!'`,
   cwd: process.cwd(),
-  permissionHandler,
+  permissionHandler: (params) => permissionHandler(outputPath, params),
 });
 ```
 
@@ -38,12 +44,18 @@ const stream = query({
 
 ```ts
 import {
+  DroidMessageType,
   query,
   ToolConfirmationOutcome,
+  ToolConfirmationType,
   type RequestPermissionRequestParams,
 } from '@factory/droid-sdk';
+import { mkdtemp, rm } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 
 function permissionHandler(
+  allowedFilePath: string,
   params: RequestPermissionRequestParams
 ): ToolConfirmationOutcome {
   for (const item of params.toolUses) {
@@ -51,20 +63,35 @@ function permissionHandler(
     console.log(`Type: ${item.confirmationType}`);
   }
 
-  return ToolConfirmationOutcome.ProceedOnce;
+  const onlyAllowedCreate = params.toolUses.every(
+    (item) =>
+      item.details.type === ToolConfirmationType.Create &&
+      item.details.filePath === allowedFilePath
+  );
+
+  return onlyAllowedCreate
+    ? ToolConfirmationOutcome.ProceedOnce
+    : ToolConfirmationOutcome.Cancel;
 }
 
 async function main(): Promise<void> {
-  const stream = query({
-    prompt: "Create a file called hello.txt with the text 'Hello, World!'",
-    cwd: process.cwd(),
-    permissionHandler,
-  });
+  const tempDir = await mkdtemp(join(tmpdir(), 'droid-sdk-permission-'));
+  const outputPath = join(tempDir, 'hello.txt');
 
-  for await (const msg of stream) {
-    if (msg.type === 'assistant_text_delta') {
-      process.stdout.write(msg.text);
+  try {
+    const stream = query({
+      prompt: `Create a file called ${outputPath} with the text 'Hello, World!'`,
+      cwd: process.cwd(),
+      permissionHandler: (params) => permissionHandler(outputPath, params),
+    });
+
+    for await (const msg of stream) {
+      if (msg.type === DroidMessageType.AssistantTextDelta) {
+        process.stdout.write(msg.text);
+      }
     }
+  } finally {
+    await rm(tempDir, { recursive: true, force: true });
   }
 }
 

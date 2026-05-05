@@ -18,7 +18,7 @@ npm install @factory/droid-sdk
 Send a one-shot prompt and stream the response:
 
 ```ts
-import { query } from '@factory/droid-sdk';
+import { DroidMessageType, query } from '@factory/droid-sdk';
 
 const stream = query({
   prompt: 'What files are in the current directory?',
@@ -26,10 +26,10 @@ const stream = query({
 });
 
 for await (const msg of stream) {
-  if (msg.type === 'assistant_text_delta') {
+  if (msg.type === DroidMessageType.AssistantTextDelta) {
     process.stdout.write(msg.text);
   }
-  if (msg.type === 'turn_complete') {
+  if (msg.type === DroidMessageType.TurnComplete) {
     console.log('\nDone!');
   }
 }
@@ -40,13 +40,13 @@ for await (const msg of stream) {
 Use `createSession()` for persistent conversations with multiple turns:
 
 ```ts
-import { createSession } from '@factory/droid-sdk';
+import { createSession, DroidMessageType } from '@factory/droid-sdk';
 
 const session = await createSession({ cwd: '/my/project' });
 
 // Streaming turn
 for await (const msg of session.stream('List all TypeScript files')) {
-  if (msg.type === 'assistant_text_delta') {
+  if (msg.type === DroidMessageType.AssistantTextDelta) {
     process.stdout.write(msg.text);
   }
 }
@@ -224,7 +224,11 @@ Each `SessionMetadata` record includes `id`, `title`, `sessionTitle`, `owner`, `
 Handle tool confirmation requests with a custom permission handler:
 
 ```ts
-import { query, ToolConfirmationOutcome } from '@factory/droid-sdk';
+import {
+  DroidMessageType,
+  query,
+  ToolConfirmationOutcome,
+} from '@factory/droid-sdk';
 
 const stream = query({
   prompt: 'Create a hello.txt file',
@@ -236,7 +240,7 @@ const stream = query({
 });
 
 for await (const msg of stream) {
-  if (msg.type === 'assistant_text_delta') {
+  if (msg.type === DroidMessageType.AssistantTextDelta) {
     process.stdout.write(msg.text);
   }
 }
@@ -294,6 +298,14 @@ Returned by `session.send()`:
 
 All messages have a discriminated `type` field:
 
+```ts
+import { DroidMessageType } from '@factory/droid-sdk';
+
+if (msg.type === DroidMessageType.AssistantTextDelta) {
+  process.stdout.write(msg.text);
+}
+```
+
 | Type                    | Description                             |
 | ----------------------- | --------------------------------------- |
 | `assistant_text_delta`  | Streaming text token from the assistant |
@@ -349,6 +361,7 @@ See the [`examples/`](./examples) directory for runnable examples:
 
 - **[`simple-query.ts`](./examples/simple-query.ts)** — one-shot query with streaming output
 - **[`multi-turn-session.ts`](./examples/multi-turn-session.ts)** — multi-turn session lifecycle
+- **[`abort-session-stream.ts`](./examples/abort-session-stream.ts)** — cancel an in-flight streaming session turn with `AbortSignal`
 - **[`init-metadata.ts`](./examples/init-metadata.ts)** — read initialization and load metadata from query/session APIs
 - **[`permission-handler.ts`](./examples/permission-handler.ts)** — custom permission handling
 - **[`spec-mode-same-session.ts`](./examples/spec-mode-same-session.ts)** — approve a spec and continue in the same session

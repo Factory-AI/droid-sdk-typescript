@@ -57,15 +57,19 @@ async function main(): Promise<void> {
   stream.abort();
 
   const session = await createSession({ cwd: process.cwd() });
-  const resumed = await resumeSession(session.sessionId, {
-    cwd: process.cwd(),
-  });
+  let resumed: Awaited<ReturnType<typeof resumeSession>> | null = null;
 
-  console.log(session.initResult.settings.modelId);
-  console.log(resumed.initResult.cwd);
+  try {
+    resumed = await resumeSession(session.sessionId, {
+      cwd: process.cwd(),
+    });
 
-  await resumed.close();
-  await session.close();
+    console.log(session.initResult.settings.modelId);
+    console.log(resumed.initResult.cwd);
+  } finally {
+    await resumed?.close();
+    await session.close();
+  }
 }
 
 main().catch((err: unknown) => {
