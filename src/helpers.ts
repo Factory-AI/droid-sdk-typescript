@@ -21,6 +21,7 @@ import {
 import type { ToolSelectionOverrides } from './schemas/shared.js';
 import {
   convertNotificationToStreamMessage,
+  DroidMessageType,
   StreamStateTracker,
 } from './stream.js';
 import type { DroidMessage } from './stream.js';
@@ -72,7 +73,7 @@ export class MessageBridge {
 
       for (const extra of additional) {
         this._enqueue(extra);
-        if (extra.type === 'turn_complete') {
+        if (extra.type === DroidMessageType.TurnComplete) {
           this._signalDone();
         }
       }
@@ -89,7 +90,7 @@ export class MessageBridge {
         const msg = this._queue.shift()!;
         yield msg;
 
-        if (msg.type === 'turn_complete') {
+        if (msg.type === DroidMessageType.TurnComplete) {
           return;
         }
       }

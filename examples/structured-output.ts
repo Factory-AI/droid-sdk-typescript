@@ -11,7 +11,7 @@
 
 import assert from 'node:assert/strict';
 
-import { run } from '../src/index.js';
+import { OutputFormatType, run } from '../src/index.js';
 
 async function main(): Promise<void> {
   const prompt =
@@ -19,7 +19,7 @@ async function main(): Promise<void> {
     'Return exactly this person: name Ada Lovelace, language TypeScript.';
 
   const outputFormat = {
-    type: 'json_schema' as const,
+    type: OutputFormatType.JsonSchema,
     schema: {
       type: 'object',
       properties: {

@@ -14,6 +14,7 @@ import {
 } from './schemas/constants.js';
 import {
   DroidClientMethod,
+  JsonRpcMessageType,
   JsonRpcErrorCode,
   ToolConfirmationOutcome,
 } from './schemas/enums.js';
@@ -112,7 +113,7 @@ export class ProtocolEngine {
       jsonrpc: JSONRPC_VERSION,
       factoryApiVersion: LEGACY_FACTORY_API_VERSION,
       factoryProtocolVersion: FACTORY_PROTOCOL_VERSION,
-      type: 'request' as const,
+      type: JsonRpcMessageType.Request,
       id: requestId,
       method,
       params,
@@ -227,13 +228,13 @@ export class ProtocolEngine {
 
     const msg = parsed.data;
     switch (msg.type) {
-      case 'response':
+      case JsonRpcMessageType.Response:
         this._handleResponse(msg.id, msg.result, msg.error);
         break;
-      case 'notification':
+      case JsonRpcMessageType.Notification:
         this._handleNotification(msg);
         break;
-      case 'request':
+      case JsonRpcMessageType.Request:
         void this._handleServerRequest(msg.method, msg.id, msg.params);
         break;
     }
@@ -403,7 +404,7 @@ export class ProtocolEngine {
       jsonrpc: JSONRPC_VERSION,
       factoryApiVersion: LEGACY_FACTORY_API_VERSION,
       factoryProtocolVersion: FACTORY_PROTOCOL_VERSION,
-      type: 'response',
+      type: JsonRpcMessageType.Response,
       id: requestId,
       result,
     };
@@ -425,7 +426,7 @@ export class ProtocolEngine {
       jsonrpc: JSONRPC_VERSION,
       factoryApiVersion: LEGACY_FACTORY_API_VERSION,
       factoryProtocolVersion: FACTORY_PROTOCOL_VERSION,
-      type: 'response',
+      type: JsonRpcMessageType.Response,
       id: requestId,
       error: errorObj,
     };

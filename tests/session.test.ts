@@ -17,6 +17,7 @@ import {
   DroidWorkingState,
   JsonRpcErrorCode,
   McpServerType,
+  OutputFormatType,
   ReasoningEffort,
   SessionNotificationType,
   SettingsLevel,
@@ -503,7 +504,7 @@ describe('DroidSession', () => {
 
       const session = await createSession({ transport });
       const outputFormat = {
-        type: 'json_schema' as const,
+        type: OutputFormatType.JsonSchema,
         schema: {
           type: 'object',
           properties: {

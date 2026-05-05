@@ -221,7 +221,7 @@ export function convertNotificationToStreamMessage(
   switch (notification.type) {
     case SessionNotificationType.ASSISTANT_TEXT_DELTA:
       return {
-        type: 'assistant_text_delta',
+        type: DroidMessageType.AssistantTextDelta,
         messageId: notification.messageId,
         blockIndex: notification.blockIndex,
         text: notification.textDelta,
@@ -229,7 +229,7 @@ export function convertNotificationToStreamMessage(
 
     case SessionNotificationType.THINKING_TEXT_DELTA:
       return {
-        type: 'thinking_text_delta',
+        type: DroidMessageType.ThinkingTextDelta,
         messageId: notification.messageId,
         blockIndex: notification.blockIndex,
         text: notification.textDelta,
@@ -237,7 +237,7 @@ export function convertNotificationToStreamMessage(
 
     case SessionNotificationType.TOOL_RESULT:
       return {
-        type: 'tool_result',
+        type: DroidMessageType.ToolResult,
         toolUseId: notification.toolUseId,
         toolName: '',
         content: normalizeToolResultContent(notification.content),
@@ -248,7 +248,7 @@ export function convertNotificationToStreamMessage(
       const update: ToolProgressUpdate = notification.update;
       const text = update?.text ?? update?.status ?? update?.details ?? '';
       return {
-        type: 'tool_progress',
+        type: DroidMessageType.ToolProgress,
         toolUseId: notification.toolUseId,
         toolName: notification.toolName,
         content: text,
@@ -258,14 +258,14 @@ export function convertNotificationToStreamMessage(
 
     case SessionNotificationType.DROID_WORKING_STATE_CHANGED:
       return {
-        type: 'working_state_changed',
+        type: DroidMessageType.WorkingStateChanged,
         state: notification.newState,
       };
 
     case SessionNotificationType.SESSION_TOKEN_USAGE_CHANGED: {
       const tu: TokenUsage = notification.tokenUsage;
       return {
-        type: 'token_usage_update',
+        type: DroidMessageType.TokenUsageUpdate,
         inputTokens: tu.inputTokens,
         outputTokens: tu.outputTokens,
         cacheReadTokens: tu.cacheReadTokens,
@@ -279,9 +279,9 @@ export function convertNotificationToStreamMessage(
       const messages: DroidMessage[] = [];
 
       for (const block of msg.content) {
-        if (block.type === 'tool_use') {
+        if (block.type === DroidMessageType.ToolUse) {
           messages.push({
-            type: 'tool_use',
+            type: DroidMessageType.ToolUse,
             toolName: block.name,
             toolInput: block.input,
             toolUseId: block.id,
@@ -290,7 +290,7 @@ export function convertNotificationToStreamMessage(
       }
 
       messages.push({
-        type: 'create_message',
+        type: DroidMessageType.CreateMessage,
         messageId: msg.id,
         role: msg.role,
         content: msg.content,
@@ -302,7 +302,7 @@ export function convertNotificationToStreamMessage(
 
     case SessionNotificationType.ERROR:
       return {
-        type: 'error',
+        type: DroidMessageType.Error,
         message: notification.message,
         errorType: notification.errorType,
         timestamp: notification.timestamp,
@@ -310,7 +310,7 @@ export function convertNotificationToStreamMessage(
 
     case SessionNotificationType.PERMISSION_RESOLVED:
       return {
-        type: 'permission_resolved',
+        type: DroidMessageType.PermissionResolved,
         requestId: notification.requestId,
         toolUseIds: notification.toolUseIds,
         selectedOption: notification.selectedOption,
@@ -318,63 +318,63 @@ export function convertNotificationToStreamMessage(
 
     case SessionNotificationType.SETTINGS_UPDATED:
       return {
-        type: 'settings_updated',
+        type: DroidMessageType.SettingsUpdated,
         settings: notification.settings,
       };
 
     case SessionNotificationType.SESSION_TITLE_UPDATED:
       return {
-        type: 'session_title_updated',
+        type: DroidMessageType.SessionTitleUpdated,
         title: notification.title,
       };
 
     case SessionNotificationType.MCP_STATUS_CHANGED:
       return {
-        type: 'mcp_status_changed',
+        type: DroidMessageType.McpStatusChanged,
         servers: notification.servers,
         summary: notification.summary,
       };
 
     case SessionNotificationType.MISSION_STATE_CHANGED:
       return {
-        type: 'mission_state_changed',
+        type: DroidMessageType.MissionStateChanged,
         state: notification.state,
       };
 
     case SessionNotificationType.MISSION_FEATURES_CHANGED:
       return {
-        type: 'mission_features_changed',
+        type: DroidMessageType.MissionFeaturesChanged,
         features: notification.features,
       };
 
     case SessionNotificationType.MISSION_PROGRESS_ENTRY:
       return {
-        type: 'mission_progress_entry',
+        type: DroidMessageType.MissionProgressEntry,
         progressLog: notification.progressLog,
       };
 
     case SessionNotificationType.MISSION_HEARTBEAT:
       return {
-        type: 'mission_heartbeat',
+        type: DroidMessageType.MissionHeartbeat,
         timestamp: notification.timestamp,
       };
 
     case SessionNotificationType.MISSION_WORKER_STARTED:
       return {
-        type: 'mission_worker_started',
+        type: DroidMessageType.MissionWorkerStarted,
         workerSessionId: notification.workerSessionId,
       };
 
     case SessionNotificationType.MISSION_WORKER_COMPLETED:
       return {
-        type: 'mission_worker_completed',
+        type: DroidMessageType.MissionWorkerCompleted,
         workerSessionId: notification.workerSessionId,
         exitCode: notification.exitCode,
       };
 
     case SessionNotificationType.MCP_AUTH_REQUIRED:
       return {
-        type: 'mcp_auth_required',
+        type: DroidMessageType.McpAuthRequired,
         serverName: notification.serverName,
         authUrl: notification.authUrl,
         message: notification.message,
@@ -383,7 +383,7 @@ export function convertNotificationToStreamMessage(
 
     case SessionNotificationType.MCP_AUTH_COMPLETED:
       return {
-        type: 'mcp_auth_completed',
+        type: DroidMessageType.McpAuthCompleted,
         serverName: notification.serverName,
         outcome: notification.outcome,
         message: notification.message,
@@ -415,25 +415,25 @@ export class StreamStateTracker {
   } {
     const additional: DroidMessage[] = [];
 
-    if (message.type === 'tool_use') {
+    if (message.type === DroidMessageType.ToolUse) {
       this.toolNameMap.set(message.toolUseId, message.toolName);
     }
 
     // Enrich tool_result with toolName from prior tool_use
-    if (message.type === 'tool_result') {
+    if (message.type === DroidMessageType.ToolResult) {
       message = { ...message, toolName: this.getToolName(message.toolUseId) };
     }
 
-    if (message.type === 'token_usage_update') {
+    if (message.type === DroidMessageType.TokenUsageUpdate) {
       this.lastTokenUsage = message;
     }
 
-    if (message.type === 'working_state_changed') {
+    if (message.type === DroidMessageType.WorkingStateChanged) {
       if (message.state !== DroidWorkingState.Idle) {
         this.hasBeenNonIdle = true;
       } else if (this.hasBeenNonIdle) {
         additional.push({
-          type: 'turn_complete',
+          type: DroidMessageType.TurnComplete,
           tokenUsage: this.lastTokenUsage,
         });
         this.hasBeenNonIdle = false;

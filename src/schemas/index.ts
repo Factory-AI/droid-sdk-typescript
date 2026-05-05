@@ -298,6 +298,7 @@ export {
   McpServerConfigSchema,
   MissionSnapshotSchema,
   OutputFormatSchema,
+  OutputFormatType,
   RemoveMcpServerRequestParamsSchema,
   RemoveMcpServerRequestSchema,
   RemoveMcpServerResponseSchema,
