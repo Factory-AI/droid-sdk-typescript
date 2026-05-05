@@ -23,8 +23,10 @@ const stream = query({
 ## Key snippet: consume streamed messages
 
 ```ts
+import { DroidMessageType } from '@factory/droid-sdk';
+
 for await (const msg of stream) {
-  if (msg.type === 'assistant_text_delta') {
+  if (msg.type === DroidMessageType.AssistantTextDelta) {
     process.stdout.write(msg.text);
   }
 }
@@ -36,7 +38,7 @@ for await (const msg of stream) {
 ## Full script
 
 ```ts
-import { query } from '@factory/droid-sdk';
+import { DroidMessageType, query } from '@factory/droid-sdk';
 
 async function main(): Promise<void> {
   const prompt = process.argv[2] ?? 'What files are in the current directory?';
@@ -48,16 +50,16 @@ async function main(): Promise<void> {
 
   for await (const msg of stream) {
     switch (msg.type) {
-      case 'assistant_text_delta':
+      case DroidMessageType.AssistantTextDelta:
         process.stdout.write(msg.text);
         break;
-      case 'tool_use':
+      case DroidMessageType.ToolUse:
         console.log(`\n[Tool] ${msg.toolName}`);
         break;
-      case 'tool_result':
+      case DroidMessageType.ToolResult:
         console.log(`[Tool Result] ${msg.isError ? 'Error' : 'OK'}`);
         break;
-      case 'turn_complete':
+      case DroidMessageType.TurnComplete:
         console.log('\n\n--- Turn complete ---');
         break;
     }

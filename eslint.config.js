@@ -14,7 +14,7 @@ export default tseslint.config(
     },
     languageOptions: {
       parserOptions: {
-        projectService: true,
+        project: ['./tsconfig.json', './tsconfig.examples.json'],
         tsconfigRootDir: import.meta.dirname,
       },
     },
@@ -66,13 +66,6 @@ export default tseslint.config(
   },
   {
     files: ['examples/**/*.ts'],
-    languageOptions: {
-      parserOptions: {
-        projectService: false,
-        project: './tsconfig.examples.json',
-        tsconfigRootDir: import.meta.dirname,
-      },
-    },
     rules: {
       '@typescript-eslint/consistent-type-assertions': 'off',
       'no-console': 'off',

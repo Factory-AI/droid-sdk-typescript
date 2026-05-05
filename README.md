@@ -282,9 +282,15 @@ Returned by `createSession()` and `resumeSession()`. Key methods:
 - **`updateSettings(params)`** — update model, autonomy level, etc.
 - **`enterSpecMode(params?)`** — switch the current session into spec mode
 - **`forkSession()`** — create a forked server-side session and return its new session ID
-- **`addMcpServer(params)`** / **`removeMcpServer(params)`** — manage MCP servers
+- **`compactSession(params?)`** — request server-side compaction
+- **`getRewindInfo(params)`** / **`executeRewind(params)`** — inspect or execute rewind operations
+- **`getContextStats()`** — read current context window utilization
+- **`addMcpServer(params)`** / **`removeMcpServer(params)`** / **`toggleMcpServer(params)`** — manage MCP servers
+- **`listMcpServers()`** / **`listMcpTools()`** / **`authenticateMcpServer(params)`** — inspect and authenticate MCP servers
+- **`listSkills()`** — list available skills
 - **`listTools(params?)`** — inspect the exec tool catalog and current allow/deny state
 - **`renameSession(params)`** — rename the current session
+- **`onNotification(callback, filter?)`** — subscribe to raw session notifications
 - **`sessionId`** — the session ID
 - **`initResult`** — cached `initialize_session` or `load_session` result
 
@@ -308,19 +314,30 @@ if (msg.type === DroidMessageType.AssistantTextDelta) {
 }
 ```
 
-| Type                    | Description                             |
-| ----------------------- | --------------------------------------- |
-| `assistant_text_delta`  | Streaming text token from the assistant |
-| `thinking_text_delta`   | Streaming reasoning/thinking token      |
-| `tool_use`              | Tool invocation by the assistant        |
-| `tool_result`           | Result from a tool execution            |
-| `tool_progress`         | Progress update during tool execution   |
-| `working_state_changed` | Agent working state transition          |
-| `token_usage_update`    | Updated token usage counters            |
-| `create_message`        | Full assistant message created          |
-| `turn_complete`         | Sentinel: agent turn finished           |
-| `session_title_updated` | Session title changed                   |
-| `error`                 | Error event from the process            |
+| Type                       | Description                             |
+| -------------------------- | --------------------------------------- |
+| `assistant_text_delta`     | Streaming text token from the assistant |
+| `thinking_text_delta`      | Streaming reasoning/thinking token      |
+| `tool_use`                 | Tool invocation by the assistant        |
+| `tool_result`              | Result from a tool execution            |
+| `tool_progress`            | Progress update during tool execution   |
+| `working_state_changed`    | Agent working state transition          |
+| `token_usage_update`       | Updated token usage counters            |
+| `create_message`           | Full assistant message created          |
+| `permission_resolved`      | Tool permission outcome                 |
+| `settings_updated`         | Session settings changed                |
+| `turn_complete`            | Sentinel: agent turn finished           |
+| `session_title_updated`    | Session title changed                   |
+| `mcp_status_changed`       | MCP server status changed               |
+| `mcp_auth_required`        | MCP authentication required             |
+| `mcp_auth_completed`       | MCP authentication completed            |
+| `mission_state_changed`    | Mission state changed                   |
+| `mission_features_changed` | Mission feature list changed            |
+| `mission_progress_entry`   | Mission progress log updated            |
+| `mission_heartbeat`        | Mission heartbeat received              |
+| `mission_worker_started`   | Mission worker started                  |
+| `mission_worker_completed` | Mission worker completed                |
+| `error`                    | Error event from the process            |
 
 ### Options
 
@@ -328,23 +345,28 @@ if (msg.type === DroidMessageType.AssistantTextDelta) {
 
 - **`prompt`** — the user prompt (query only)
 - **`cwd`** — working directory for the session
+- **`machineId`** — machine identifier for initialization
 - **`modelId`** — LLM model identifier
 - **`autonomyLevel`** — `AutonomyLevel` enum value
 - **`interactionMode`** — `DroidInteractionMode` enum value
 - **`reasoningEffort`** — `ReasoningEffort` enum value
 - **`specModeModelId`** — override model used in spec mode
 - **`specModeReasoningEffort`** — override reasoning level used in spec mode
+- **`mcpServers`** — initial MCP server configurations
+- **`tags`** — session tags; the SDK appends its own SDK tag automatically
 - **`enabledToolIds`** — explicit exec tool allowlist
 - **`disabledToolIds`** — explicit exec tool denylist
+- **`images`** / **`files`** — message attachments for `run()`, `session.send()`, and `session.stream()`
 - **`permissionHandler`** — callback for tool confirmations
 - **`askUserHandler`** — callback for interactive questions
 - **`abortSignal`** — standard `AbortSignal` for cancellation
 - **`execPath`** — path to `droid` executable (default: `"droid"`)
+- **`execArgs`** / **`env`** — subprocess arguments and environment overrides
 - **`transport`** — provide a custom transport instead of spawning a process
 
 ### `DroidClient`
 
-Low-level JSON-RPC client for advanced use. Provides typed methods for the underlying protocol operations, including `listTools()` and `renameSession()`. Most users should prefer `query()` and `createSession()`.
+Low-level JSON-RPC client for advanced use. Provides typed methods for the underlying protocol operations, including session management, tool controls, MCP management, compaction, rewind, and bug-report helpers. Most users should prefer `run()`, `query()`, and `createSession()`.
 
 ### Error Types
 
@@ -364,13 +386,16 @@ See the [`examples/`](./examples) directory for runnable examples:
 - **[`run.ts`](./examples/run.ts)** — one-shot run with aggregated result
 - **[`simple-query.ts`](./examples/simple-query.ts)** — one-shot query with streaming output
 - **[`multi-turn-session.ts`](./examples/multi-turn-session.ts)** — multi-turn session lifecycle
-- **[`abort-session-send.ts`](./examples/abort-session-send.ts)** — cancel an in-flight session turn with `AbortSignal`
+- **[`abort-session-stream.ts`](./examples/abort-session-stream.ts)** — cancel an in-flight streaming session turn with `AbortSignal`
 - **[`init-metadata.ts`](./examples/init-metadata.ts)** — read initialization and load metadata from query/session APIs
 - **[`permission-handler.ts`](./examples/permission-handler.ts)** — custom permission handling
+- **[`interrupt-session.ts`](./examples/interrupt-session.ts)** — interrupt an active streaming turn
 - **[`spec-mode-same-session.ts`](./examples/spec-mode-same-session.ts)** — approve a spec and continue in the same session
 - **[`spec-mode-new-session.ts`](./examples/spec-mode-new-session.ts)** — approve a spec and hand off implementation to a new session
 - **[`tool-controls.ts`](./examples/tool-controls.ts)** — configure allow/deny lists and inspect tool availability
 - **[`fork-session.ts`](./examples/fork-session.ts)** — fork a session and continue from the new session ID
+- **[`compact-session.ts`](./examples/compact-session.ts)** — compact a session's history
+- **[`rewind-session.ts`](./examples/rewind-session.ts)** — inspect and execute rewind operations
 - **[`list-sessions.ts`](./examples/list-sessions.ts)** — discover droid sessions saved on disk
 
 ## License

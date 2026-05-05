@@ -24,9 +24,10 @@ npm install @factory/droid-sdk
 
 ## What this SDK provides
 
-The SDK wraps `droid exec` as a subprocess and exposes two main patterns:
+The SDK wraps `droid exec` as a subprocess and exposes three main patterns:
 
-- `query()` for one-shot prompt/response flows
+- `run()` for simple one-shot prompt/response flows
+- `query()` for one-shot streaming flows
 - `createSession()` / `resumeSession()` for multi-turn sessions
 
 It also includes:
@@ -45,6 +46,7 @@ It also includes:
 For copy-pasteable walkthroughs and complete scripts, see:
 
 - [One-shot query](./examples/one-shot-query.md)
+- [One-shot run](./examples/run.md)
 - [Multi-turn session](./examples/multi-turn-session.md)
 - [Permission handler](./examples/permission-handler.md)
 - [Initialization metadata](./examples/init-metadata.md)
@@ -53,6 +55,30 @@ For copy-pasteable walkthroughs and complete scripts, see:
 - [List saved sessions](./examples/list-sessions.md)
 
 ## Functions
+
+### `run()`
+
+Creates a temporary session, sends one prompt, returns the aggregated
+`DroidResult`, and closes the session automatically.
+
+```ts
+function run(text: string, options?: RunOptions): Promise<DroidResult>;
+```
+
+`RunOptions` accepts the same session creation options as
+`createSession()` plus message attachment options (`images` and `files`).
+
+Use `run()` when you want the simplest normal async JavaScript API:
+
+```ts
+import { run } from '@factory/droid-sdk';
+
+const result = await run('What files are in this project?', {
+  cwd: process.cwd(),
+});
+
+console.log(result.text);
+```
 
 ### `query()`
 
