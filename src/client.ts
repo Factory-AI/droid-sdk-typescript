@@ -221,7 +221,10 @@ export class DroidClient {
   async addUserMessage(
     params: Pick<AddUserMessageRequestParams, 'text'> &
       Partial<
-        Pick<AddUserMessageRequestParams, 'images' | 'files' | 'messageId'>
+        Pick<
+          AddUserMessageRequestParams,
+          'images' | 'files' | 'messageId' | 'outputFormat'
+        >
       >
   ): Promise<AddUserMessageResult> {
     return this._sessionRpc(

@@ -393,6 +393,7 @@ describe('DroidSession', () => {
       expect(result.durationMs).toBeGreaterThanOrEqual(0);
       expect(result.turnCount).toBe(1);
       expect(result.error).toBeNull();
+      expect(result.structuredOutput).toBeNull();
       expect(result.success).toBe(true);
 
       await session.close();
@@ -456,6 +457,85 @@ describe('DroidSession', () => {
       });
       expect(result.sessionId).toBe('sess-send-error-metadata');
       expect(result.turnCount).toBe(1);
+
+      await session.close();
+    });
+
+    it('passes outputFormat and aggregates structured output', async () => {
+      const transport = new InMemoryTransport();
+      await transport.connect();
+
+      setupFullResponder(transport, 'sess-structured-output', {
+        [DroidServerMethod.ADD_USER_MESSAGE]: (id) => {
+          queueMicrotask(() => {
+            transport.injectMessage(makeSuccessResponse(id, {}));
+            transport.injectMessage(
+              makeSessionNotification(
+                SessionNotificationType.DROID_WORKING_STATE_CHANGED,
+                { newState: DroidWorkingState.StreamingAssistantMessage }
+              )
+            );
+            transport.injectMessage(
+              makeSessionNotification(SessionNotificationType.CREATE_MESSAGE, {
+                message: {
+                  id: 'msg-structured',
+                  role: 'assistant',
+                  content: [
+                    {
+                      type: 'text',
+                      text: JSON.stringify({ name: 'Ada' }),
+                    },
+                  ],
+                  createdAt: Date.now(),
+                  updatedAt: Date.now(),
+                },
+              })
+            );
+            transport.injectMessage(
+              makeSessionNotification(
+                SessionNotificationType.DROID_WORKING_STATE_CHANGED,
+                { newState: DroidWorkingState.Idle }
+              )
+            );
+          });
+        },
+      });
+
+      const session = await createSession({ transport });
+      const outputFormat = {
+        type: 'json_schema' as const,
+        schema: {
+          type: 'object',
+          properties: {
+            name: { type: 'string' },
+          },
+          required: ['name'],
+        },
+      };
+
+      const result = await session.send('Return a person', { outputFormat });
+      const addUserMessage = transport.sentMessages.find(
+        (message) =>
+          (message as Record<string, unknown>)['method'] ===
+          DroidServerMethod.ADD_USER_MESSAGE
+      ) as Record<string, unknown>;
+
+      expect(
+        (addUserMessage['params'] as Record<string, unknown>)['outputFormat']
+      ).toEqual(outputFormat);
+      expect(result.text).toEqual(JSON.stringify({ name: 'Ada' }));
+      expect(result.structuredOutput).toEqual({ name: 'Ada' });
+      expect(result.messages).toContainEqual({
+        type: 'create_message',
+        messageId: 'msg-structured',
+        role: 'assistant',
+        content: [
+          {
+            type: 'text',
+            text: JSON.stringify({ name: 'Ada' }),
+          },
+        ],
+      });
 
       await session.close();
     });
@@ -877,6 +957,7 @@ describe('DroidSession', () => {
       expect(typeof result.durationMs).toBe('number');
       expect(typeof result.turnCount).toBe('number');
       expect(result.error).toBeNull();
+      expect(result.structuredOutput).toBeNull();
       expect(result.success).toBe(true);
 
       expect(result.tokenUsage).not.toBeNull();
