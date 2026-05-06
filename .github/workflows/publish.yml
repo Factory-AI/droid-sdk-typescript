@@ -22,7 +22,12 @@ jobs:
           registry-url: 'https://registry.npmjs.org'
 
       - name: Install npm 11+ for trusted publishing (OIDC)
-        run: npm install -g npm@11
+        run: |
+          # Workaround: Node 22.22.2 bundles a broken npm 10.9.7 that cannot
+          # self-upgrade directly to npm@11 (missing promise-retry module).
+          # See: https://github.com/npm/cli/issues/9151
+          npm install -g npm@11.11.0
+          npm install -g npm@11
 
       - name: Check if version exists on npm
         id: version
