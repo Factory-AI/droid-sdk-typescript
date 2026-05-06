@@ -4,6 +4,7 @@ import type {
   ClientPermissionHandler,
 } from './client.js';
 import { SDK_TAG } from './constants.js';
+import type { DroidMcpServerConfig } from './mcp.js';
 import type {
   InitializeSessionRequestParams,
   McpServerConfig,
@@ -208,12 +209,16 @@ export interface SessionInitOptions extends ToolSelectionOverrides {
   reasoningEffort?: ReasoningEffort;
   specModeModelId?: string;
   specModeReasoningEffort?: ReasoningEffort;
-  mcpServers?: McpServerConfig[];
+  mcpServers?: DroidMcpServerConfig[];
   tags?: SessionTag[];
 }
 
+type ResolvedSessionInitOptions = Omit<SessionInitOptions, 'mcpServers'> & {
+  mcpServers?: McpServerConfig[];
+};
+
 export function buildInitParams(
-  options: SessionInitOptions
+  options: ResolvedSessionInitOptions
 ): InitializeSessionRequestParams {
   return {
     machineId: options.machineId ?? 'default',

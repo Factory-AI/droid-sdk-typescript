@@ -280,7 +280,8 @@ Returned by `createSession()` and `resumeSession()`. Key methods:
 - **`updateSettings(params)`** — update model, autonomy level, etc.
 - **`enterSpecMode(params?)`** — switch the current session into spec mode
 - **`forkSession()`** — create a forked server-side session and return its new session ID
-- **`addMcpServer(params)`** / **`removeMcpServer(params)`** — manage MCP servers
+- **`addMcpServer(params)`** / **`removeMcpServer(params)`** / **`toggleMcpServer(params)`** — manage MCP servers
+- **`listMcpServers()`** / **`listMcpTools()`** / **`authenticateMcpServer(params)`** — inspect and authenticate MCP servers
 - **`listTools(params?)`** — inspect the exec tool catalog and current allow/deny state
 - **`renameSession(params)`** — rename the current session
 - **`sessionId`** — the session ID
@@ -318,6 +319,9 @@ if (msg.type === DroidMessageType.AssistantTextDelta) {
 | `create_message`        | Full assistant message created          |
 | `turn_complete`         | Sentinel: agent turn finished           |
 | `session_title_updated` | Session title changed                   |
+| `mcp_status_changed`    | MCP server status changed               |
+| `mcp_auth_required`     | MCP authentication required             |
+| `mcp_auth_completed`    | MCP authentication completed            |
 | `error`                 | Error event from the process            |
 
 ### Options
@@ -332,6 +336,7 @@ if (msg.type === DroidMessageType.AssistantTextDelta) {
 - **`reasoningEffort`** — `ReasoningEffort` enum value
 - **`specModeModelId`** — override model used in spec mode
 - **`specModeReasoningEffort`** — override reasoning level used in spec mode
+- **`mcpServers`** — initial MCP server configurations, including SDK-backed MCP servers from `createSdkMcpServer()`
 - **`enabledToolIds`** — explicit exec tool allowlist
 - **`disabledToolIds`** — explicit exec tool denylist
 - **`permissionHandler`** — callback for tool confirmations
@@ -367,6 +372,7 @@ See the [`examples/`](./examples) directory for runnable examples:
 - **[`spec-mode-same-session.ts`](./examples/spec-mode-same-session.ts)** — approve a spec and continue in the same session
 - **[`spec-mode-new-session.ts`](./examples/spec-mode-new-session.ts)** — approve a spec and hand off implementation to a new session
 - **[`tool-controls.ts`](./examples/tool-controls.ts)** — configure allow/deny lists and inspect tool availability
+- **[`sdk-mcp-tool.ts`](./examples/sdk-mcp-tool.ts)** — expose SDK-defined tools to Droid through MCP
 - **[`fork-session.ts`](./examples/fork-session.ts)** — fork a session and continue from the new session ID
 - **[`list-sessions.ts`](./examples/list-sessions.ts)** — discover droid sessions saved on disk
 

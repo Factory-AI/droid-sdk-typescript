@@ -6,6 +6,7 @@ import {
   createConfiguredClient,
   wireAbortSignal,
 } from './helpers.js';
+import { startSdkMcpServers } from './mcp.js';
 import type { InitializeSessionResult } from './schemas/client.js';
 import type { CreateSessionOptions } from './session.js';
 import type { DroidMessage } from './stream.js';
@@ -105,8 +106,18 @@ export function query(options: QueryOptions): DroidQuery {
   let initializationPromise: Promise<InitializeSessionResult> | null = null;
   let promptPromise: Promise<void> | null = null;
   let cleanupAbortSignal: () => void = () => {};
+  let cleanupSdkMcpServers: (() => Promise<void>) | null = null;
 
   const bridge = new MessageBridge();
+
+  const closeActiveResources = async (): Promise<void> => {
+    const closer = client ?? transport;
+    const cleanupMcp = cleanupSdkMcpServers;
+    client = null;
+    transport = null;
+    cleanupSdkMcpServers = null;
+    await Promise.all([closeQuietly(closer), cleanupMcp?.()]);
+  };
 
   const ensureInitialized = (): Promise<InitializeSessionResult> => {
     if (initResult) {
@@ -131,15 +142,20 @@ export function query(options: QueryOptions): DroidQuery {
           throw new Error('Query aborted before initialization');
         }
 
-        const result = await client.initializeSession(buildInitParams(options));
+        const sdkMcpServers = await startSdkMcpServers(options.mcpServers);
+        cleanupSdkMcpServers = sdkMcpServers.cleanup;
+
+        const result = await client.initializeSession(
+          buildInitParams({
+            ...options,
+            mcpServers: sdkMcpServers.mcpServers,
+          })
+        );
         sessionId = result.sessionId;
         initResult = result;
         return result;
       } catch (error) {
-        const closer = client ?? transport;
-        client = null;
-        transport = null;
-        await closeQuietly(closer);
+        await closeActiveResources();
         throw error;
       }
     })();
@@ -191,10 +207,7 @@ export function query(options: QueryOptions): DroidQuery {
       yield* generator;
     } finally {
       cleanupAbortSignal();
-      const closer = client ?? transport;
-      client = null;
-      transport = null;
-      await closeQuietly(closer);
+      await closeActiveResources();
     }
   }
 
@@ -212,10 +225,7 @@ export function query(options: QueryOptions): DroidQuery {
       aborted = true;
       bridge.signalDone();
       cleanupAbortSignal();
-      const closer = client ?? transport;
-      client = null;
-      transport = null;
-      void closeQuietly(closer);
+      void closeActiveResources();
     }
   );
 
