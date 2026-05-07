@@ -1,10 +1,5 @@
 /**
- * Interrupt session example.
- *
- * Demonstrates using `session.interrupt()` to stop the agent mid-turn.
- * Starts a streaming turn with a long-running prompt, waits for a few
- * `AssistantTextDelta` messages, then sends an interrupt and continues
- * consuming the stream until `TurnComplete`.
+ * Interrupt a running turn.
  *
  * Usage:
  *   npx tsx examples/interrupt-session.ts
@@ -12,56 +7,26 @@
 
 import { createSession, DroidMessageType } from '@factory/droid-sdk';
 
-async function main(): Promise<void> {
-  const session = await createSession({ cwd: process.cwd() });
-  try {
-    console.log(`Session created: ${session.sessionId}\n`);
+const session = await createSession({ cwd: process.cwd() });
+let deltaCount = 0;
 
-    const prompt =
-      'Write a detailed essay about the history of computing, from the ' +
-      'earliest mechanical calculators to modern quantum computers.';
-    console.log(`Prompt: "${prompt}"\n`);
-
-    let deltaCount = 0;
-    let interrupted = false;
-
-    for await (const msg of session.stream(prompt)) {
-      switch (msg.type) {
-        case DroidMessageType.AssistantTextDelta:
-          deltaCount++;
-          process.stdout.write(msg.text);
-
-          if (deltaCount === 5 && !interrupted) {
-            interrupted = true;
-            console.log('\n\n>>> Sending interrupt after 5 text deltas...\n');
-            await session.interrupt();
-          }
-          break;
-
-        case DroidMessageType.TurnComplete:
-          console.log('\n\n--- Turn complete ---');
-          console.log(`Total text deltas received: ${deltaCount}`);
-          console.log(
-            interrupted
-              ? 'Session was interrupted successfully.'
-              : 'Session completed without interruption.'
-          );
-          if (msg.tokenUsage) {
-            console.log(
-              `Tokens — input: ${msg.tokenUsage.inputTokens}, ` +
-                `output: ${msg.tokenUsage.outputTokens}`
-            );
-          }
-          break;
-      }
+try {
+  for await (const msg of session.stream(
+    'Write a long history of computing.'
+  )) {
+    if (msg.type !== DroidMessageType.AssistantTextDelta) {
+      continue;
     }
-  } finally {
-    await session.close();
-    console.log('\nSession closed.');
-  }
-}
 
-main().catch((err: unknown) => {
-  console.error('Error:', err);
-  process.exit(1);
-});
+    process.stdout.write(msg.text);
+    deltaCount++;
+
+    if (deltaCount === 5) {
+      await session.interrupt();
+    }
+  }
+
+  console.log('\nInterrupted turn.');
+} finally {
+  await session.close();
+}
