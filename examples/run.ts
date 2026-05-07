@@ -9,7 +9,7 @@
  *   npx tsx examples/run.ts "What is 2 + 2?"
  */
 
-import { run } from '../src/index.js';
+import { run } from '@factory/droid-sdk';
 
 async function main(): Promise<void> {
   const text = process.argv.slice(2).join(' ') || 'What is 2 + 2?';

@@ -19,7 +19,7 @@ import {
   ToolConfirmationOutcome,
   ToolConfirmationType,
   type RequestPermissionRequestParams,
-} from '../src/index.js';
+} from '@factory/droid-sdk';
 
 function permissionHandler(
   allowedFilePath: string,

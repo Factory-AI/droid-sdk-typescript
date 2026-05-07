@@ -10,8 +10,8 @@
  *   npx tsx examples/tool-controls.ts
  */
 
-import { createSession } from '../src/index.js';
-import type { ExecToolInfo } from '../src/index.js';
+import { createSession } from '@factory/droid-sdk';
+import type { ExecToolInfo } from '@factory/droid-sdk';
 
 function printToolState(label: string, tool: ExecToolInfo | undefined): void {
   if (!tool) {

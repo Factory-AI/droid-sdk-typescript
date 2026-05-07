@@ -19,7 +19,7 @@ import {
   DroidWorkingState,
   SessionNotificationType,
   ToolConfirmationOutcome,
-} from '../src/index.js';
+} from '@factory/droid-sdk';
 
 function uuid(): string {
   return crypto.randomUUID();

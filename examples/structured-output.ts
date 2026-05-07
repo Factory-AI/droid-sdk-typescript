@@ -11,7 +11,7 @@
 
 import assert from 'node:assert/strict';
 
-import { OutputFormatType, run } from '../src/index.js';
+import { OutputFormatType, run } from '@factory/droid-sdk';
 
 async function main(): Promise<void> {
   const prompt =

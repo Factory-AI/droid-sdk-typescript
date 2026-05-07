@@ -5,9 +5,9 @@ import {
   createSession,
   createSdkMcpServer,
   tool,
-} from '../src/index.js';
+} from '@factory/droid-sdk';
 
-const execPath = process.env['DROID_EXEC_PATH'] ?? 'droid';
+const execPath = process.env['DROID_EXEC_PATH'] ?? 'droid-dev';
 
 const sdkTools = createSdkMcpServer({
   name: 'sdk-tools',

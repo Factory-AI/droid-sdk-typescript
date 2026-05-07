@@ -9,7 +9,7 @@
  *   npx tsx examples/multi-turn-session.ts
  */
 
-import { createSession, DroidMessageType } from '../src/index.js';
+import { createSession, DroidMessageType } from '@factory/droid-sdk';
 
 async function main(): Promise<void> {
   const session = await createSession({ cwd: process.cwd() });

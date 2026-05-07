@@ -2,24 +2,26 @@
  * List sessions example.
  *
  * Demonstrates:
+ * - creating a real Droid session
  * - scanning ~/.factory/sessions/ for saved droid sessions
  * - filtering by current working directory
  * - including sessions from other projects with a cap
- *
- * This helper reads the local filesystem directly — no droid process is
- * spawned — so it's safe to call even when no droid is running.
  *
  * Usage:
  *   npx tsx examples/list-sessions.ts
  */
 
-import { listSessions } from '../src/index.js';
+import { createSession, listSessions } from '@factory/droid-sdk';
 
 function formatDate(date: Date): string {
   return date.toISOString().replace('T', ' ').slice(0, 19);
 }
 
 async function main(): Promise<void> {
+  const session = await createSession({ cwd: process.cwd() });
+  console.log(`Created Droid session: ${session.sessionId}\n`);
+  await session.close();
+
   console.log(`=== Sessions for ${process.cwd()} ===\n`);
 
   // Default call: scopes to process.cwd().

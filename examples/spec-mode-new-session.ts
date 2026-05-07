@@ -21,7 +21,7 @@ import {
   ReasoningEffort,
   ToolConfirmationOutcome,
   ToolConfirmationType,
-} from '../src/index.js';
+} from '@factory/droid-sdk';
 
 const EXPECTED_CONTENT = 'Hello from Droid';
 

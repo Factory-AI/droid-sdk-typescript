@@ -1,14 +1,14 @@
 /**
- * One-off integration smoke test for JSON output against droid-dev.
+ * One-off integration smoke test for JSON output against Droid.
  *
  * Usage:
  *   npx tsx examples/droid-dev-structured-output.ts
- *   DROID_EXEC_PATH=/path/to/droid-dev npx tsx examples/droid-dev-structured-output.ts
+ *   DROID_EXEC_PATH=/path/to/droid npx tsx examples/droid-dev-structured-output.ts
  */
 
 import { z } from 'zod';
 
-import { run } from '../src/index.js';
+import { run } from '@factory/droid-sdk';
 
 const PersonSchema = z.object({
   name: z.literal('Ada Lovelace'),
@@ -17,7 +17,7 @@ const PersonSchema = z.object({
 });
 
 async function main(): Promise<void> {
-  const execPath = process.env['DROID_EXEC_PATH'] ?? 'droid-dev';
+  const execPath = process.env['DROID_EXEC_PATH'] ?? 'droid';
 
   const result = await run(
     [

@@ -15,7 +15,7 @@ import {
   DroidMessageType,
   query,
   resumeSession,
-} from '../src/index.js';
+} from '@factory/droid-sdk';
 
 async function main(): Promise<void> {
   const stream = query({

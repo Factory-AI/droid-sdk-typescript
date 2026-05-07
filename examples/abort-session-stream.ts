@@ -9,7 +9,7 @@
  *   npx tsx examples/abort-session-stream.ts 3000
  */
 
-import { createSession, DroidMessageType } from '../src/index.js';
+import { createSession, DroidMessageType } from '@factory/droid-sdk';
 
 async function main(): Promise<void> {
   const abortAfterMs = Number(process.argv[2] ?? 2000);
