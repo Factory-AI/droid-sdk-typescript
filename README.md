@@ -54,22 +54,25 @@ Request a JSON object that matches a JSON Schema:
 ```ts
 import { OutputFormatType, run } from '@factory/droid-sdk';
 
-const result = await run('Return a TypeScript pioneer.', {
+const result = await run('Pick a favorite number between 1 and 42.', {
   cwd: '/my/project',
   outputFormat: {
     type: OutputFormatType.JsonSchema,
     schema: {
       type: 'object',
       properties: {
-        name: { type: 'string' },
-        language: { type: 'string' },
+        favoriteNumber: {
+          type: 'number',
+          minimum: 1,
+          maximum: 42,
+        },
       },
-      required: ['name', 'language'],
+      required: ['favoriteNumber'],
     },
   },
 });
 
-console.log(result.structuredOutput);
+console.log(result.structuredOutput?.favoriteNumber);
 ```
 
 Structured output is available on `run()`, `session.send()`, and `session.stream()` through the `outputFormat` message option.
@@ -82,6 +85,7 @@ Use `createSession()` for persistent conversations with multiple turns:
 import { createSession, DroidMessageType } from '@factory/droid-sdk';
 
 const session = await createSession({ cwd: '/my/project' });
+console.log(session.sessionId);
 
 // Streaming turn
 for await (const msg of session.stream('List all TypeScript files')) {
@@ -97,12 +101,14 @@ console.log(result.text);
 await session.close();
 ```
 
-Resume an existing session by ID:
+Use `session.sessionId` to persist the session ID, then resume it later:
 
 ```ts
 import { resumeSession } from '@factory/droid-sdk';
 
-const session = await resumeSession('session-id-here');
+const session = await resumeSession(savedSessionId, {
+  cwd: '/my/project',
+});
 const result = await session.send('Continue where we left off');
 console.log(result.text);
 await session.close();

@@ -249,22 +249,25 @@ Structured output is requested with `OutputFormatType.JsonSchema`:
 ```ts
 import { OutputFormatType, run } from '@factory/droid-sdk';
 
-const result = await run('Return a TypeScript pioneer.', {
-  cwd: process.cwd(),
+const result = await run('Pick a favorite number between 1 and 42.', {
+  cwd: '/my/project',
   outputFormat: {
     type: OutputFormatType.JsonSchema,
     schema: {
       type: 'object',
       properties: {
-        name: { type: 'string' },
-        language: { type: 'string' },
+        favoriteNumber: {
+          type: 'number',
+          minimum: 1,
+          maximum: 42,
+        },
       },
-      required: ['name', 'language'],
+      required: ['favoriteNumber'],
     },
   },
 });
 
-console.log(result.structuredOutput);
+console.log(result.structuredOutput?.favoriteNumber);
 ```
 
 Structured output is parsed into `DroidResult.structuredOutput` when the turn returns valid JSON matching the requested object shape.
