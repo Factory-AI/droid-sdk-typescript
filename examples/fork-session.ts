@@ -10,7 +10,7 @@
  *   npx tsx examples/fork-session.ts
  */
 
-import { createSession, resumeSession } from '../src/index.js';
+import { createSession, resumeSession } from '@factory/droid-sdk';
 
 async function main(): Promise<void> {
   const session = await createSession({ cwd: process.cwd() });

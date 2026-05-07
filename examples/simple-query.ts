@@ -8,7 +8,7 @@
  *   npx tsx examples/simple-query.ts
  */
 
-import { DroidMessageType, query } from '../src/index.js';
+import { DroidMessageType, query } from '@factory/droid-sdk';
 
 async function main(): Promise<void> {
   const prompt = process.argv[2] ?? 'What files are in the current directory?';

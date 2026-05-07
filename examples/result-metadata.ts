@@ -12,7 +12,7 @@
 
 import assert from 'node:assert/strict';
 
-import { run } from '../src/index.js';
+import { run } from '@factory/droid-sdk';
 
 async function main(): Promise<void> {
   const prompt =

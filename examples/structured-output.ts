@@ -6,27 +6,30 @@
  *
  * Usage:
  *   npx tsx examples/structured-output.ts
- *   npx tsx examples/structured-output.ts "Return a TypeScript pioneer"
+ *   npx tsx examples/structured-output.ts "Pick a favorite number between 1 and 42"
  */
 
 import assert from 'node:assert/strict';
 
-import { OutputFormatType, run } from '../src/index.js';
+import { OutputFormatType, run } from '@factory/droid-sdk';
 
 async function main(): Promise<void> {
   const prompt =
     process.argv.slice(2).join(' ') ||
-    'Return exactly this person: name Ada Lovelace, language TypeScript.';
+    'Pick a favorite number between 1 and 42.';
 
   const outputFormat = {
     type: OutputFormatType.JsonSchema,
     schema: {
       type: 'object',
       properties: {
-        name: { type: 'string' },
-        language: { type: 'string' },
+        favoriteNumber: {
+          type: 'number',
+          minimum: 1,
+          maximum: 42,
+        },
       },
-      required: ['name', 'language'],
+      required: ['favoriteNumber'],
     },
   };
 
@@ -38,8 +41,7 @@ async function main(): Promise<void> {
   });
 
   assert.ok(result.structuredOutput, 'Expected structuredOutput to be set');
-  assert.equal(typeof result.structuredOutput['name'], 'string');
-  assert.equal(typeof result.structuredOutput['language'], 'string');
+  assert.equal(typeof result.structuredOutput['favoriteNumber'], 'number');
 
   console.log('=== Structured output ===');
   console.log(JSON.stringify(result.structuredOutput, null, 2));
