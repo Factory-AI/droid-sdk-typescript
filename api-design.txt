@@ -1,0 +1,323 @@
+## One-shot Run
+
+```typescript
+import { run } from '@factory/droid-sdk';
+
+const result = await run('What is 2+2?', {
+  cwd: process.cwd(),
+});
+
+console.log(result.text);
+```
+
+`run()` creates a session, sends one message, closes the session, and returns a `DroidResult`.
+Transport and startup failures can throw errors such as `ConnectionError`, `ProtocolError`, or `ProcessExitError`.
+Droid turn errors are captured on the returned result as `success: false` and `error`.
+`run()` accepts both session options (`cwd`, `execPath`, `modelId`, `mcpServers`, tool overrides, handlers, etc.) and message options (`images`, `files`, `outputFormat`, `abortSignal`).
+
+```typescript
+type DroidResult = {
+  sessionId: string;
+  text: string;
+  messages: DroidMessage[];
+  tokenUsage: TokenUsageUpdate | null;
+  durationMs: number;
+  turnCount: number;
+  error: ErrorEvent | null;
+  structuredOutput: JsonObject | null;
+  success: boolean;
+};
+```
+
+## Structured Output
+
+```typescript
+import { OutputFormatType, run } from '@factory/droid-sdk';
+
+const result = await run('Return a TypeScript pioneer.', {
+  cwd: process.cwd(),
+  outputFormat: {
+    type: OutputFormatType.JsonSchema,
+    schema: {
+      type: 'object',
+      properties: {
+        name: { type: 'string' },
+        language: { type: 'string' },
+      },
+      required: ['name', 'language'],
+    },
+  },
+});
+
+console.log(result.structuredOutput);
+```
+
+Structured output is requested with `outputFormat` on `run()`, `session.send()`, or `session.stream()`.
+The SDK currently supports `OutputFormatType.JsonSchema`; `DroidResult.structuredOutput` is a parsed JSON object when Droid returns valid JSON for the schema.
+
+## Multi-turn Session
+
+```typescript
+import { createSession } from '@factory/droid-sdk';
+
+const session = await createSession({ cwd: process.cwd() });
+
+try {
+  const first = await session.send('What is this project?');
+  console.log(first.text);
+
+  const second = await session.send('What should I test first?');
+  console.log(second.text);
+} finally {
+  await session.close();
+}
+```
+
+`createSession()` returns a `DroidSession`. Use `session.send()` for aggregated results, and always call `session.close()` when done.
+
+Useful `createSession()` options include:
+
+```typescript
+type CreateSessionOptions = {
+  execPath?: string;
+  execArgs?: string[];
+  cwd?: string;
+  env?: NodeJS.ProcessEnv;
+  modelId?: string;
+  autonomyLevel?: AutonomyLevel;
+  interactionMode?: DroidInteractionMode;
+  reasoningEffort?: ReasoningEffort;
+  specModeModelId?: string;
+  specModeReasoningEffort?: ReasoningEffort;
+  mcpServers?: DroidMcpServerConfig[];
+  enabledToolIds?: string[];
+  disabledToolIds?: string[];
+  permissionHandler?: ClientPermissionHandler;
+  askUserHandler?: ClientAskUserHandler;
+  abortSignal?: AbortSignal;
+};
+```
+
+## Streaming a Turn
+
+```typescript
+import { createSession, DroidMessageType } from '@factory/droid-sdk';
+
+const session = await createSession({ cwd: process.cwd() });
+
+try {
+  for await (const msg of session.stream('Explain src/session.ts')) {
+    if (msg.type === DroidMessageType.AssistantTextDelta) {
+      process.stdout.write(msg.text);
+    }
+  }
+} finally {
+  await session.close();
+}
+```
+
+`session.stream(text, options?)` yields `DroidMessage` events until a `turn_complete` sentinel is emitted.
+The same message options accepted by `send()` are supported: `images`, `files`, `outputFormat`, and `abortSignal`.
+
+## Message Type Constants
+
+```typescript
+import { DroidMessageType } from '@factory/droid-sdk';
+
+const messageTypes = DroidMessageType;
+```
+
+Current exported message type constants:
+
+```typescript
+export const DroidMessageType = {
+  AssistantTextDelta: 'assistant_text_delta',
+  ThinkingTextDelta: 'thinking_text_delta',
+  ToolUse: 'tool_use',
+  ToolResult: 'tool_result',
+  ToolProgress: 'tool_progress',
+  WorkingStateChanged: 'working_state_changed',
+  TokenUsageUpdate: 'token_usage_update',
+  CreateMessage: 'create_message',
+  PermissionResolved: 'permission_resolved',
+  SettingsUpdated: 'settings_updated',
+  SessionTitleUpdated: 'session_title_updated',
+  McpStatusChanged: 'mcp_status_changed',
+  MissionStateChanged: 'mission_state_changed',
+  MissionFeaturesChanged: 'mission_features_changed',
+  MissionProgressEntry: 'mission_progress_entry',
+  MissionHeartbeat: 'mission_heartbeat',
+  MissionWorkerStarted: 'mission_worker_started',
+  MissionWorkerCompleted: 'mission_worker_completed',
+  McpAuthRequired: 'mcp_auth_required',
+  McpAuthCompleted: 'mcp_auth_completed',
+  Error: 'error',
+  TurnComplete: 'turn_complete',
+} as const;
+```
+
+## Stream Then Collect Final Result
+
+```typescript
+import {
+  createSession,
+  DroidMessageType,
+  type DroidMessage,
+  type DroidSession,
+  type ErrorEvent,
+  type TokenUsageUpdate,
+} from '@factory/droid-sdk';
+
+let session: DroidSession | undefined;
+
+try {
+  const messages: DroidMessage[] = [];
+  let text = '';
+  let tokenUsage: TokenUsageUpdate | null = null;
+  let error: ErrorEvent | null = null;
+
+  session = await createSession({ cwd: process.cwd() });
+
+  for await (const msg of session.stream('Find likely bugs')) {
+    messages.push(msg);
+
+    if (msg.type === DroidMessageType.AssistantTextDelta) {
+      text += msg.text;
+      process.stdout.write(msg.text);
+    }
+
+    if (msg.type === DroidMessageType.TokenUsageUpdate) {
+      tokenUsage = msg;
+    }
+
+    if (msg.type === DroidMessageType.Error && error === null) {
+      error = msg;
+    }
+
+    if (msg.type === DroidMessageType.TurnComplete && msg.tokenUsage) {
+      tokenUsage = msg.tokenUsage;
+    }
+  }
+
+  console.log('\nFinal text:', text);
+  console.log('Messages:', messages.length);
+  console.log('Token usage:', tokenUsage);
+  console.log('Error:', error);
+} finally {
+  await session?.close();
+}
+```
+
+If you do not need per-event handling, prefer `session.send()` because it performs this aggregation for you.
+
+## Interrupt or Cancel Running Work
+
+Use `session.interrupt()` to ask Droid to stop the active turn while you continue consuming the stream:
+
+```typescript
+import { createSession, DroidMessageType } from '@factory/droid-sdk';
+
+const session = await createSession({ cwd: process.cwd() });
+
+try {
+  let text = '';
+  let interrupted = false;
+
+  for await (const msg of session.stream('Refactor the whole repo')) {
+    if (msg.type === DroidMessageType.AssistantTextDelta) {
+      text += msg.text;
+      process.stdout.write(msg.text);
+
+      if (!interrupted && text.length > 500) {
+        interrupted = true;
+        await session.interrupt();
+      }
+    }
+  }
+} finally {
+  await session.close();
+}
+```
+
+Use `AbortController` when the caller wants to cancel local waiting and reject the stream/send operation:
+
+```typescript
+import { createSession } from '@factory/droid-sdk';
+
+const session = await createSession({ cwd: process.cwd() });
+const controller = new AbortController();
+
+try {
+  setTimeout(() => controller.abort(new Error('Timed out')), 5_000);
+
+  await session.send('Refactor the whole repo', {
+    abortSignal: controller.signal,
+  });
+} finally {
+  await session.close();
+}
+```
+
+## Resume Session
+
+```typescript
+import { resumeSession } from '@factory/droid-sdk';
+
+const session = await resumeSession('session-id', {
+  cwd: process.cwd(),
+});
+
+try {
+  const result = await session.send('Continue where we left off');
+  console.log(result.text);
+} finally {
+  await session.close();
+}
+```
+
+`resumeSession()` loads an existing Droid session and returns a `DroidSession`.
+It throws `SessionNotFoundError` if the session ID does not exist.
+
+## SDK-backed MCP Tools
+
+```typescript
+import { z } from 'zod';
+
+import {
+  ToolConfirmationOutcome,
+  createSession,
+  createSdkMcpServer,
+  tool,
+} from '@factory/droid-sdk';
+
+const sdkTools = createSdkMcpServer({
+  name: 'sdk-tools',
+  tools: [
+    tool(
+      'favorite_number',
+      'Returns a favorite number for a person',
+      { name: z.string() },
+      ({ name }) => `${name}'s favorite number is 42.`
+    ),
+  ],
+});
+
+const session = await createSession({
+  cwd: process.cwd(),
+  mcpServers: [sdkTools],
+  permissionHandler: () => ToolConfirmationOutcome.ProceedOnce,
+});
+
+try {
+  const result = await session.send(
+    'Use the favorite_number tool for Ada and tell me the answer.'
+  );
+  console.log(result.text);
+} finally {
+  await session.close();
+}
+```
+
+`createSdkMcpServer()` starts an in-process MCP server managed by the SDK lifecycle.
+Use `tool()` for typed tool definitions; Zod object shapes are supported for input validation.
+

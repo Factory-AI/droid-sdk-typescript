@@ -1,4 +1,4 @@
-# Agent SDK reference - TypeScript
+# Droid SDK reference - TypeScript
 
 > Public API reference for `@factory/droid-sdk`, the TypeScript SDK for the Factory Droid CLI.
 
@@ -24,15 +24,18 @@ npm install @factory/droid-sdk
 
 ## What this SDK provides
 
-The SDK wraps `droid exec` as a subprocess and exposes two main patterns:
+The SDK wraps `droid exec` as a subprocess and exposes three main patterns:
 
-- `query()` for one-shot prompt/response flows
+- `run()` for one-shot prompt/response flows that return an aggregated result
+- `query()` for one-shot prompt/response flows that stream events
 - `createSession()` / `resumeSession()` for multi-turn sessions
 
 It also includes:
 
 - streaming message events
+- structured output with JSON Schema
 - permission and ask-user handlers
+- SDK-backed in-process MCP tools
 - MCP server management
 - spec mode controls
 - tool allow/deny controls
@@ -44,6 +47,7 @@ It also includes:
 
 For copy-pasteable walkthroughs and complete scripts, see:
 
+- [One-shot run](./examples/run.md)
 - [One-shot query](./examples/one-shot-query.md)
 - [Multi-turn session](./examples/multi-turn-session.md)
 - [Permission handler](./examples/permission-handler.md)
@@ -53,6 +57,16 @@ For copy-pasteable walkthroughs and complete scripts, see:
 - [List saved sessions](./examples/list-sessions.md)
 
 ## Functions
+
+### `run()`
+
+Creates a session, sends one message, consumes the turn, closes the session, and returns an aggregated `DroidResult`.
+
+```ts
+function run(text: string, options?: RunOptions): Promise<DroidResult>;
+```
+
+`RunOptions` combines `CreateSessionOptions` and `MessageOptions`, so it accepts session setup fields such as `cwd`, `execPath`, `modelId`, `mcpServers`, handlers, and tool overrides, plus message fields such as `images`, `files`, `outputFormat`, and `abortSignal`.
 
 ### `query()`
 
@@ -85,7 +99,7 @@ function query(options: QueryOptions): DroidQuery;
 #### Notes
 
 - `query()` accepts `abortSignal`
-- `query()` sends text only; image/file message attachments are supported on `DroidSession`, not `query()`
+- `query()` sends text only; image/file attachments and structured output are supported on `run()` and `DroidSession`, not `query()`
 
 ### `createSession()`
 
@@ -143,6 +157,31 @@ Common fields include:
 
 Archived sessions are excluded automatically, and results are sorted by `modifiedTime` descending.
 
+### `createSdkMcpServer()` and `tool()`
+
+Creates an SDK-managed, in-process MCP server that can be passed in `mcpServers` at session creation.
+
+```ts
+function createSdkMcpServer(options: SdkMcpServerOptions): SdkMcpServer;
+
+function tool(
+  name: string,
+  description: string,
+  handler: DroidTool['handler']
+): DroidTool;
+
+function tool<InputShape extends Record<string, z.ZodTypeAny>>(
+  name: string,
+  description: string,
+  inputSchema: InputShape,
+  handler: (
+    input: z.infer<z.ZodObject<InputShape>>
+  ) => DroidToolResult | Promise<DroidToolResult>
+): DroidTool;
+```
+
+`tool()` accepts either an untyped handler or a Zod object shape for typed input validation. Tool handlers can return plain text or a Model Context Protocol `CallToolResult`.
+
 ## `DroidSession`
 
 Returned by `createSession()` and `resumeSession()`.
@@ -165,6 +204,7 @@ Returned by `createSession()` and `resumeSession()`.
 | `forkSession()`           | Creates a new server-side session from the current one |
 | `renameSession(params)`   | Renames the current session                            |
 | `compactSession(params?)` | Requests server-side compaction                        |
+| `getContextStats()`       | Reads current context window utilization               |
 | `getRewindInfo(params)`   | Fetches rewind metadata                                |
 | `executeRewind(params)`   | Executes a rewind                                      |
 
@@ -193,20 +233,57 @@ Returned by `createSession()` and `resumeSession()`.
 
 `session.stream()` and `session.send()` accept `MessageOptions`:
 
-| Field    | Type                  | Description                      |
-| :------- | :-------------------- | :------------------------------- |
-| `images` | `Base64ImageSource[]` | Inline image attachments         |
-| `files`  | `DocumentSource[]`    | Inline file/document attachments |
+| Field          | Type                  | Description                                      |
+| :------------- | :-------------------- | :----------------------------------------------- |
+| `images`       | `Base64ImageSource[]` | Inline image attachments                         |
+| `files`        | `DocumentSource[]`    | Inline file/document attachments                 |
+| `outputFormat` | `OutputFormat`        | Structured output request                        |
+| `abortSignal`  | `AbortSignal`         | External cancellation signal for the active turn |
+
+`run()` accepts the same message options.
+
+### Structured output
+
+Structured output is requested with `OutputFormatType.JsonSchema`:
+
+```ts
+import { OutputFormatType, run } from '@factory/droid-sdk';
+
+const result = await run('Return a TypeScript pioneer.', {
+  cwd: process.cwd(),
+  outputFormat: {
+    type: OutputFormatType.JsonSchema,
+    schema: {
+      type: 'object',
+      properties: {
+        name: { type: 'string' },
+        language: { type: 'string' },
+      },
+      required: ['name', 'language'],
+    },
+  },
+});
+
+console.log(result.structuredOutput);
+```
+
+Structured output is parsed into `DroidResult.structuredOutput` when the turn returns valid JSON matching the requested object shape.
 
 ### `DroidResult`
 
-Returned by `session.send()`:
+Returned by `run()` and `session.send()`:
 
-| Field        | Type                       | Description                       |
-| :----------- | :------------------------- | :-------------------------------- |
-| `text`       | `string`                   | Concatenated assistant text       |
-| `messages`   | `DroidMessage[]`           | All stream messages from the turn |
-| `tokenUsage` | `TokenUsageUpdate \| null` | Final token usage if available    |
+| Field              | Type                       | Description                                      |
+| :----------------- | :------------------------- | :----------------------------------------------- |
+| `sessionId`        | `string`                   | Session that produced the result                 |
+| `text`             | `string`                   | Concatenated assistant text                      |
+| `messages`         | `DroidMessage[]`           | All stream messages from the turn                |
+| `tokenUsage`       | `TokenUsageUpdate \| null` | Final token usage if available                   |
+| `durationMs`       | `number`                   | Wall-clock duration spent consuming the turn     |
+| `turnCount`        | `number`                   | Number of completed turns observed in the stream |
+| `error`            | `ErrorEvent \| null`       | First Droid error event, if any                  |
+| `structuredOutput` | `JsonObject \| null`       | Parsed structured JSON object, if requested      |
+| `success`          | `boolean`                  | `true` when no Droid error event was emitted     |
 
 ## Stream message model
 
@@ -251,6 +328,7 @@ High-value exported enums include:
 - `DroidInteractionMode`
 - `AutonomyLevel`
 - `ReasoningEffort`
+- `OutputFormatType`
 - `ToolConfirmationOutcome`
 - `ToolConfirmationType`
 - `SessionNotificationType`
@@ -300,6 +378,7 @@ For spec mode, approval flows also support fresh-session outcomes such as `ToolC
 
 The SDK supports:
 
+- SDK-backed in-process MCP servers with `createSdkMcpServer()` and `tool()`
 - configuring MCP servers at session startup
 - adding/removing/toggling servers during a session
 - listing MCP servers and tools
@@ -310,7 +389,7 @@ Advanced auth controls such as cancelling or clearing MCP auth are available on 
 
 ## Low-level APIs
 
-Most users should use `query()` and `DroidSession`, but the package also exports lower layers.
+Most users should use `run()`, `query()`, and `DroidSession`, but the package also exports lower layers.
 
 ### `ProcessTransport`
 
@@ -364,6 +443,9 @@ The SDK exports these custom errors:
 
 This reference intentionally documents only features confirmed in the current SDK implementation and recent shipped commits, including:
 
+- one-shot `run()`
+- structured output
+- SDK-backed MCP tools
 - spec mode controls
 - tool controls
 - initialization metadata
