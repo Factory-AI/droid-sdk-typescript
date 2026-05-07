@@ -49,6 +49,14 @@ export default tseslint.config(
             'sibling',
             'index',
           ],
+          pathGroups: [
+            {
+              pattern: '@factory/droid-sdk',
+              group: 'external',
+              position: 'before',
+            },
+          ],
+          pathGroupsExcludedImportTypes: ['builtin'],
           alphabetize: { order: 'asc', caseInsensitive: true },
         },
       ],

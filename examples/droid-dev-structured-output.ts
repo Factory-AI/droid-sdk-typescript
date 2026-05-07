@@ -6,9 +6,8 @@
  *   DROID_EXEC_PATH=/path/to/droid npx tsx examples/droid-dev-structured-output.ts
  */
 
-import { z } from 'zod';
-
 import { run } from '@factory/droid-sdk';
+import { z } from 'zod';
 
 const PersonSchema = z.object({
   name: z.literal('Ada Lovelace'),
