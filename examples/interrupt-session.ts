@@ -11,9 +11,9 @@ const session = await createSession({ cwd: process.cwd() });
 let deltaCount = 0;
 
 try {
-  for await (const msg of session.stream(
-    'Write a long history of computing.'
-  )) {
+  for await (const msg of (
+    await session.send('Write a long history of computing.')
+  ).stream()) {
     if (msg.type !== DroidMessageType.AssistantTextDelta) {
       continue;
     }

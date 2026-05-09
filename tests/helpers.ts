@@ -7,6 +7,8 @@ import {
   SessionNotificationType,
   ToolConfirmationOutcome,
 } from '../src/schemas/index.js';
+import type { DroidSession } from '../src/session.js';
+import type { DroidMessage } from '../src/stream.js';
 import type {
   DroidClientTransport,
   ErrorCallback,
@@ -14,6 +16,30 @@ import type {
 } from '../src/types.js';
 
 export type JsonRpcTestMessage = Record<string, unknown>;
+
+export async function collectStreamText(
+  session: DroidSession,
+  prompt: string
+): Promise<{ text: string; messages: DroidMessage[] }> {
+  const result = await (await session.send(prompt)).result();
+  return {
+    text: result.text,
+    messages: result.messages,
+  };
+}
+
+export function findLastTurnComplete(
+  messages: DroidMessage[]
+): Extract<DroidMessage, { type: 'turn_complete' }> | undefined {
+  for (let index = messages.length - 1; index >= 0; index--) {
+    const msg = messages[index];
+    if (msg?.type === 'turn_complete') {
+      return msg;
+    }
+  }
+
+  return undefined;
+}
 
 export type TransportSendHandlerContext = {
   message: JsonRpcTestMessage;

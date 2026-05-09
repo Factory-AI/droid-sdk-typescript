@@ -5,27 +5,30 @@ import {
   DroidClient,
   DroidMessageType,
   DroidSession,
+  DroidTurn,
   ProcessExitError,
   ProcessTransport,
   ProtocolEngine,
   createSession,
   listSessions,
-  query,
   resumeSession,
   run,
 } from '../src/index.js';
+import * as publicApi from '../src/index.js';
 
 describe('public API barrel', () => {
   it('exports the primary high-level SDK entry points', () => {
-    expect(query).toBeTypeOf('function');
     expect(run).toBeTypeOf('function');
     expect(createSession).toBeTypeOf('function');
     expect(resumeSession).toBeTypeOf('function');
     expect(listSessions).toBeTypeOf('function');
+    expect('query' in publicApi).toBe(false);
+    expect('stream' in DroidSession.prototype).toBe(false);
   });
 
   it('exports the primary classes and error types', () => {
     expect(DroidSession).toBeTypeOf('function');
+    expect(DroidTurn).toBeTypeOf('function');
     expect(DroidClient).toBeTypeOf('function');
     expect(ProcessTransport).toBeTypeOf('function');
     expect(ProtocolEngine).toBeTypeOf('function');

@@ -10,7 +10,24 @@
  *   npx tsx examples/fork-session.ts
  */
 
-import { createSession, resumeSession } from '@factory/droid-sdk';
+import {
+  DroidMessageType,
+  createSession,
+  resumeSession,
+} from '@factory/droid-sdk';
+
+async function streamText(
+  session: Awaited<ReturnType<typeof createSession>>,
+  prompt: string
+): Promise<string> {
+  let text = '';
+  for await (const msg of (await session.send(prompt)).stream()) {
+    if (msg.type === DroidMessageType.AssistantTextDelta) {
+      text += msg.text;
+    }
+  }
+  return text;
+}
 
 async function main(): Promise<void> {
   const session = await createSession({ cwd: process.cwd() });
@@ -18,17 +35,19 @@ async function main(): Promise<void> {
 
   try {
     console.log(`Original session: ${session.sessionId}\n`);
-
-    await session.send('Remember this phrase exactly: mango sunrise');
+    await streamText(session, 'Remember this phrase exactly: mango sunrise');
 
     const { newSessionId } = await session.forkSession();
     console.log(`Forked session:   ${newSessionId}\n`);
 
     fork = await resumeSession(newSessionId, { cwd: process.cwd() });
 
-    const result = await fork.send('What phrase did I ask you to remember?');
+    const result = await streamText(
+      fork,
+      'What phrase did I ask you to remember?'
+    );
     console.log('Fork response:');
-    console.log(result.text);
+    console.log(result);
   } finally {
     await fork?.close();
     await session.close();

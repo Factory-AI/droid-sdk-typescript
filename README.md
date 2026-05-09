@@ -27,23 +27,26 @@ const result = await run('What files are in the current directory?', {
 console.log(result.text);
 ```
 
-Send a one-shot prompt and stream the response:
+Create a session when you want to stream one or more turns:
 
 ```ts
-import { DroidMessageType, query } from '@factory/droid-sdk';
+import { DroidMessageType, createSession } from '@factory/droid-sdk';
 
-const stream = query({
-  prompt: 'What files are in the current directory?',
-  cwd: '/my/project',
-});
+const session = await createSession({ cwd: '/my/project' });
 
-for await (const msg of stream) {
-  if (msg.type === DroidMessageType.AssistantTextDelta) {
-    process.stdout.write(msg.text);
+try {
+  for await (const msg of (
+    await session.send('What files are in the current directory?')
+  ).stream()) {
+    if (msg.type === DroidMessageType.AssistantTextDelta) {
+      process.stdout.write(msg.text);
+    }
+    if (msg.type === DroidMessageType.TurnComplete) {
+      console.log('\nDone!');
+    }
   }
-  if (msg.type === DroidMessageType.TurnComplete) {
-    console.log('\nDone!');
-  }
+} finally {
+  await session.close();
 }
 ```
 
@@ -75,7 +78,7 @@ const result = await run('Pick a favorite number between 1 and 42.', {
 console.log(result.structuredOutput?.favoriteNumber);
 ```
 
-Structured output is available on `run()`, `session.send()`, and `session.stream()` through the `outputFormat` message option.
+Structured output is available on `run()` and `session.send(prompt, options)` through the `outputFormat` message option. `run()` parses the final object into `result.structuredOutput`; streaming callers can read and parse the final assistant message themselves.
 
 ## Multi-Turn Sessions
 
@@ -88,15 +91,22 @@ const session = await createSession({ cwd: '/my/project' });
 console.log(session.sessionId);
 
 // Streaming turn
-for await (const msg of session.stream('List all TypeScript files')) {
+for await (const msg of (
+  await session.send('List all TypeScript files')
+).stream()) {
   if (msg.type === DroidMessageType.AssistantTextDelta) {
     process.stdout.write(msg.text);
   }
 }
 
-// Non-streaming turn
-const result = await session.send('Summarize the project');
-console.log(result.text);
+// Later turns use the same streaming API
+for await (const msg of (
+  await session.send('Summarize the project')
+).stream()) {
+  if (msg.type === DroidMessageType.AssistantTextDelta) {
+    process.stdout.write(msg.text);
+  }
+}
 
 await session.close();
 ```
@@ -109,8 +119,11 @@ import { resumeSession } from '@factory/droid-sdk';
 const session = await resumeSession(savedSessionId, {
   cwd: '/my/project',
 });
-const result = await session.send('Continue where we left off');
-console.log(result.text);
+for await (const msg of (
+  await session.send('Continue where we left off')
+).stream()) {
+  // Handle streamed DroidMessage events.
+}
 await session.close();
 ```
 
@@ -124,6 +137,7 @@ Expose in-process TypeScript tools to Droid through MCP:
 import { z } from 'zod';
 
 import {
+  DroidMessageType,
   ToolConfirmationOutcome,
   createSession,
   createSdkMcpServer,
@@ -148,10 +162,15 @@ const session = await createSession({
   permissionHandler: () => ToolConfirmationOutcome.ProceedOnce,
 });
 
-const result = await session.send(
-  'Use the favorite_number tool for Ada and tell me the answer.'
-);
-console.log(result.text);
+for await (const msg of (
+  await session.send(
+    'Use the favorite_number tool for Ada and tell me the answer.'
+  )
+).stream()) {
+  if (msg.type === DroidMessageType.AssistantTextDelta) {
+    process.stdout.write(msg.text);
+  }
+}
 
 await session.close();
 ```
@@ -160,25 +179,13 @@ await session.close();
 
 ## Initialization Metadata
 
-Inspect the raw initialization metadata from `query()`, `createSession()`, and `resumeSession()`:
+Inspect the raw initialization metadata from `createSession()` and `resumeSession()`:
 
 ```ts
-import { createSession, query, resumeSession } from '@factory/droid-sdk';
-
-const stream = query({
-  prompt: 'Reply with "ready" and nothing else.',
-  cwd: '/my/project',
-});
-
-console.log(stream.sessionId); // null before initialization
-console.log(stream.initResult); // null before initialization
-
-const initialized = await stream.initialized;
-console.log(initialized.sessionId);
-console.log(initialized.settings.modelId);
-stream.abort();
+import { createSession, resumeSession } from '@factory/droid-sdk';
 
 const session = await createSession({ cwd: '/my/project' });
+console.log(session.sessionId);
 console.log(session.initResult.settings.modelId);
 
 const resumed = await resumeSession(session.sessionId, { cwd: '/my/project' });
@@ -194,6 +201,7 @@ Start a session directly in spec mode, or enter spec mode later on an existing s
 
 ```ts
 import {
+  DroidMessageType,
   createSession,
   DroidInteractionMode,
   ReasoningEffort,
@@ -206,8 +214,13 @@ const session = await createSession({
   specModeModelId: 'claude-sonnet-4-20250514',
 });
 
-const plan = await session.send('Draft a plan for adding integration tests');
-console.log(plan.text);
+for await (const msg of (
+  await session.send('Draft a plan for adding integration tests')
+).stream()) {
+  if (msg.type === DroidMessageType.AssistantTextDelta) {
+    process.stdout.write(msg.text);
+  }
+}
 
 await session.enterSpecMode({
   specModeReasoningEffort: ReasoningEffort.High,
@@ -251,17 +264,30 @@ await session.close();
 Fork the current server-side session and continue from the new session ID:
 
 ```ts
-import { createSession, resumeSession } from '@factory/droid-sdk';
+import {
+  DroidMessageType,
+  createSession,
+  resumeSession,
+} from '@factory/droid-sdk';
 
 const session = await createSession({ cwd: '/my/project' });
 
-await session.send('Remember this phrase: mango sunrise');
+for await (const _msg of (
+  await session.send('Remember this phrase: mango sunrise')
+).stream()) {
+  // Consume the turn.
+}
 
 const { newSessionId } = await session.forkSession();
 const fork = await resumeSession(newSessionId, { cwd: '/my/project' });
 
-const result = await fork.send('What phrase did I ask you to remember?');
-console.log(result.text);
+for await (const msg of (
+  await fork.send('What phrase did I ask you to remember?')
+).stream()) {
+  if (msg.type === DroidMessageType.AssistantTextDelta) {
+    process.stdout.write(msg.text);
+  }
+}
 
 await fork.close();
 await session.close();
@@ -313,12 +339,11 @@ Handle tool confirmation requests with a custom permission handler:
 ```ts
 import {
   DroidMessageType,
-  query,
+  createSession,
   ToolConfirmationOutcome,
 } from '@factory/droid-sdk';
 
-const stream = query({
-  prompt: 'Create a hello.txt file',
+const session = await createSession({
   cwd: '/my/project',
   permissionHandler(params) {
     console.log('Tool permission requested:', params);
@@ -326,10 +351,16 @@ const stream = query({
   },
 });
 
-for await (const msg of stream) {
-  if (msg.type === DroidMessageType.AssistantTextDelta) {
-    process.stdout.write(msg.text);
+try {
+  for await (const msg of (
+    await session.send('Create a hello.txt file')
+  ).stream()) {
+    if (msg.type === DroidMessageType.AssistantTextDelta) {
+      process.stdout.write(msg.text);
+    }
   }
+} finally {
+  await session.close();
 }
 ```
 
@@ -339,32 +370,18 @@ for await (const msg of stream) {
 
 | Function                      | Description                                                      |
 | ----------------------------- | ---------------------------------------------------------------- |
-| `run(text, options?)`         | One-shot prompt → aggregated `DroidResult`                       |
-| `query(options)`              | One-shot prompt → async generator of `DroidMessage` events       |
+| `run(prompt, options?)`       | One-shot prompt → aggregated `DroidResult`                       |
 | `createSession(options?)`     | Create a new multi-turn session → `DroidSession`                 |
 | `resumeSession(id, options?)` | Resume an existing session → `DroidSession`                      |
 | `listSessions(options?)`      | List droid sessions saved on disk → `Promise<SessionMetadata[]>` |
 | `createSdkMcpServer(options)` | Create an SDK-managed MCP server for in-process tools            |
 | `tool(...)`                   | Define a typed SDK-backed MCP tool                               |
 
-### `query(options): DroidQuery`
-
-Returns an async generator that yields `DroidMessage` events. The returned `DroidQuery` object also exposes:
-
-- **`interrupt()`** — gracefully interrupt the agent's current turn
-- **`abort()`** — forcefully kill the subprocess
-- **`sessionId`** — the session ID (available after initialization)
-- **`initResult`** — cached `initialize_session` result, or `null` before initialization
-- **`initialized`** — promise that resolves with the `initialize_session` result
-
-`query(options)` also accepts an `abortSignal` for external cancellation.
-
 ### `DroidSession`
 
 Returned by `createSession()` and `resumeSession()`. Key methods:
 
-- **`stream(text, options?)`** — send a message, returns async generator of `DroidMessage`
-- **`send(text, options?)`** — send a message, returns aggregated `DroidResult`
+- **`send(prompt, options?)`** — start a turn, returns `Promise<DroidTurn>`
 - **`interrupt()`** — interrupt the current turn
 - **`close()`** — close the session and release resources
 - **`updateSettings(params)`** — update model, autonomy level, etc.
@@ -380,9 +397,18 @@ Returned by `createSession()` and `resumeSession()`. Key methods:
 - **`sessionId`** — the session ID
 - **`initResult`** — cached `initialize_session` or `load_session` result
 
+### `DroidTurn`
+
+Returned by `session.send(prompt, options?)`:
+
+- **`stream()`** — yield `DroidMessage` events until `turn_complete`
+- **`result()`** — consume/aggregate the turn into a `DroidResult`
+- **`interrupt()`** — interrupt this turn
+- **`sessionId`** — the session that produced this turn
+
 ### `DroidResult`
 
-Returned by `run()` and `session.send()`:
+Returned by `run()`:
 
 - **`sessionId`** — session that produced the result
 - **`text`** — concatenated assistant response text
@@ -433,7 +459,7 @@ if (msg.type === DroidMessageType.AssistantTextDelta) {
 
 ### Options
 
-Session creation options used by `run()`, `query()`, and `createSession()` include:
+Session creation options used by `run()` and `createSession()` include:
 
 - **`cwd`** — working directory for the session
 - **`execPath`** — path to `droid` executable (default: `"droid"`)
@@ -453,13 +479,9 @@ Session creation options used by `run()`, `query()`, and `createSession()` inclu
 - **`askUserHandler`** — callback for interactive questions
 - **`abortSignal`** — standard `AbortSignal` for cancellation
 
-`QueryOptions` also requires:
-
-- **`prompt`** — the user prompt to stream
-
 `resumeSession()` accepts the process, transport, handler, `cwd`, `mcpServers`, and `abortSignal` options needed to reconnect to an existing session, but does not accept new-session-only options such as `modelId` or `interactionMode`.
 
-Message APIs (`run()`, `session.send()`, and `session.stream()`) also accept:
+Message APIs (`run()` and `session.send()`) also accept:
 
 - **`images`** — base64 image attachments
 - **`files`** — document/file attachments
@@ -468,7 +490,7 @@ Message APIs (`run()`, `session.send()`, and `session.stream()`) also accept:
 
 ### `DroidClient`
 
-Low-level JSON-RPC client for advanced use. Provides typed methods for the underlying protocol operations, including `listTools()`, `renameSession()`, `getRewindInfo()`, and `executeRewind()`. Most users should prefer `run()`, `query()`, and `createSession()`.
+Low-level JSON-RPC client for advanced use. Provides typed methods for the underlying protocol operations, including `listTools()`, `renameSession()`, `getRewindInfo()`, and `executeRewind()`. Most users should prefer `run()` and `createSession()`.
 
 ### Error Types
 
@@ -485,12 +507,12 @@ Low-level JSON-RPC client for advanced use. Provides typed methods for the under
 
 See the [`examples/`](./examples) directory for runnable examples:
 
-- **[`simple-query.ts`](./examples/simple-query.ts)** — one-shot query with streaming output
+- **[`session-stream.ts`](./examples/session-stream.ts)** — session streaming output
 - **[`run.ts`](./examples/run.ts)** — one-shot prompt with aggregated result
 - **[`multi-turn-session.ts`](./examples/multi-turn-session.ts)** — multi-turn session lifecycle
 - **[`abort-session-stream.ts`](./examples/abort-session-stream.ts)** — cancel an in-flight streaming session turn with `AbortSignal`
 - **[`interrupt-session.ts`](./examples/interrupt-session.ts)** — interrupt a running session turn
-- **[`init-metadata.ts`](./examples/init-metadata.ts)** — read initialization and load metadata from query/session APIs
+- **[`init-metadata.ts`](./examples/init-metadata.ts)** — read initialization and load metadata from session APIs
 - **[`result-metadata.ts`](./examples/result-metadata.ts)** — inspect `DroidResult` metadata from `run()`
 - **[`structured-output.ts`](./examples/structured-output.ts)** — request and parse structured output
 - **[`droid-dev-structured-output.ts`](./examples/droid-dev-structured-output.ts)** — structured output smoke test with configurable Droid executable

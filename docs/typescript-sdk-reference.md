@@ -24,11 +24,10 @@ npm install @factory/droid-sdk
 
 ## What this SDK provides
 
-The SDK wraps `droid exec` as a subprocess and exposes three main patterns:
+The SDK wraps `droid exec` as a subprocess and exposes two main prompt patterns:
 
 - `run()` for one-shot prompt/response flows that return an aggregated result
-- `query()` for one-shot prompt/response flows that stream events
-- `createSession()` / `resumeSession()` for multi-turn sessions
+- `createSession()` / `resumeSession()` with `session.send()` and `turn.stream()` for streamed multi-turn sessions
 
 It also includes:
 
@@ -48,7 +47,7 @@ It also includes:
 For copy-pasteable walkthroughs and complete scripts, see:
 
 - [One-shot run](./examples/run.md)
-- [One-shot query](./examples/one-shot-query.md)
+- [Session streaming](./examples/session-stream.md)
 - [Multi-turn session](./examples/multi-turn-session.md)
 - [Permission handler](./examples/permission-handler.md)
 - [Initialization metadata](./examples/init-metadata.md)
@@ -63,43 +62,10 @@ For copy-pasteable walkthroughs and complete scripts, see:
 Creates a session, sends one message, consumes the turn, closes the session, and returns an aggregated `DroidResult`.
 
 ```ts
-function run(text: string, options?: RunOptions): Promise<DroidResult>;
+function run(prompt: string, options?: RunOptions): Promise<DroidResult>;
 ```
 
 `RunOptions` combines `CreateSessionOptions` and `MessageOptions`, so it accepts session setup fields such as `cwd`, `execPath`, `modelId`, `mcpServers`, handlers, and tool overrides, plus message fields such as `images`, `files`, `outputFormat`, and `abortSignal`.
-
-### `query()`
-
-Starts a one-shot prompt, streams `DroidMessage` events, and cleans up automatically when the stream ends.
-
-```ts
-function query(options: QueryOptions): DroidQuery;
-```
-
-#### `QueryOptions`
-
-`QueryOptions` extends `CreateSessionOptions` and adds:
-
-| Field    | Type     | Description                              |
-| :------- | :------- | :--------------------------------------- |
-| `prompt` | `string` | Prompt to send as the first user message |
-
-#### `DroidQuery`
-
-`DroidQuery` is an `AsyncGenerator<DroidMessage>` with extra controls:
-
-| Member        | Type                               | Description                               |
-| :------------ | :--------------------------------- | :---------------------------------------- |
-| `interrupt()` | `() => Promise<void>`              | Gracefully interrupts the current turn    |
-| `abort()`     | `() => void`                       | Forcefully closes the subprocess          |
-| `sessionId`   | `string \| null`                   | Session ID after initialization completes |
-| `initResult`  | `InitializeSessionResult \| null`  | Raw initialization result                 |
-| `initialized` | `Promise<InitializeSessionResult>` | Resolves when initialization finishes     |
-
-#### Notes
-
-- `query()` accepts `abortSignal`
-- `query()` sends text only; image/file attachments and structured output are supported on `run()` and `DroidSession`, not `query()`
 
 ### `createSession()`
 
@@ -188,14 +154,13 @@ Returned by `createSession()` and `resumeSession()`.
 
 ### Core methods
 
-| Method                   | Description                                                            |
-| :----------------------- | :--------------------------------------------------------------------- |
-| `stream(text, options?)` | Sends a message and yields `DroidMessage` events until `turn_complete` |
-| `send(text, options?)`   | Sends a message and returns aggregated text, messages, and token usage |
-| `interrupt()`            | Gracefully interrupts the current turn                                 |
-| `close()`                | Closes the underlying connection                                       |
-| `updateSettings(params)` | Updates model/session settings                                         |
-| `enterSpecMode(params?)` | Switches the current session into spec mode                            |
+| Method                   | Description                                    |
+| :----------------------- | :--------------------------------------------- |
+| `send(prompt, options?)` | Starts a turn and returns `Promise<DroidTurn>` |
+| `interrupt()`            | Gracefully interrupts the current turn         |
+| `close()`                | Closes the underlying connection               |
+| `updateSettings(params)` | Updates model/session settings                 |
+| `enterSpecMode(params?)` | Switches the current session into spec mode    |
 
 ### Session utilities
 
@@ -229,9 +194,23 @@ Returned by `createSession()` and `resumeSession()`.
 | `sessionId`  | `string`                                       | Active session ID           |
 | `initResult` | `InitializeSessionResult \| LoadSessionResult` | Raw initialize/load payload |
 
+## `DroidTurn`
+
+Returned by `session.send(prompt, options?)`.
+
+| Method        | Description                                            |
+| :------------ | :----------------------------------------------------- |
+| `stream()`    | Yields `DroidMessage` events until `turn_complete`     |
+| `result()`    | Consumes/aggregates the turn and returns `DroidResult` |
+| `interrupt()` | Gracefully interrupts the current turn                 |
+
+| Property    | Type     | Description                |
+| :---------- | :------- | :------------------------- |
+| `sessionId` | `string` | Session that owns the turn |
+
 ### Message attachments
 
-`session.stream()` and `session.send()` accept `MessageOptions`:
+`session.send(prompt, options?)` accepts `MessageOptions`:
 
 | Field          | Type                  | Description                                      |
 | :------------- | :-------------------- | :----------------------------------------------- |
@@ -274,7 +253,7 @@ Structured output is parsed into `DroidResult.structuredOutput` when the turn re
 
 ### `DroidResult`
 
-Returned by `run()` and `session.send()`:
+Returned by `run()`:
 
 | Field              | Type                       | Description                                      |
 | :----------------- | :------------------------- | :----------------------------------------------- |
@@ -392,7 +371,7 @@ Advanced auth controls such as cancelling or clearing MCP auth are available on 
 
 ## Low-level APIs
 
-Most users should use `run()`, `query()`, and `DroidSession`, but the package also exports lower layers.
+Most users should use `run()` and `DroidSession`, but the package also exports lower layers.
 
 ### `ProcessTransport`
 

@@ -8,13 +8,14 @@ import {
 export interface RunOptions extends CreateSessionOptions, MessageOptions {}
 
 export async function run(
-  text: string,
+  prompt: string,
   options: RunOptions = {}
 ): Promise<DroidResult> {
   const session = await createSession(options);
 
   try {
-    return await session.send(text, options);
+    const turn = await session.send(prompt, options);
+    return await turn.result();
   } finally {
     await session.close();
   }

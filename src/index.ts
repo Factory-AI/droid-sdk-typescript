@@ -53,9 +53,6 @@ export type {
   DroidMessage,
 } from './stream.js';
 
-export { query } from './query.js';
-export type { QueryOptions, DroidQuery } from './query.js';
-
 export { run } from './run.js';
 export type { RunOptions } from './run.js';
 
@@ -67,7 +64,12 @@ export type {
   SdkMcpServerOptions,
 } from './mcp.js';
 
-export { createSession, resumeSession, DroidSession } from './session.js';
+export {
+  createSession,
+  resumeSession,
+  DroidSession,
+  DroidTurn,
+} from './session.js';
 export type {
   CreateSessionOptions,
   ResumeSessionOptions,

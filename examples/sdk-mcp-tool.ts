@@ -1,4 +1,5 @@
 import {
+  DroidMessageType,
   ToolConfirmationOutcome,
   createSession,
   createSdkMcpServer,
@@ -28,10 +29,16 @@ const session = await createSession({
 });
 
 try {
-  const result = await session.send(
-    'Use the favorite_number tool for Ada and tell me the answer.'
-  );
-  console.log(result.text);
+  for await (const msg of (
+    await session.send(
+      'Use the favorite_number tool for Ada and tell me the answer.'
+    )
+  ).stream()) {
+    if (msg.type === DroidMessageType.AssistantTextDelta) {
+      process.stdout.write(msg.text);
+    }
+  }
+  console.log();
 } finally {
   await session.close();
 }

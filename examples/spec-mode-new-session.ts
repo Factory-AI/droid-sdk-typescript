@@ -14,15 +14,14 @@ import {
   ReasoningEffort,
   ToolConfirmationOutcome,
   ToolConfirmationType,
-  query,
+  createSession,
 } from '@factory/droid-sdk';
 
 const tempDir = await mkdtemp(join(tmpdir(), 'droid-sdk-spec-'));
 const outputPath = join(tempDir, 'hello.txt');
 
 try {
-  const stream = query({
-    prompt: `Plan then create ${outputPath} containing "Hello from Droid".`,
+  const session = await createSession({
     cwd: process.cwd(),
     interactionMode: DroidInteractionMode.Spec,
     specModeReasoningEffort: ReasoningEffort.High,
@@ -45,8 +44,16 @@ try {
     },
   });
 
-  for await (const _msg of stream) {
-    // Consume the stream until the handoff implementation finishes.
+  try {
+    for await (const _msg of (
+      await session.send(
+        `Plan then create ${outputPath} containing "Hello from Droid".`
+      )
+    ).stream()) {
+      // Consume the stream until the handoff implementation finishes.
+    }
+  } finally {
+    await session.close();
   }
 
   console.log(await readFile(outputPath, 'utf8'));

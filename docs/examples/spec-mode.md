@@ -4,15 +4,14 @@ Use spec mode when you want Droid to propose a plan first and only implement aft
 
 ## What this example shows
 
-- starting a query in `DroidInteractionMode.Spec`
+- starting a session in `DroidInteractionMode.Spec`
 - detecting an `ExitSpecMode` confirmation request
 - choosing whether implementation stays in the same session or moves to a new one
 
 ## Key snippet: start in spec mode
 
 ```ts
-const stream = query({
-  prompt,
+const session = await createSession({
   cwd: process.cwd(),
   interactionMode: DroidInteractionMode.Spec,
   specModeReasoningEffort: ReasoningEffort.High,
@@ -20,6 +19,10 @@ const stream = query({
     return ToolConfirmationOutcome.ProceedOnce;
   },
 });
+
+for await (const msg of (await session.send(prompt)).stream()) {
+  // Handle streamed messages.
+}
 ```
 
 ## Key snippet: detect the spec approval request
@@ -41,7 +44,7 @@ Choose the outcome you want:
 import {
   DroidMessageType,
   DroidInteractionMode,
-  query,
+  createSession,
   ReasoningEffort,
   ToolConfirmationOutcome,
   ToolConfirmationType,
@@ -58,8 +61,7 @@ async function main(): Promise<void> {
     '"Hello from Droid". Keep the plan short and concrete.';
 
   try {
-    const stream = query({
-      prompt,
+    const session = await createSession({
       cwd: process.cwd(),
       interactionMode: DroidInteractionMode.Spec,
       specModeReasoningEffort: ReasoningEffort.High,
@@ -84,10 +86,14 @@ async function main(): Promise<void> {
       },
     });
 
-    for await (const msg of stream) {
-      if (msg.type === DroidMessageType.AssistantTextDelta) {
-        process.stdout.write(msg.text);
+    try {
+      for await (const msg of (await session.send(prompt)).stream()) {
+        if (msg.type === DroidMessageType.AssistantTextDelta) {
+          process.stdout.write(msg.text);
+        }
       }
+    } finally {
+      await session.close();
     }
   } finally {
     await rm(tempDir, { recursive: true, force: true });

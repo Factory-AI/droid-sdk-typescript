@@ -5,18 +5,31 @@
  *   npx tsx examples/multi-turn-session.ts
  */
 
-import { createSession } from '@factory/droid-sdk';
+import { DroidMessageType, createSession } from '@factory/droid-sdk';
+
+async function streamText(
+  session: Awaited<ReturnType<typeof createSession>>,
+  prompt: string
+): Promise<string> {
+  let text = '';
+  for await (const msg of (await session.send(prompt)).stream()) {
+    if (msg.type === DroidMessageType.AssistantTextDelta) {
+      text += msg.text;
+    }
+  }
+  return text;
+}
 
 const session = await createSession({ cwd: process.cwd() });
 
 try {
   console.log(`Session: ${session.sessionId}\n`);
 
-  const first = await session.send('What is this project?');
-  console.log(first.text);
+  const first = await streamText(session, 'What is this project?');
+  console.log(first);
 
-  const second = await session.send('What should I test first?');
-  console.log('\n', second.text);
+  const second = await streamText(session, 'What should I test first?');
+  console.log('\n', second);
 } finally {
   await session.close();
 }
