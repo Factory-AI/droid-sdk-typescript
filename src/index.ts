@@ -48,6 +48,8 @@ export type {
   MissionWorkerCompleted,
   McpAuthRequired,
   McpAuthCompleted,
+  StructuredOutput,
+  StructuredOutputFields,
   ErrorEvent,
   TurnComplete,
   DroidMessage,

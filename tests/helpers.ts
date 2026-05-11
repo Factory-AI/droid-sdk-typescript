@@ -255,6 +255,9 @@ export function sendDefaultStreamSequence(
     initialState?: DroidWorkingState;
     finalState?: DroidWorkingState;
     includeTokenUsage?: boolean;
+    structuredOutput?: Record<string, unknown> | null;
+    structuredOutputError?: Record<string, unknown> | null;
+    structuredOutputMessageId?: string;
   }
 ): void {
   const {
@@ -271,6 +274,9 @@ export function sendDefaultStreamSequence(
     initialState = DroidWorkingState.StreamingAssistantMessage,
     finalState = DroidWorkingState.Idle,
     includeTokenUsage = true,
+    structuredOutput,
+    structuredOutputError,
+    structuredOutputMessageId = messageId,
   } = options ?? {};
 
   transport.injectMessage(
@@ -299,6 +305,16 @@ export function sendDefaultStreamSequence(
           tokenUsage,
         }
       )
+    );
+  }
+
+  if (structuredOutput !== undefined || structuredOutputError !== undefined) {
+    transport.injectMessage(
+      makeSessionNotification(SessionNotificationType.STRUCTURED_OUTPUT, {
+        messageId: structuredOutputMessageId,
+        structuredOutput: structuredOutput ?? null,
+        structuredOutputError: structuredOutputError ?? null,
+      })
     );
   }
 

@@ -107,6 +107,7 @@ import {
   MissionWorkerCompletedNotificationSchema,
   McpAuthRequiredNotificationSchema,
   McpAuthCompletedNotificationSchema,
+  StructuredOutputNotificationSchema,
   SessionNotificationPayloadSchema,
   RequestPermissionRequestParamsSchema,
   RequestPermissionResultSchema,
@@ -174,29 +175,33 @@ describe('enums', () => {
     expect(DroidClientMethod.ASK_USER).toBe('droid.ask_user');
   });
 
-  it('SessionNotificationType has 20 types', () => {
+  it('SessionNotificationType has 21 types', () => {
     const values = Object.values(SessionNotificationType);
-    expect(values).toHaveLength(20);
-    expect(values).toContain('assistant_text_delta');
-    expect(values).toContain('thinking_text_delta');
-    expect(values).toContain('tool_result');
-    expect(values).toContain('tool_progress_update');
-    expect(values).toContain('create_message');
-    expect(values).toContain('error');
-    expect(values).toContain('droid_working_state_changed');
-    expect(values).toContain('permission_resolved');
-    expect(values).toContain('settings_updated');
-    expect(values).toContain('session_title_updated');
-    expect(values).toContain('mcp_status_changed');
-    expect(values).toContain('session_token_usage_changed');
-    expect(values).toContain('mission_state_changed');
-    expect(values).toContain('mission_features_changed');
-    expect(values).toContain('mission_progress_entry');
-    expect(values).toContain('mission_heartbeat');
-    expect(values).toContain('mission_worker_started');
-    expect(values).toContain('mission_worker_completed');
-    expect(values).toContain('mcp_auth_required');
-    expect(values).toContain('mcp_auth_completed');
+    const expectedValues = [
+      'assistant_text_delta',
+      'thinking_text_delta',
+      'tool_result',
+      'tool_progress_update',
+      'create_message',
+      'error',
+      'droid_working_state_changed',
+      'permission_resolved',
+      'settings_updated',
+      'session_title_updated',
+      'mcp_status_changed',
+      'session_token_usage_changed',
+      'mission_state_changed',
+      'mission_features_changed',
+      'mission_progress_entry',
+      'mission_heartbeat',
+      'mission_worker_started',
+      'mission_worker_completed',
+      'mcp_auth_required',
+      'mcp_auth_completed',
+      'structured_output',
+    ];
+    expect(values).toHaveLength(expectedValues.length);
+    expect(values).toEqual(expect.arrayContaining(expectedValues));
   });
 
   it('ToolConfirmationOutcome has correct values', () => {
@@ -1247,6 +1252,18 @@ describe('server notification schemas', () => {
       message: 'Authenticated',
     };
     expect(McpAuthCompletedNotificationSchema.parse(n).outcome).toBe('success');
+  });
+
+  it('StructuredOutputNotificationSchema parses valid notification', () => {
+    const n = {
+      type: 'structured_output',
+      messageId: 'msg-1',
+      structuredOutput: { name: 'Ada' },
+      structuredOutputError: null,
+    };
+    expect(
+      StructuredOutputNotificationSchema.parse(n).structuredOutput
+    ).toEqual({ name: 'Ada' });
   });
 });
 

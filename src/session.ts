@@ -49,6 +49,7 @@ import type {
 import { DroidInteractionMode } from './schemas/enums.js';
 import type { Base64ImageSource, DocumentSource } from './schemas/messages.js';
 import { FactoryDroidMessageRole } from './schemas/messages.js';
+import type { StructuredOutputError } from './schemas/server.js';
 import { JsonObjectSchema, type JsonObject } from './schemas/shared.js';
 import { DroidMessageType } from './stream.js';
 import type { DroidMessage, ErrorEvent, TokenUsageUpdate } from './stream.js';
@@ -71,6 +72,8 @@ export interface DroidResult {
   error: ErrorEvent | null;
   /** Structured JSON object emitted by the turn, when requested. */
   structuredOutput: JsonObject | null;
+  /** Backend structured output validation error, when reported. */
+  structuredOutputError: StructuredOutputError | null;
   /** True when the stream completed without an error event. */
   success: boolean;
 }
@@ -152,6 +155,8 @@ export function aggregateMessages(
   let lastTokenUsage: TokenUsageUpdate | null = null;
   let firstError: ErrorEvent | null = null;
   let structuredOutput: JsonObject | null = null;
+  let structuredOutputError: StructuredOutputError | null = null;
+  let receivedStructuredOutputNotification = false;
   let finalAssistantText = '';
   let turnCount = 0;
 
@@ -176,15 +181,27 @@ export function aggregateMessages(
       firstError = msg;
     }
 
+    if (msg.type === DroidMessageType.StructuredOutput) {
+      receivedStructuredOutputNotification = true;
+      structuredOutput = msg.structuredOutput;
+      structuredOutputError = msg.structuredOutputError;
+    }
+
     if (msg.type === DroidMessageType.TurnComplete) {
       turnCount++;
       if (msg.tokenUsage) {
         lastTokenUsage = msg.tokenUsage;
       }
+      if (!receivedStructuredOutputNotification) {
+        structuredOutput = msg.structuredOutput;
+        structuredOutputError = msg.structuredOutputError;
+        receivedStructuredOutputNotification =
+          msg.structuredOutput !== null || msg.structuredOutputError !== null;
+      }
     }
   }
 
-  if (options?.outputFormat) {
+  if (options?.outputFormat && !receivedStructuredOutputNotification) {
     const textToParse = finalAssistantText || fullText;
     if (textToParse) {
       structuredOutput = parseJsonObject(textToParse);
@@ -200,6 +217,7 @@ export function aggregateMessages(
     turnCount,
     error: firstError,
     structuredOutput,
+    structuredOutputError,
     success: firstError === null,
   };
 }

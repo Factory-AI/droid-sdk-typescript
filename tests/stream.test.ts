@@ -37,6 +37,7 @@ import type {
   MissionWorkerCompleted,
   McpAuthRequired,
   McpAuthCompleted,
+  StructuredOutput,
   ErrorEvent,
   TurnComplete,
   DroidMessage,
@@ -67,6 +68,7 @@ const expectedDroidMessageTypes = [
   'mission_worker_completed',
   'mcp_auth_required',
   'mcp_auth_completed',
+  'structured_output',
   'error',
   'turn_complete',
 ] as const satisfies readonly DroidMessage['type'][];
@@ -340,9 +342,13 @@ describe('DroidMessage types', () => {
     const msg: TurnComplete = {
       type: 'turn_complete',
       tokenUsage: null,
+      structuredOutput: null,
+      structuredOutputError: null,
     };
     expect(msg.type).toBe('turn_complete');
     expect(msg.tokenUsage).toBeNull();
+    expect(msg.structuredOutput).toBeNull();
+    expect(msg.structuredOutputError).toBeNull();
   });
 
   it('TurnComplete with token usage', () => {
@@ -357,12 +363,14 @@ describe('DroidMessage types', () => {
     const msg: TurnComplete = {
       type: 'turn_complete',
       tokenUsage,
+      structuredOutput: null,
+      structuredOutputError: null,
     };
     expect(msg.tokenUsage).not.toBeNull();
     expect(msg.tokenUsage!.inputTokens).toBe(100);
   });
 
-  it('DroidMessage union type allows all 22 types', () => {
+  it('DroidMessage union type allows all 23 types', () => {
     const messages: DroidMessage[] = [
       {
         type: 'assistant_text_delta',
@@ -439,14 +447,25 @@ describe('DroidMessage types', () => {
         message: 'm',
       },
       {
+        type: 'structured_output',
+        messageId: 'm1',
+        structuredOutput: { name: 'Ada' },
+        structuredOutputError: null,
+      },
+      {
         type: 'error',
         message: 'err',
         errorType: DroidErrorType.ERROR,
         timestamp: 't',
       },
-      { type: 'turn_complete', tokenUsage: null },
+      {
+        type: 'turn_complete',
+        tokenUsage: null,
+        structuredOutput: null,
+        structuredOutputError: null,
+      },
     ];
-    expect(messages).toHaveLength(22);
+    expect(messages).toHaveLength(expectedDroidMessageTypes.length);
   });
 });
 
@@ -1040,6 +1059,56 @@ describe('convertNotificationToStreamMessage', () => {
     });
   });
 
+  describe('structured_output', () => {
+    it('converts successful structured output', () => {
+      const notification = makeNotification(
+        SessionNotificationType.STRUCTURED_OUTPUT,
+        {
+          messageId: 'msg-structured',
+          structuredOutput: { name: 'Ada' },
+          structuredOutputError: null,
+        }
+      );
+      const result = convertNotificationToStreamMessage(
+        notification
+      ) as StructuredOutput;
+
+      expect(result).toEqual({
+        type: 'structured_output',
+        messageId: 'msg-structured',
+        structuredOutput: { name: 'Ada' },
+        structuredOutputError: null,
+      });
+    });
+
+    it('converts structured output errors', () => {
+      const notification = makeNotification(
+        SessionNotificationType.STRUCTURED_OUTPUT,
+        {
+          messageId: 'msg-structured',
+          structuredOutput: null,
+          structuredOutputError: {
+            code: 'schema_validation_failed',
+            message: '/name must be string',
+          },
+        }
+      );
+      const result = convertNotificationToStreamMessage(
+        notification
+      ) as StructuredOutput;
+
+      expect(result).toEqual({
+        type: 'structured_output',
+        messageId: 'msg-structured',
+        structuredOutput: null,
+        structuredOutputError: {
+          code: 'schema_validation_failed',
+          message: '/name must be string',
+        },
+      });
+    });
+  });
+
   describe('unknown notification type', () => {
     it('returns null for unknown types', () => {
       const notification = makeNotification('completely_unknown_type', {
@@ -1056,11 +1125,13 @@ describe('convertNotificationToStreamMessage', () => {
     });
   });
 
-  describe('all 20 notification types are handled', () => {
+  describe('all notification types are handled', () => {
     const allNotificationTypes = Object.values(SessionNotificationType);
 
-    it('covers all 20 SessionNotificationType values', () => {
-      expect(allNotificationTypes).toHaveLength(20);
+    it('covers all SessionNotificationType values', () => {
+      expect(allNotificationTypes).toContain(
+        SessionNotificationType.STRUCTURED_OUTPUT
+      );
     });
 
     it('every notification type returns a non-null result (with valid payloads)', () => {
@@ -1149,6 +1220,11 @@ describe('convertNotificationToStreamMessage', () => {
           serverName: 's',
           outcome: McpAuthOutcome.Success,
           message: 'm',
+        },
+        [SessionNotificationType.STRUCTURED_OUTPUT]: {
+          messageId: 'm',
+          structuredOutput: { name: 'Ada' },
+          structuredOutputError: null,
         },
       };
 
@@ -1258,6 +1334,88 @@ describe('StreamStateTracker', () => {
       });
       expect(r2.additional).toHaveLength(1);
       expect(r2.additional[0].type).toBe('turn_complete');
+    });
+  });
+
+  describe('StructuredOutput propagation to TurnComplete', () => {
+    it('attaches structured output to TurnComplete', () => {
+      tracker.processMessage({
+        type: 'working_state_changed',
+        state: DroidWorkingState.StreamingAssistantMessage,
+      });
+      tracker.processMessage({
+        type: 'structured_output',
+        messageId: 'msg-structured',
+        structuredOutput: { name: 'Ada' },
+        structuredOutputError: null,
+      });
+
+      const result = tracker.processMessage({
+        type: 'working_state_changed',
+        state: DroidWorkingState.Idle,
+      });
+
+      const tc = result.additional[0] as TurnComplete;
+      expect(tc.structuredOutput).toEqual({ name: 'Ada' });
+      expect(tc.structuredOutputError).toBeNull();
+    });
+
+    it('attaches structured output errors to TurnComplete', () => {
+      tracker.processMessage({
+        type: 'working_state_changed',
+        state: DroidWorkingState.StreamingAssistantMessage,
+      });
+      tracker.processMessage({
+        type: 'structured_output',
+        messageId: 'msg-structured',
+        structuredOutput: null,
+        structuredOutputError: {
+          code: 'schema_validation_failed',
+          message: '/name must be string',
+        },
+      });
+
+      const result = tracker.processMessage({
+        type: 'working_state_changed',
+        state: DroidWorkingState.Idle,
+      });
+
+      const tc = result.additional[0] as TurnComplete;
+      expect(tc.structuredOutput).toBeNull();
+      expect(tc.structuredOutputError).toEqual({
+        code: 'schema_validation_failed',
+        message: '/name must be string',
+      });
+    });
+
+    it('does not leak structured output between turns', () => {
+      tracker.processMessage({
+        type: 'working_state_changed',
+        state: DroidWorkingState.StreamingAssistantMessage,
+      });
+      tracker.processMessage({
+        type: 'structured_output',
+        messageId: 'msg-structured',
+        structuredOutput: { name: 'Ada' },
+        structuredOutputError: null,
+      });
+      tracker.processMessage({
+        type: 'working_state_changed',
+        state: DroidWorkingState.Idle,
+      });
+
+      tracker.processMessage({
+        type: 'working_state_changed',
+        state: DroidWorkingState.StreamingAssistantMessage,
+      });
+      const result = tracker.processMessage({
+        type: 'working_state_changed',
+        state: DroidWorkingState.Idle,
+      });
+
+      const tc = result.additional[0] as TurnComplete;
+      expect(tc.structuredOutput).toBeNull();
+      expect(tc.structuredOutputError).toBeNull();
     });
   });
 

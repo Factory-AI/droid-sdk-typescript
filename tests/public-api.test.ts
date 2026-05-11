@@ -39,6 +39,7 @@ describe('public API barrel', () => {
     expect(DroidMessageType.AssistantTextDelta).toBe('assistant_text_delta');
     expect(DroidMessageType.ToolUse).toBe('tool_use');
     expect(DroidMessageType.TokenUsageUpdate).toBe('token_usage_update');
+    expect(DroidMessageType.StructuredOutput).toBe('structured_output');
     expect(DroidMessageType.TurnComplete).toBe('turn_complete');
   });
 });

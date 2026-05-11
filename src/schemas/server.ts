@@ -361,6 +361,31 @@ export type McpAuthCompletedNotification = z.infer<
   typeof McpAuthCompletedNotificationSchema
 >;
 
+/** Structured output validation error emitted by Droid. */
+export const StructuredOutputErrorSchema = z
+  .object({
+    code: z.string(),
+    message: z.string(),
+    details: z.unknown().optional(),
+  })
+  .passthrough();
+
+export type StructuredOutputError = z.infer<typeof StructuredOutputErrorSchema>;
+
+/** Backend-validated structured output for the completed turn. */
+export const StructuredOutputNotificationSchema = z
+  .object({
+    type: z.literal(SessionNotificationType.STRUCTURED_OUTPUT),
+    messageId: z.string(),
+    structuredOutput: JsonObjectSchema.nullable(),
+    structuredOutputError: StructuredOutputErrorSchema.nullable(),
+  })
+  .passthrough();
+
+export type StructuredOutputNotification = z.infer<
+  typeof StructuredOutputNotificationSchema
+>;
+
 /** List of all session notification schemas (for discriminatedUnion). */
 export const SessionNotificationSchemaList = [
   ToolResultNotificationSchema,
@@ -383,9 +408,10 @@ export const SessionNotificationSchemaList = [
   MissionWorkerCompletedNotificationSchema,
   McpAuthRequiredNotificationSchema,
   McpAuthCompletedNotificationSchema,
+  StructuredOutputNotificationSchema,
 ] as const;
 
-/** Discriminated union over all 20 session notification types. */
+/** Discriminated union over all session notification types. */
 export const SessionNotificationPayloadSchema = z.discriminatedUnion(
   'type',
   SessionNotificationSchemaList

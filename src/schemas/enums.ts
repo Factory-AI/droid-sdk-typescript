@@ -66,6 +66,7 @@ export enum SessionNotificationType {
   MISSION_WORKER_COMPLETED = 'mission_worker_completed',
   MCP_AUTH_REQUIRED = 'mcp_auth_required',
   MCP_AUTH_COMPLETED = 'mcp_auth_completed',
+  STRUCTURED_OUTPUT = 'structured_output',
 }
 
 /** Tool confirmation outcome options (possible user responses to permission requests). */

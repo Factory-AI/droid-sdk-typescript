@@ -14,6 +14,7 @@ import {
   type ErrorNotification,
   type SessionNotificationPayload,
   type SettingsUpdatedPayload,
+  type StructuredOutputError as ServerStructuredOutputError,
   type ToolProgressUpdate,
 } from './schemas/server.js';
 import type { JsonObject, JsonValue } from './schemas/shared.js';
@@ -39,6 +40,7 @@ export const DroidMessageType = {
   MissionWorkerCompleted: 'mission_worker_completed',
   McpAuthRequired: 'mcp_auth_required',
   McpAuthCompleted: 'mcp_auth_completed',
+  StructuredOutput: 'structured_output',
   Error: 'error',
   TurnComplete: 'turn_complete',
 } as const;
@@ -168,6 +170,16 @@ export interface McpAuthCompleted {
   readonly message: string;
 }
 
+export interface StructuredOutputFields {
+  readonly structuredOutput: JsonObject | null;
+  readonly structuredOutputError: ServerStructuredOutputError | null;
+}
+
+export interface StructuredOutput extends StructuredOutputFields {
+  readonly type: 'structured_output';
+  readonly messageId: string;
+}
+
 export interface ErrorEvent {
   readonly type: 'error';
   readonly message: string;
@@ -176,7 +188,7 @@ export interface ErrorEvent {
 }
 
 /** Sentinel yielded when the agent turn finishes (returns to Idle). */
-export interface TurnComplete {
+export interface TurnComplete extends StructuredOutputFields {
   readonly type: 'turn_complete';
   readonly tokenUsage: TokenUsageUpdate | null;
 }
@@ -202,6 +214,7 @@ export type DroidMessage =
   | MissionWorkerCompleted
   | McpAuthRequired
   | McpAuthCompleted
+  | StructuredOutput
   | ErrorEvent
   | TurnComplete;
 
@@ -389,6 +402,14 @@ export function convertNotificationToStreamMessage(
         message: notification.message,
       };
 
+    case SessionNotificationType.STRUCTURED_OUTPUT:
+      return {
+        type: DroidMessageType.StructuredOutput,
+        messageId: notification.messageId,
+        structuredOutput: notification.structuredOutput,
+        structuredOutputError: notification.structuredOutputError,
+      };
+
     default:
       return null;
   }
@@ -402,6 +423,10 @@ export class StreamStateTracker {
   private hasBeenNonIdle = false;
 
   private lastTokenUsage: TokenUsageUpdate | null = null;
+
+  private structuredOutput: JsonObject | null = null;
+
+  private structuredOutputError: ServerStructuredOutputError | null = null;
 
   private toolNameMap = new Map<string, string>();
 
@@ -428,6 +453,11 @@ export class StreamStateTracker {
       this.lastTokenUsage = message;
     }
 
+    if (message.type === DroidMessageType.StructuredOutput) {
+      this.structuredOutput = message.structuredOutput;
+      this.structuredOutputError = message.structuredOutputError;
+    }
+
     if (message.type === DroidMessageType.WorkingStateChanged) {
       if (message.state !== DroidWorkingState.Idle) {
         this.hasBeenNonIdle = true;
@@ -435,8 +465,12 @@ export class StreamStateTracker {
         additional.push({
           type: DroidMessageType.TurnComplete,
           tokenUsage: this.lastTokenUsage,
+          structuredOutput: this.structuredOutput,
+          structuredOutputError: this.structuredOutputError,
         });
         this.hasBeenNonIdle = false;
+        this.structuredOutput = null;
+        this.structuredOutputError = null;
       }
     }
 

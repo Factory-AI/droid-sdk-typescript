@@ -16,6 +16,7 @@ import {
   DroidWorkingState,
   JsonRpcErrorCode,
   McpServerType,
+  OutputFormatType,
   ReasoningEffort,
   SessionNotificationType,
   SettingsLevel,
@@ -345,6 +346,131 @@ describe('DroidSession', () => {
       expect(textDeltas.length).toBeGreaterThanOrEqual(1);
 
       expect(messages[messages.length - 1].type).toBe('turn_complete');
+
+      await session.close();
+    });
+
+    it('streams backend structured output notifications', async () => {
+      const transport = new InMemoryTransport();
+      await transport.connect();
+
+      wireTransportSend(transport, ({ method, id }) => {
+        if (method === DroidServerMethod.INITIALIZE_SESSION) {
+          queueMicrotask(() => {
+            transport.injectMessage(
+              makeSuccessResponse(id, {
+                sessionId: 'sess-structured-notification',
+                session: {},
+                settings: { modelId: 'test-model', reasoningEffort: 'medium' },
+                availableModels: [],
+              })
+            );
+          });
+        } else if (method === DroidServerMethod.ADD_USER_MESSAGE) {
+          queueMicrotask(() => {
+            transport.injectMessage(makeSuccessResponse(id, {}));
+            sendDefaultStreamSequence(transport, {
+              deltas: [],
+              includeTokenUsage: false,
+              structuredOutputMessageId: 'msg-structured',
+              structuredOutput: { name: 'Ada' },
+            });
+          });
+        }
+      });
+
+      const session = await createSession({ transport });
+      const messages: DroidMessage[] = [];
+      for await (const msg of session.stream('Return a person', {
+        outputFormat: {
+          type: OutputFormatType.JsonSchema,
+          schema: {
+            type: 'object',
+            properties: { name: { type: 'string' } },
+          },
+        },
+      })) {
+        messages.push(msg);
+      }
+
+      expect(messages).toContainEqual({
+        type: 'structured_output',
+        messageId: 'msg-structured',
+        structuredOutput: { name: 'Ada' },
+        structuredOutputError: null,
+      });
+      expect(messages[messages.length - 1]).toMatchObject({
+        type: 'turn_complete',
+        structuredOutput: { name: 'Ada' },
+        structuredOutputError: null,
+      });
+
+      await session.close();
+    });
+
+    it('streams backend structured output errors', async () => {
+      const transport = new InMemoryTransport();
+      await transport.connect();
+
+      wireTransportSend(transport, ({ method, id }) => {
+        if (method === DroidServerMethod.INITIALIZE_SESSION) {
+          queueMicrotask(() => {
+            transport.injectMessage(
+              makeSuccessResponse(id, {
+                sessionId: 'sess-structured-error',
+                session: {},
+                settings: { modelId: 'test-model', reasoningEffort: 'medium' },
+                availableModels: [],
+              })
+            );
+          });
+        } else if (method === DroidServerMethod.ADD_USER_MESSAGE) {
+          queueMicrotask(() => {
+            transport.injectMessage(makeSuccessResponse(id, {}));
+            sendDefaultStreamSequence(transport, {
+              deltas: [],
+              includeTokenUsage: false,
+              structuredOutputMessageId: 'msg-structured',
+              structuredOutputError: {
+                code: 'schema_validation_failed',
+                message: '/name must be string',
+              },
+            });
+          });
+        }
+      });
+
+      const session = await createSession({ transport });
+      const messages: DroidMessage[] = [];
+      for await (const msg of session.stream('Return a person', {
+        outputFormat: {
+          type: OutputFormatType.JsonSchema,
+          schema: {
+            type: 'object',
+            properties: { name: { type: 'string' } },
+          },
+        },
+      })) {
+        messages.push(msg);
+      }
+
+      expect(messages).toContainEqual({
+        type: 'structured_output',
+        messageId: 'msg-structured',
+        structuredOutput: null,
+        structuredOutputError: {
+          code: 'schema_validation_failed',
+          message: '/name must be string',
+        },
+      });
+      expect(messages[messages.length - 1]).toMatchObject({
+        type: 'turn_complete',
+        structuredOutput: null,
+        structuredOutputError: {
+          code: 'schema_validation_failed',
+          message: '/name must be string',
+        },
+      });
 
       await session.close();
     });
