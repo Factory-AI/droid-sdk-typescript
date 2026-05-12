@@ -35,9 +35,9 @@ import { DroidMessageType, createSession } from '@factory/droid-sdk';
 const session = await createSession({ cwd: '/my/project' });
 
 try {
-  for await (const msg of (
-    await session.send('What files are in the current directory?')
-  ).stream()) {
+  for await (const msg of session.stream(
+    'What files are in the current directory?'
+  )) {
     if (msg.type === DroidMessageType.AssistantTextDelta) {
       process.stdout.write(msg.text);
     }
@@ -78,7 +78,7 @@ const result = await run('Pick a favorite number between 1 and 42.', {
 console.log(result.structuredOutput?.favoriteNumber);
 ```
 
-Structured output is available on `run()` and `session.send(prompt, options)` through the `outputFormat` message option. `run()` parses the final object into `result.structuredOutput`; streaming callers can read and parse the final assistant message themselves.
+Structured output is available on `run()` and `session.stream(prompt, options)` through the `outputFormat` message option. `run()` parses the final object into `result.structuredOutput`; streaming callers can read and parse the final assistant message themselves.
 
 ## Multi-Turn Sessions
 
@@ -91,18 +91,14 @@ const session = await createSession({ cwd: '/my/project' });
 console.log(session.sessionId);
 
 // Streaming turn
-for await (const msg of (
-  await session.send('List all TypeScript files')
-).stream()) {
+for await (const msg of session.stream('List all TypeScript files')) {
   if (msg.type === DroidMessageType.AssistantTextDelta) {
     process.stdout.write(msg.text);
   }
 }
 
 // Later turns use the same streaming API
-for await (const msg of (
-  await session.send('Summarize the project')
-).stream()) {
+for await (const msg of session.stream('Summarize the project')) {
   if (msg.type === DroidMessageType.AssistantTextDelta) {
     process.stdout.write(msg.text);
   }
@@ -119,9 +115,7 @@ import { resumeSession } from '@factory/droid-sdk';
 const session = await resumeSession(savedSessionId, {
   cwd: '/my/project',
 });
-for await (const msg of (
-  await session.send('Continue where we left off')
-).stream()) {
+for await (const msg of session.stream('Continue where we left off')) {
   // Handle streamed DroidMessage events.
 }
 await session.close();
@@ -162,11 +156,9 @@ const session = await createSession({
   permissionHandler: () => ToolConfirmationOutcome.ProceedOnce,
 });
 
-for await (const msg of (
-  await session.send(
-    'Use the favorite_number tool for Ada and tell me the answer.'
-  )
-).stream()) {
+for await (const msg of session.stream(
+  'Use the favorite_number tool for Ada and tell me the answer.'
+)) {
   if (msg.type === DroidMessageType.AssistantTextDelta) {
     process.stdout.write(msg.text);
   }
@@ -214,9 +206,9 @@ const session = await createSession({
   specModeModelId: 'claude-sonnet-4-20250514',
 });
 
-for await (const msg of (
-  await session.send('Draft a plan for adding integration tests')
-).stream()) {
+for await (const msg of session.stream(
+  'Draft a plan for adding integration tests'
+)) {
   if (msg.type === DroidMessageType.AssistantTextDelta) {
     process.stdout.write(msg.text);
   }
@@ -272,18 +264,16 @@ import {
 
 const session = await createSession({ cwd: '/my/project' });
 
-for await (const _msg of (
-  await session.send('Remember this phrase: mango sunrise')
-).stream()) {
+for await (const _msg of session.stream(
+  'Remember this phrase: mango sunrise'
+)) {
   // Consume the turn.
 }
 
 const { newSessionId } = await session.forkSession();
 const fork = await resumeSession(newSessionId, { cwd: '/my/project' });
 
-for await (const msg of (
-  await fork.send('What phrase did I ask you to remember?')
-).stream()) {
+for await (const msg of fork.stream('What phrase did I ask you to remember?')) {
   if (msg.type === DroidMessageType.AssistantTextDelta) {
     process.stdout.write(msg.text);
   }
@@ -352,9 +342,7 @@ const session = await createSession({
 });
 
 try {
-  for await (const msg of (
-    await session.send('Create a hello.txt file')
-  ).stream()) {
+  for await (const msg of session.stream('Create a hello.txt file')) {
     if (msg.type === DroidMessageType.AssistantTextDelta) {
       process.stdout.write(msg.text);
     }
@@ -381,7 +369,7 @@ try {
 
 Returned by `createSession()` and `resumeSession()`. Key methods:
 
-- **`send(prompt, options?)`** — start a turn, returns `Promise<DroidTurn>`
+- **`stream(prompt, options?)`** — stream `DroidMessage` events for one turn
 - **`interrupt()`** — interrupt the current turn
 - **`close()`** — close the session and release resources
 - **`updateSettings(params)`** — update model, autonomy level, etc.
@@ -396,15 +384,6 @@ Returned by `createSession()` and `resumeSession()`. Key methods:
 - **`getRewindInfo(params)`** / **`executeRewind(params)`** — inspect and execute file rewind operations
 - **`sessionId`** — the session ID
 - **`initResult`** — cached `initialize_session` or `load_session` result
-
-### `DroidTurn`
-
-Returned by `session.send(prompt, options?)`:
-
-- **`stream()`** — yield `DroidMessage` events until `turn_complete`
-- **`result()`** — consume/aggregate the turn into a `DroidResult`
-- **`interrupt()`** — interrupt this turn
-- **`sessionId`** — the session that produced this turn
 
 ### `DroidResult`
 
@@ -481,7 +460,7 @@ Session creation options used by `run()` and `createSession()` include:
 
 `resumeSession()` accepts the process, transport, handler, `cwd`, `mcpServers`, and `abortSignal` options needed to reconnect to an existing session, but does not accept new-session-only options such as `modelId` or `interactionMode`.
 
-Message APIs (`run()` and `session.send()`) also accept:
+Message APIs (`run()` and `session.stream()`) also accept:
 
 - **`images`** — base64 image attachments
 - **`files`** — document/file attachments
