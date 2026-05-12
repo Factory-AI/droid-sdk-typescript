@@ -53,9 +53,6 @@ export type {
   DroidMessage,
 } from './stream.js';
 
-export { query } from './query.js';
-export type { QueryOptions, DroidQuery } from './query.js';
-
 export { run } from './run.js';
 export type { RunOptions } from './run.js';
 

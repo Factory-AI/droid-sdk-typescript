@@ -1,30 +1,10 @@
 # Example: initialization metadata
 
-Use this when you need the raw initialization payload, early session IDs, or model/settings metadata.
+Use this when you need the raw initialization payload, session IDs, or model/settings metadata.
 
 ## What this example shows
 
-- reading `query().sessionId` and `query().initResult`
-- waiting for `query().initialized`
 - reading `session.initResult` from `createSession()` and `resumeSession()`
-
-## Key snippet: inspect a query before and after initialization
-
-```ts
-const stream = query({
-  prompt: 'Reply with "ready" and nothing else.',
-  cwd: process.cwd(),
-});
-
-console.log(stream.sessionId);
-console.log(stream.initResult);
-
-const initialized = await stream.initialized;
-console.log(initialized.sessionId);
-console.log(initialized.settings.modelId);
-```
-
-Before initialization completes, `sessionId` and `initResult` are `null`.
 
 ## Key snippet: read metadata from sessions
 
@@ -39,23 +19,9 @@ console.log(resumed.initResult.cwd);
 ## Full script
 
 ```ts
-import { createSession, query, resumeSession } from '@factory/droid-sdk';
+import { createSession, resumeSession } from '@factory/droid-sdk';
 
 async function main(): Promise<void> {
-  const stream = query({
-    prompt: 'Reply with "ready" and nothing else.',
-    cwd: process.cwd(),
-  });
-
-  console.log(stream.sessionId);
-  console.log(stream.initResult);
-
-  const initialized = await stream.initialized;
-  console.log(initialized.sessionId);
-  console.log(initialized.settings.modelId);
-
-  stream.abort();
-
   const session = await createSession({ cwd: process.cwd() });
   let resumed: Awaited<ReturnType<typeof resumeSession>> | null = null;
 
@@ -64,7 +30,9 @@ async function main(): Promise<void> {
       cwd: process.cwd(),
     });
 
+    console.log(session.sessionId);
     console.log(session.initResult.settings.modelId);
+    console.log(resumed.sessionId);
     console.log(resumed.initResult.cwd);
   } finally {
     await resumed?.close();

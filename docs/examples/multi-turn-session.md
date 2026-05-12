@@ -5,8 +5,7 @@ Use `createSession()` when you want conversation state to persist across turns.
 ## What this example shows
 
 - creating a persistent session
-- streaming one turn with `session.stream()`
-- collecting a later turn with `session.send()`
+- streaming turns with `session.stream()`
 - closing the session cleanly
 
 ## Key snippet: create the session
@@ -31,16 +30,23 @@ for await (const msg of session.stream(
 }
 ```
 
-Use `stream()` when you want incremental output.
+Use `session.stream()` when you want incremental output.
 
-## Key snippet: collect a full response
+## Key snippet: collect streamed text
 
 ```ts
-const result = await session.send('Summarize the project in one sentence');
-console.log(result.text);
+let text = '';
+for await (const msg of session.stream(
+  'Summarize the project in one sentence'
+)) {
+  if (msg.type === DroidMessageType.AssistantTextDelta) {
+    text += msg.text;
+  }
+}
+console.log(text);
 ```
 
-Use `send()` when you want the SDK to aggregate the turn for you.
+Use `run()` for one-shot aggregated output; use `session.stream()` for persistent sessions.
 
 ## Full script
 
@@ -63,8 +69,15 @@ async function main(): Promise<void> {
 
     console.log('\n');
 
-    const result = await session.send('Summarize the project in one sentence');
-    console.log(result.text);
+    let summary = '';
+    for await (const msg of session.stream(
+      'Summarize the project in one sentence'
+    )) {
+      if (msg.type === DroidMessageType.AssistantTextDelta) {
+        summary += msg.text;
+      }
+    }
+    console.log(summary);
   } finally {
     await session.close();
   }

@@ -2,7 +2,7 @@
 
 ## Project Structure & Module Organization
 
-This package is the TypeScript SDK for the Factory Droid CLI. Public exports live in `src/index.ts`; treat that file as the public API contract. Core layers are `src/query.ts`, `src/session.ts`, `src/client.ts`, `src/protocol.ts`, and `src/transport.ts`. Runtime schemas live under `src/schemas/`. Unit tests are in `tests/`, runnable usage samples are in `examples/`, and public documentation lives in `docs/`.
+This package is the TypeScript SDK for the Factory Droid CLI. Public exports live in `src/index.ts`; treat that file as the public API contract. Core layers are `src/run.ts`, `src/session.ts`, `src/client.ts`, `src/protocol.ts`, and `src/transport.ts`. Runtime schemas live under `src/schemas/`. Unit tests are in `tests/`, runnable usage samples are in `examples/`, and public documentation lives in `docs/`.
 
 ## Build, Test, and Development Commands
 

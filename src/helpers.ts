@@ -53,9 +53,14 @@ export function extractInnerNotification(
 
 export class MessageBridge {
   private readonly _queue: DroidMessage[] = [];
+  private readonly _onDone: (() => void) | undefined;
   private _resolveWaiting: (() => void) | null = null;
   private _done = false;
   private readonly _stateTracker = new StreamStateTracker();
+
+  constructor(onDone?: () => void) {
+    this._onDone = onDone;
+  }
 
   readonly notificationHandler = (
     notification: Record<string, unknown>
@@ -116,7 +121,11 @@ export class MessageBridge {
   }
 
   private _signalDone(): void {
+    const wasDone = this._done;
     this._done = true;
+    if (!wasDone) {
+      this._onDone?.();
+    }
     if (this._resolveWaiting) {
       const resolve = this._resolveWaiting;
       this._resolveWaiting = null;

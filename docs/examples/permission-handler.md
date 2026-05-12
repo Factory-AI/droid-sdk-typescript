@@ -30,14 +30,19 @@ function permissionHandler(
 - `params.toolUses` describes the pending tool calls
 - `ProceedOnce` approves the current request only
 
-## Key snippet: pass the handler to `query()`
+## Key snippet: pass the handler to `createSession()`
 
 ```ts
-const stream = query({
-  prompt: `Create a file called ${outputPath} with the text 'Hello, World!'`,
+const session = await createSession({
   cwd: process.cwd(),
   permissionHandler: (params) => permissionHandler(outputPath, params),
 });
+
+for await (const msg of session.stream(
+  `Create a file called ${outputPath} with the text 'Hello, World!'`
+)) {
+  // Handle streamed messages.
+}
 ```
 
 ## Full script
@@ -45,7 +50,7 @@ const stream = query({
 ```ts
 import {
   DroidMessageType,
-  query,
+  createSession,
   ToolConfirmationOutcome,
   ToolConfirmationType,
   type RequestPermissionRequestParams,
@@ -79,16 +84,21 @@ async function main(): Promise<void> {
   const outputPath = join(tempDir, 'hello.txt');
 
   try {
-    const stream = query({
-      prompt: `Create a file called ${outputPath} with the text 'Hello, World!'`,
+    const session = await createSession({
       cwd: process.cwd(),
       permissionHandler: (params) => permissionHandler(outputPath, params),
     });
 
-    for await (const msg of stream) {
-      if (msg.type === DroidMessageType.AssistantTextDelta) {
-        process.stdout.write(msg.text);
+    try {
+      for await (const msg of session.stream(
+        `Create a file called ${outputPath} with the text 'Hello, World!'`
+      )) {
+        if (msg.type === DroidMessageType.AssistantTextDelta) {
+          process.stdout.write(msg.text);
+        }
       }
+    } finally {
+      await session.close();
     }
   } finally {
     await rm(tempDir, { recursive: true, force: true });

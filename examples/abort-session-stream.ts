@@ -15,9 +15,14 @@ const timeout = setTimeout(
 );
 
 try {
-  await session.send('Write a long explanation of how compilers work.', {
-    abortSignal: controller.signal,
-  });
+  for await (const _msg of session.stream(
+    'Write a long explanation of how compilers work.',
+    {
+      abortSignal: controller.signal,
+    }
+  )) {
+    void _msg;
+  }
 } catch (error) {
   console.log(error instanceof Error ? error.message : String(error));
 } finally {

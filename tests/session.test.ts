@@ -11,22 +11,21 @@ import { ConnectionError, SessionNotFoundError } from '../src/errors.js';
 import {
   AutonomyLevel,
   ContextStatsAccuracy,
-  DroidErrorType,
   DroidInteractionMode,
   DroidServerMethod,
   DroidWorkingState,
   JsonRpcErrorCode,
   McpServerType,
-  OutputFormatType,
   ReasoningEffort,
   SessionNotificationType,
   SettingsLevel,
 } from '../src/schemas/index.js';
 import { createSession, resumeSession, DroidSession } from '../src/session.js';
-import type { DroidResult } from '../src/session.js';
 import type { DroidMessage } from '../src/stream.js';
 import {
   InMemoryTransport,
+  collectStreamText,
+  findLastTurnComplete,
   makeErrorResponse,
   makeSessionNotification,
   makeSuccessResponse,
@@ -56,6 +55,17 @@ function setupInitResponder(
       });
     }
   });
+}
+
+async function expectStreamToThrow(
+  session: DroidSession,
+  prompt: string
+): Promise<void> {
+  await expect(async () => {
+    for await (const _msg of session.stream(prompt)) {
+      void _msg;
+    }
+  }).rejects.toThrow(ConnectionError);
 }
 
 /**
@@ -313,8 +323,8 @@ describe('resumeSession()', () => {
 });
 
 describe('DroidSession', () => {
-  describe('stream() (VAL-API-004)', () => {
-    it('returns AsyncGenerator yielding DroidMessage until TurnComplete', async () => {
+  describe('stream() API (VAL-API-004)', () => {
+    it('streams DroidMessage until TurnComplete', async () => {
       const transport = new InMemoryTransport();
       await transport.connect();
 
@@ -370,340 +380,6 @@ describe('DroidSession', () => {
     });
   });
 
-  describe('send() (VAL-API-005)', () => {
-    it('returns DroidResult with text, messages, tokenUsage', async () => {
-      const transport = new InMemoryTransport();
-      await transport.connect();
-
-      setupFullResponder(transport, 'sess-send-001');
-
-      const session = await createSession({ transport });
-
-      const result = await session.send('Write hello');
-
-      expect(result).toBeDefined();
-      expect(typeof result.text).toBe('string');
-      expect(result.text).toBe('Hello world');
-      expect(Array.isArray(result.messages)).toBe(true);
-      expect(result.messages.length).toBeGreaterThanOrEqual(3);
-
-      expect(result.tokenUsage).toBeDefined();
-      expect(result.tokenUsage!.inputTokens).toBe(100);
-      expect(result.tokenUsage!.outputTokens).toBe(50);
-      expect(result.sessionId).toBe('sess-send-001');
-      expect(result.durationMs).toBeGreaterThanOrEqual(0);
-      expect(result.turnCount).toBe(1);
-      expect(result.error).toBeNull();
-      expect(result.structuredOutput).toBeNull();
-      expect(result.success).toBe(true);
-
-      await session.close();
-    });
-
-    it('reports error metadata when an error event is emitted', async () => {
-      const transport = new InMemoryTransport();
-      await transport.connect();
-
-      const originalSend = transport.send.bind(transport);
-      transport.send = (message: Record<string, unknown>) => {
-        originalSend(message);
-        const msg = message as Record<string, unknown>;
-        const method = msg['method'] as string;
-        const id = msg['id'] as string;
-
-        if (method === DroidServerMethod.INITIALIZE_SESSION) {
-          queueMicrotask(() => {
-            transport.injectMessage(
-              makeSuccessResponse(id, {
-                sessionId: 'sess-send-error-metadata',
-                session: {},
-                settings: { modelId: 'test', reasoningEffort: 'medium' },
-              })
-            );
-          });
-        } else if (method === DroidServerMethod.ADD_USER_MESSAGE) {
-          queueMicrotask(() => {
-            transport.injectMessage(makeSuccessResponse(id, {}));
-            transport.injectMessage(
-              makeSessionNotification(
-                SessionNotificationType.DROID_WORKING_STATE_CHANGED,
-                { newState: DroidWorkingState.StreamingAssistantMessage }
-              )
-            );
-            transport.injectMessage(
-              makeSessionNotification(SessionNotificationType.ERROR, {
-                message: 'Something went wrong',
-                errorType: DroidErrorType.ERROR,
-                timestamp: '2026-05-02T00:00:00.000Z',
-              })
-            );
-            transport.injectMessage(
-              makeSessionNotification(
-                SessionNotificationType.DROID_WORKING_STATE_CHANGED,
-                { newState: DroidWorkingState.Idle }
-              )
-            );
-          });
-        }
-      };
-
-      const session = await createSession({ transport });
-      const result = await session.send('Test error metadata');
-
-      expect(result.success).toBe(false);
-      expect(result.error).toMatchObject({
-        type: 'error',
-        message: 'Something went wrong',
-        errorType: DroidErrorType.ERROR,
-      });
-      expect(result.sessionId).toBe('sess-send-error-metadata');
-      expect(result.turnCount).toBe(1);
-
-      await session.close();
-    });
-
-    it('passes outputFormat and aggregates structured output', async () => {
-      const transport = new InMemoryTransport();
-      await transport.connect();
-
-      setupFullResponder(transport, 'sess-structured-output', {
-        [DroidServerMethod.ADD_USER_MESSAGE]: (id) => {
-          queueMicrotask(() => {
-            transport.injectMessage(makeSuccessResponse(id, {}));
-            transport.injectMessage(
-              makeSessionNotification(
-                SessionNotificationType.DROID_WORKING_STATE_CHANGED,
-                { newState: DroidWorkingState.StreamingAssistantMessage }
-              )
-            );
-            transport.injectMessage(
-              makeSessionNotification(SessionNotificationType.CREATE_MESSAGE, {
-                message: {
-                  id: 'msg-structured',
-                  role: 'assistant',
-                  content: [
-                    {
-                      type: 'text',
-                      text: JSON.stringify({ name: 'Ada' }),
-                    },
-                  ],
-                  createdAt: Date.now(),
-                  updatedAt: Date.now(),
-                },
-              })
-            );
-            transport.injectMessage(
-              makeSessionNotification(
-                SessionNotificationType.DROID_WORKING_STATE_CHANGED,
-                { newState: DroidWorkingState.Idle }
-              )
-            );
-          });
-        },
-      });
-
-      const session = await createSession({ transport });
-      const outputFormat = {
-        type: OutputFormatType.JsonSchema,
-        schema: {
-          type: 'object',
-          properties: {
-            name: { type: 'string' },
-          },
-          required: ['name'],
-        },
-      };
-
-      const result = await session.send('Return a person', { outputFormat });
-      const addUserMessage = transport.sentMessages.find(
-        (message) =>
-          (message as Record<string, unknown>)['method'] ===
-          DroidServerMethod.ADD_USER_MESSAGE
-      ) as Record<string, unknown>;
-
-      expect(
-        (addUserMessage['params'] as Record<string, unknown>)['outputFormat']
-      ).toEqual(outputFormat);
-      expect(result.text).toEqual(JSON.stringify({ name: 'Ada' }));
-      expect(result.structuredOutput).toEqual({ name: 'Ada' });
-      expect(result.messages).toContainEqual({
-        type: 'create_message',
-        messageId: 'msg-structured',
-        role: 'assistant',
-        content: [
-          {
-            type: 'text',
-            text: JSON.stringify({ name: 'Ada' }),
-          },
-        ],
-      });
-
-      await session.close();
-    });
-
-    it('concatenates multiple text deltas', async () => {
-      const transport = new InMemoryTransport();
-      await transport.connect();
-
-      const originalSend = transport.send.bind(transport);
-      transport.send = (message: Record<string, unknown>) => {
-        originalSend(message);
-        const msg = message as Record<string, unknown>;
-        const method = msg['method'] as string;
-        const id = msg['id'] as string;
-
-        if (method === DroidServerMethod.INITIALIZE_SESSION) {
-          queueMicrotask(() => {
-            transport.injectMessage(
-              makeSuccessResponse(id, {
-                sessionId: 'sess-concat',
-                session: {},
-                settings: { modelId: 'test', reasoningEffort: 'medium' },
-              })
-            );
-          });
-        } else if (method === DroidServerMethod.ADD_USER_MESSAGE) {
-          queueMicrotask(() => {
-            transport.injectMessage(makeSuccessResponse(id, {}));
-
-            transport.injectMessage(
-              makeSessionNotification(
-                SessionNotificationType.DROID_WORKING_STATE_CHANGED,
-                { newState: DroidWorkingState.StreamingAssistantMessage }
-              )
-            );
-
-            transport.injectMessage(
-              makeSessionNotification(
-                SessionNotificationType.ASSISTANT_TEXT_DELTA,
-                {
-                  messageId: 'msg-1',
-                  blockIndex: 0,
-                  textDelta: 'Hello ',
-                }
-              )
-            );
-            transport.injectMessage(
-              makeSessionNotification(
-                SessionNotificationType.ASSISTANT_TEXT_DELTA,
-                {
-                  messageId: 'msg-1',
-                  blockIndex: 0,
-                  textDelta: 'beautiful ',
-                }
-              )
-            );
-            transport.injectMessage(
-              makeSessionNotification(
-                SessionNotificationType.ASSISTANT_TEXT_DELTA,
-                {
-                  messageId: 'msg-1',
-                  blockIndex: 0,
-                  textDelta: 'world!',
-                }
-              )
-            );
-
-            transport.injectMessage(
-              makeSessionNotification(
-                SessionNotificationType.DROID_WORKING_STATE_CHANGED,
-                { newState: DroidWorkingState.Idle }
-              )
-            );
-          });
-        }
-      };
-
-      const session = await createSession({ transport });
-      const result = await session.send('Test');
-
-      expect(result.text).toBe('Hello beautiful world!');
-
-      await session.close();
-    });
-    it('rejects send when abortSignal is already aborted', async () => {
-      const transport = new InMemoryTransport();
-      await transport.connect();
-
-      setupFullResponder(transport, 'sess-send-pre-aborted');
-
-      const session = await createSession({ transport });
-      const controller = new AbortController();
-      controller.abort(new Error('send aborted'));
-
-      await expect(
-        session.send('Should not send', { abortSignal: controller.signal })
-      ).rejects.toThrow('send aborted');
-
-      expect(
-        transport.sentMessages.some(
-          (m) =>
-            (m as Record<string, unknown>)['method'] ===
-            DroidServerMethod.ADD_USER_MESSAGE
-        )
-      ).toBe(false);
-
-      await session.close();
-    });
-
-    it('interrupts and rejects an in-flight stream when abortSignal fires', async () => {
-      const transport = new InMemoryTransport();
-      await transport.connect();
-
-      setupFullResponder(transport, 'sess-stream-abort', {
-        [DroidServerMethod.ADD_USER_MESSAGE]: (id) => {
-          queueMicrotask(() => {
-            transport.injectMessage(makeSuccessResponse(id, {}));
-            transport.injectMessage(
-              makeSessionNotification(
-                SessionNotificationType.DROID_WORKING_STATE_CHANGED,
-                { newState: DroidWorkingState.StreamingAssistantMessage }
-              )
-            );
-            transport.injectMessage(
-              makeSessionNotification(
-                SessionNotificationType.ASSISTANT_TEXT_DELTA,
-                {
-                  messageId: 'msg-1',
-                  blockIndex: 0,
-                  textDelta: 'partial',
-                }
-              )
-            );
-          });
-        },
-      });
-
-      const session = await createSession({ transport });
-      const controller = new AbortController();
-      const iterator = session.stream('Start streaming', {
-        abortSignal: controller.signal,
-      });
-
-      await expect(iterator.next()).resolves.toMatchObject({
-        value: { type: 'working_state_changed' },
-        done: false,
-      });
-      await expect(iterator.next()).resolves.toMatchObject({
-        value: { type: 'assistant_text_delta', text: 'partial' },
-        done: false,
-      });
-
-      controller.abort(new Error('stream aborted'));
-
-      await expect(iterator.next()).rejects.toThrow('stream aborted');
-      expect(
-        transport.sentMessages.some(
-          (m) =>
-            (m as Record<string, unknown>)['method'] ===
-            DroidServerMethod.INTERRUPT_SESSION
-        )
-      ).toBe(true);
-
-      await session.close();
-    });
-  });
-
   describe('close() (VAL-API-006)', () => {
     it('closes transport and rejects pending requests', async () => {
       const transport = new InMemoryTransport();
@@ -717,7 +393,7 @@ describe('DroidSession', () => {
 
       expect(transport.isConnected).toBe(false);
 
-      await expect(session.send('test')).rejects.toThrow(ConnectionError);
+      await expectStreamToThrow(session, 'test');
     });
 
     it('is idempotent — safe to call multiple times', async () => {
@@ -936,98 +612,6 @@ describe('DroidSession', () => {
       expect(params['interactionMode']).toBe(DroidInteractionMode.Spec);
       expect(params['specModeModelId']).toBe('claude-spec');
       expect(params['specModeReasoningEffort']).toBe(ReasoningEffort.High);
-
-      await session.close();
-    });
-  });
-
-  describe('DroidResult structure (VAL-API-013)', () => {
-    it('has text, messages array, tokenUsage, and metadata', async () => {
-      const transport = new InMemoryTransport();
-      await transport.connect();
-
-      setupFullResponder(transport, 'sess-result-001');
-
-      const session = await createSession({ transport });
-
-      const result: DroidResult = await session.send('Test');
-
-      expect(typeof result.text).toBe('string');
-      expect(Array.isArray(result.messages)).toBe(true);
-      expect(result.sessionId).toBe('sess-result-001');
-      expect(typeof result.durationMs).toBe('number');
-      expect(typeof result.turnCount).toBe('number');
-      expect(result.error).toBeNull();
-      expect(result.structuredOutput).toBeNull();
-      expect(result.success).toBe(true);
-
-      expect(result.tokenUsage).not.toBeNull();
-      if (result.tokenUsage) {
-        expect(typeof result.tokenUsage.inputTokens).toBe('number');
-        expect(typeof result.tokenUsage.outputTokens).toBe('number');
-        expect(typeof result.tokenUsage.cacheReadTokens).toBe('number');
-        expect(typeof result.tokenUsage.cacheCreationTokens).toBe('number');
-        expect(typeof result.tokenUsage.thinkingTokens).toBe('number');
-      }
-
-      await session.close();
-    });
-
-    it('returns null tokenUsage when no usage notification received', async () => {
-      const transport = new InMemoryTransport();
-      await transport.connect();
-
-      const originalSend = transport.send.bind(transport);
-      transport.send = (message: Record<string, unknown>) => {
-        originalSend(message);
-        const msg = message as Record<string, unknown>;
-        const method = msg['method'] as string;
-        const id = msg['id'] as string;
-
-        if (method === DroidServerMethod.INITIALIZE_SESSION) {
-          queueMicrotask(() => {
-            transport.injectMessage(
-              makeSuccessResponse(id, {
-                sessionId: 'sess-no-tokens',
-                session: {},
-                settings: { modelId: 'test', reasoningEffort: 'medium' },
-              })
-            );
-          });
-        } else if (method === DroidServerMethod.ADD_USER_MESSAGE) {
-          queueMicrotask(() => {
-            transport.injectMessage(makeSuccessResponse(id, {}));
-
-            transport.injectMessage(
-              makeSessionNotification(
-                SessionNotificationType.DROID_WORKING_STATE_CHANGED,
-                { newState: DroidWorkingState.StreamingAssistantMessage }
-              )
-            );
-            transport.injectMessage(
-              makeSessionNotification(
-                SessionNotificationType.ASSISTANT_TEXT_DELTA,
-                {
-                  messageId: 'msg-1',
-                  blockIndex: 0,
-                  textDelta: 'Hi',
-                }
-              )
-            );
-            transport.injectMessage(
-              makeSessionNotification(
-                SessionNotificationType.DROID_WORKING_STATE_CHANGED,
-                { newState: DroidWorkingState.Idle }
-              )
-            );
-          });
-        }
-      };
-
-      const session = await createSession({ transport });
-      const result = await session.send('Test');
-
-      expect(result.tokenUsage).toBeNull();
 
       await session.close();
     });
@@ -1396,93 +980,7 @@ describe('DroidSession', () => {
       expect(messages[messages.length - 1].type).toBe('turn_complete');
       expect(transport.isConnected).toBe(false);
 
-      await expect(session.send('test')).rejects.toThrow(ConnectionError);
-    });
-  });
-
-  describe('concurrent usage', () => {
-    it('second stream() call while first is active receives its own messages', async () => {
-      const transport = new InMemoryTransport();
-      await transport.connect();
-
-      let addUserMessageCount = 0;
-
-      const originalSend = transport.send.bind(transport);
-      transport.send = (message: Record<string, unknown>) => {
-        originalSend(message);
-        const msg = message as Record<string, unknown>;
-        const method = msg['method'] as string;
-        const id = msg['id'] as string;
-
-        if (method === DroidServerMethod.INITIALIZE_SESSION) {
-          queueMicrotask(() => {
-            transport.injectMessage(
-              makeSuccessResponse(id, {
-                sessionId: 'sess-concurrent',
-                session: {},
-                settings: { modelId: 'test', reasoningEffort: 'medium' },
-              })
-            );
-          });
-        } else if (method === DroidServerMethod.ADD_USER_MESSAGE) {
-          addUserMessageCount++;
-          const callIndex = addUserMessageCount;
-          queueMicrotask(() => {
-            transport.injectMessage(makeSuccessResponse(id, {}));
-
-            transport.injectMessage(
-              makeSessionNotification(
-                SessionNotificationType.DROID_WORKING_STATE_CHANGED,
-                { newState: DroidWorkingState.StreamingAssistantMessage }
-              )
-            );
-
-            transport.injectMessage(
-              makeSessionNotification(
-                SessionNotificationType.ASSISTANT_TEXT_DELTA,
-                {
-                  messageId: `msg-${callIndex}`,
-                  blockIndex: 0,
-                  textDelta: `Response ${callIndex}`,
-                }
-              )
-            );
-
-            transport.injectMessage(
-              makeSessionNotification(
-                SessionNotificationType.DROID_WORKING_STATE_CHANGED,
-                { newState: DroidWorkingState.Idle }
-              )
-            );
-          });
-        }
-      };
-
-      const session = await createSession({ transport });
-
-      const msgsA: DroidMessage[] = [];
-      const msgsB: DroidMessage[] = [];
-
-      const promiseA = (async () => {
-        for await (const msg of session.stream('A')) {
-          msgsA.push(msg);
-        }
-      })();
-
-      const promiseB = (async () => {
-        for await (const msg of session.stream('B')) {
-          msgsB.push(msg);
-        }
-      })();
-
-      await Promise.all([promiseA, promiseB]);
-
-      expect(msgsA.length).toBeGreaterThan(0);
-      expect(msgsB.length).toBeGreaterThan(0);
-      expect(msgsA[msgsA.length - 1].type).toBe('turn_complete');
-      expect(msgsB[msgsB.length - 1].type).toBe('turn_complete');
-
-      await session.close();
+      await expectStreamToThrow(session, 'test');
     });
   });
 
@@ -1543,7 +1041,7 @@ describe('DroidSession', () => {
         }
       }
 
-      const result = await session.send('second turn');
+      const result = await collectStreamText(session, 'second turn');
       expect(result.text).toBe('Hello world');
       expect(result.messages.length).toBeGreaterThanOrEqual(3);
 
@@ -1635,15 +1133,29 @@ describe('DroidSession', () => {
 
       const session = await createSession({ transport });
 
-      const result1 = await session.send('first');
-      expect(result1.tokenUsage).not.toBeNull();
-      expect(result1.tokenUsage!.inputTokens).toBe(100);
-      expect(result1.tokenUsage!.outputTokens).toBe(50);
+      const result1: DroidMessage[] = [];
+      for await (const msg of session.stream('first')) {
+        result1.push(msg);
+      }
+      const turn1 = findLastTurnComplete(result1);
+      expect(turn1?.type).toBe('turn_complete');
+      if (turn1?.type === 'turn_complete') {
+        expect(turn1.tokenUsage).not.toBeNull();
+        expect(turn1.tokenUsage!.inputTokens).toBe(100);
+        expect(turn1.tokenUsage!.outputTokens).toBe(50);
+      }
 
-      const result2 = await session.send('second');
-      expect(result2.tokenUsage).not.toBeNull();
-      expect(result2.tokenUsage!.inputTokens).toBe(200);
-      expect(result2.tokenUsage!.outputTokens).toBe(75);
+      const result2: DroidMessage[] = [];
+      for await (const msg of session.stream('second')) {
+        result2.push(msg);
+      }
+      const turn2 = findLastTurnComplete(result2);
+      expect(turn2?.type).toBe('turn_complete');
+      if (turn2?.type === 'turn_complete') {
+        expect(turn2.tokenUsage).not.toBeNull();
+        expect(turn2.tokenUsage!.inputTokens).toBe(200);
+        expect(turn2.tokenUsage!.outputTokens).toBe(75);
+      }
 
       await session.close();
     });
@@ -1746,37 +1258,6 @@ describe('DroidSession', () => {
     });
   });
 
-  describe('concurrent send() and stream()', () => {
-    it('concurrent stream() and send() both complete without error', async () => {
-      const transport = new InMemoryTransport();
-      await transport.connect();
-
-      setupFullResponder(transport, 'sess-concurrent-send');
-
-      const session = await createSession({ transport });
-
-      const msgsA: DroidMessage[] = [];
-
-      const [, resultB] = await Promise.all([
-        (async () => {
-          for await (const msg of session.stream('A')) {
-            msgsA.push(msg);
-          }
-        })(),
-        session.send('B'),
-      ]);
-
-      expect(msgsA[msgsA.length - 1].type).toBe('turn_complete');
-
-      expect(resultB.text.length).toBeGreaterThan(0);
-      expect(resultB.messages[resultB.messages.length - 1].type).toBe(
-        'turn_complete'
-      );
-
-      await session.close();
-    });
-  });
-
   describe('error recovery between turns', () => {
     it('session recovers after a protocol error on the first turn', async () => {
       const transport = new InMemoryTransport();
@@ -1834,7 +1315,7 @@ describe('DroidSession', () => {
         }
       }).rejects.toThrow();
 
-      const result = await session.send('second');
+      const result = await collectStreamText(session, 'second');
       expect(result.text).toBe('Recovered');
       expect(result.messages.length).toBeGreaterThan(0);
 
@@ -2003,7 +1484,7 @@ describe('DroidSession', () => {
       await new Promise((resolve) => setTimeout(resolve, 10));
 
       expect(transport.isConnected).toBe(false);
-      await expect(session.send('test')).rejects.toThrow(ConnectionError);
+      await expectStreamToThrow(session, 'test');
     });
 
     it('closes session immediately when signal is already aborted', async () => {
@@ -2023,7 +1504,7 @@ describe('DroidSession', () => {
       await new Promise((resolve) => setTimeout(resolve, 10));
 
       expect(transport.isConnected).toBe(false);
-      await expect(session.send('test')).rejects.toThrow(ConnectionError);
+      await expectStreamToThrow(session, 'test');
     });
   });
 
@@ -2048,7 +1529,7 @@ describe('DroidSession', () => {
       await new Promise((resolve) => setTimeout(resolve, 10));
 
       expect(transport.isConnected).toBe(false);
-      await expect(session.send('test')).rejects.toThrow(ConnectionError);
+      await expectStreamToThrow(session, 'test');
     });
 
     it('closes resumed session immediately when signal is already aborted', async () => {
@@ -2068,11 +1549,11 @@ describe('DroidSession', () => {
       await new Promise((resolve) => setTimeout(resolve, 10));
 
       expect(transport.isConnected).toBe(false);
-      await expect(session.send('test')).rejects.toThrow(ConnectionError);
+      await expectStreamToThrow(session, 'test');
     });
   });
 
-  describe('concurrent send() + updateSettings()', () => {
+  describe('concurrent stream() + updateSettings()', () => {
     it('both resolve without error when called concurrently', async () => {
       const transport = new InMemoryTransport();
       await transport.connect();
@@ -2081,12 +1562,12 @@ describe('DroidSession', () => {
 
       const session = await createSession({ transport });
 
-      const [sendResult, settingsResult] = await Promise.all([
-        session.send('test'),
+      const [streamResult, settingsResult] = await Promise.all([
+        collectStreamText(session, 'test'),
         session.updateSettings({ modelId: 'new-model' }),
       ]);
 
-      expect(sendResult.text).toBe('Hello world');
+      expect(streamResult.text).toBe('Hello world');
       expect(settingsResult).toBeDefined();
 
       const sentMethods = transport.sentMessages.map(

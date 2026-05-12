@@ -53,7 +53,7 @@ import { JsonObjectSchema, type JsonObject } from './schemas/shared.js';
 import { DroidMessageType } from './stream.js';
 import type { DroidMessage, ErrorEvent, TokenUsageUpdate } from './stream.js';
 
-/** Aggregated result from a non-streaming `session.send()` call. */
+/** Aggregated result from a one-shot {@link run} call. */
 export interface DroidResult {
   /** Session that produced this result. */
   sessionId: string;
@@ -142,6 +142,68 @@ function extractAssistantText(message: DroidMessage): string {
     .join('');
 }
 
+export function aggregateMessages(
+  sessionId: string,
+  messages: DroidMessage[],
+  startedAt: number,
+  options?: MessageOptions
+): DroidResult {
+  let fullText = '';
+  let lastTokenUsage: TokenUsageUpdate | null = null;
+  let firstError: ErrorEvent | null = null;
+  let structuredOutput: JsonObject | null = null;
+  let finalAssistantText = '';
+  let turnCount = 0;
+
+  for (const msg of messages) {
+    if (msg.type === DroidMessageType.AssistantTextDelta) {
+      fullText += msg.text;
+    }
+
+    const assistantText = extractAssistantText(msg);
+    if (assistantText) {
+      finalAssistantText = assistantText;
+      if (options?.outputFormat && fullText.length === 0) {
+        fullText = assistantText;
+      }
+    }
+
+    if (msg.type === DroidMessageType.TokenUsageUpdate) {
+      lastTokenUsage = msg;
+    }
+
+    if (msg.type === DroidMessageType.Error && firstError === null) {
+      firstError = msg;
+    }
+
+    if (msg.type === DroidMessageType.TurnComplete) {
+      turnCount++;
+      if (msg.tokenUsage) {
+        lastTokenUsage = msg.tokenUsage;
+      }
+    }
+  }
+
+  if (options?.outputFormat) {
+    const textToParse = finalAssistantText || fullText;
+    if (textToParse) {
+      structuredOutput = parseJsonObject(textToParse);
+    }
+  }
+
+  return {
+    sessionId,
+    text: fullText,
+    messages,
+    tokenUsage: lastTokenUsage,
+    durationMs: Date.now() - startedAt,
+    turnCount,
+    error: firstError,
+    structuredOutput,
+    success: firstError === null,
+  };
+}
+
 /** Create instances via {@link createSession} or {@link resumeSession}. */
 export class DroidSession {
   private _client: DroidClient;
@@ -182,7 +244,7 @@ export class DroidSession {
 
   /** Yields {@link DroidMessage} events until `turn_complete`. */
   async *stream(
-    text: string,
+    prompt: string,
     options?: MessageOptions
   ): AsyncGenerator<DroidMessage, void, undefined> {
     this._ensureNotClosed();
@@ -203,7 +265,7 @@ export class DroidSession {
     try {
       await Promise.race([
         this._client.addUserMessage({
-          text,
+          text: prompt,
           images: options?.images,
           files: options?.files,
           outputFormat: options?.outputFormat,
@@ -221,71 +283,6 @@ export class DroidSession {
       cleanupAbortSignal();
       unsubscribe();
     }
-  }
-
-  /** Consumes the stream and returns an aggregated {@link DroidResult}. */
-  async send(text: string, options?: MessageOptions): Promise<DroidResult> {
-    this._ensureNotClosed();
-
-    const messages: DroidMessage[] = [];
-    let fullText = '';
-    let lastTokenUsage: TokenUsageUpdate | null = null;
-    let firstError: ErrorEvent | null = null;
-    let structuredOutput: JsonObject | null = null;
-    let finalAssistantText = '';
-    let turnCount = 0;
-    const startedAt = Date.now();
-
-    for await (const msg of this.stream(text, options)) {
-      messages.push(msg);
-
-      if (msg.type === DroidMessageType.AssistantTextDelta) {
-        fullText += msg.text;
-      }
-
-      const assistantText = extractAssistantText(msg);
-      if (assistantText) {
-        finalAssistantText = assistantText;
-        if (options?.outputFormat && fullText.length === 0) {
-          fullText = assistantText;
-        }
-      }
-
-      if (msg.type === DroidMessageType.TokenUsageUpdate) {
-        lastTokenUsage = msg;
-      }
-
-      if (msg.type === DroidMessageType.Error && firstError === null) {
-        firstError = msg;
-      }
-
-      if (options?.outputFormat && structuredOutput === null) {
-        const textToParse = finalAssistantText || fullText;
-        if (textToParse) {
-          structuredOutput = parseJsonObject(textToParse);
-        }
-      }
-
-      if (msg.type === DroidMessageType.TurnComplete) {
-        turnCount++;
-        if (msg.tokenUsage) {
-          // Prefer the final synthesized token usage when available.
-          lastTokenUsage = msg.tokenUsage;
-        }
-      }
-    }
-
-    return {
-      sessionId: this._sessionId,
-      text: fullText,
-      messages,
-      tokenUsage: lastTokenUsage,
-      durationMs: Date.now() - startedAt,
-      turnCount,
-      error: firstError,
-      structuredOutput,
-      success: firstError === null,
-    };
   }
 
   async interrupt(): Promise<void> {
