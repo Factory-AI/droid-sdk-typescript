@@ -27,7 +27,7 @@ npm install @factory/droid-sdk
 The SDK wraps `droid exec` as a subprocess and exposes two main prompt patterns:
 
 - `run()` for one-shot prompt/response flows that return an aggregated result
-- `createSession()` / `resumeSession()` with `session.send()` and `turn.stream()` for streamed multi-turn sessions
+- `createSession()` / `resumeSession()` with `session.stream()` for streamed multi-turn sessions
 
 It also includes:
 
@@ -154,13 +154,13 @@ Returned by `createSession()` and `resumeSession()`.
 
 ### Core methods
 
-| Method                   | Description                                    |
-| :----------------------- | :--------------------------------------------- |
-| `send(prompt, options?)` | Starts a turn and returns `Promise<DroidTurn>` |
-| `interrupt()`            | Gracefully interrupts the current turn         |
-| `close()`                | Closes the underlying connection               |
-| `updateSettings(params)` | Updates model/session settings                 |
-| `enterSpecMode(params?)` | Switches the current session into spec mode    |
+| Method                     | Description                                        |
+| :------------------------- | :------------------------------------------------- |
+| `stream(prompt, options?)` | Yields `DroidMessage` events until `turn_complete` |
+| `interrupt()`              | Gracefully interrupts the current turn             |
+| `close()`                  | Closes the underlying connection                   |
+| `updateSettings(params)`   | Updates model/session settings                     |
+| `enterSpecMode(params?)`   | Switches the current session into spec mode        |
 
 ### Session utilities
 
@@ -194,23 +194,9 @@ Returned by `createSession()` and `resumeSession()`.
 | `sessionId`  | `string`                                       | Active session ID           |
 | `initResult` | `InitializeSessionResult \| LoadSessionResult` | Raw initialize/load payload |
 
-## `DroidTurn`
-
-Returned by `session.send(prompt, options?)`.
-
-| Method        | Description                                            |
-| :------------ | :----------------------------------------------------- |
-| `stream()`    | Yields `DroidMessage` events until `turn_complete`     |
-| `result()`    | Consumes/aggregates the turn and returns `DroidResult` |
-| `interrupt()` | Gracefully interrupts the current turn                 |
-
-| Property    | Type     | Description                |
-| :---------- | :------- | :------------------------- |
-| `sessionId` | `string` | Session that owns the turn |
-
 ### Message attachments
 
-`session.send(prompt, options?)` accepts `MessageOptions`:
+`session.stream(prompt, options?)` accepts `MessageOptions`:
 
 | Field          | Type                  | Description                                      |
 | :------------- | :-------------------- | :----------------------------------------------- |

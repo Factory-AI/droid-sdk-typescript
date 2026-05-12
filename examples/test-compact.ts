@@ -27,7 +27,7 @@ async function main(): Promise<void> {
       console.log(`=== Turn ${i + 1} ===`);
       console.log(`Prompt: "${prompts[i]}"\n`);
 
-      for await (const msg of (await session.send(prompts[i])).stream()) {
+      for await (const msg of session.stream(prompts[i])) {
         if (msg.type === DroidMessageType.AssistantTextDelta) {
           process.stdout.write(msg.text);
         }

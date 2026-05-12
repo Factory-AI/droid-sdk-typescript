@@ -20,7 +20,7 @@ const session = await createSession({
   },
 });
 
-for await (const msg of (await session.send(prompt)).stream()) {
+for await (const msg of session.stream(prompt)) {
   // Handle streamed messages.
 }
 ```
@@ -87,7 +87,7 @@ async function main(): Promise<void> {
     });
 
     try {
-      for await (const msg of (await session.send(prompt)).stream()) {
+      for await (const msg of session.stream(prompt)) {
         if (msg.type === DroidMessageType.AssistantTextDelta) {
           process.stdout.write(msg.text);
         }

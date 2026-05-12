@@ -21,10 +21,18 @@ export async function collectStreamText(
   session: DroidSession,
   prompt: string
 ): Promise<{ text: string; messages: DroidMessage[] }> {
-  const result = await (await session.send(prompt)).result();
+  const messages: DroidMessage[] = [];
+  let text = '';
+  for await (const msg of session.stream(prompt)) {
+    messages.push(msg);
+    if (msg.type === 'assistant_text_delta') {
+      text += msg.text;
+    }
+  }
+
   return {
-    text: result.text,
-    messages: result.messages,
+    text,
+    messages,
   };
 }
 

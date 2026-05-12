@@ -56,11 +56,9 @@ try {
   });
 
   try {
-    for await (const _msg of (
-      await session.send(
-        `Plan then create ${outputPath} containing "Hello from Droid".`
-      )
-    ).stream()) {
+    for await (const _msg of session.stream(
+      `Plan then create ${outputPath} containing "Hello from Droid".`
+    )) {
       // Consume the stream until implementation finishes.
     }
   } finally {

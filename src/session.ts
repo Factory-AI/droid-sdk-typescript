@@ -53,7 +53,7 @@ import { JsonObjectSchema, type JsonObject } from './schemas/shared.js';
 import { DroidMessageType } from './stream.js';
 import type { DroidMessage, ErrorEvent, TokenUsageUpdate } from './stream.js';
 
-/** Aggregated result from a one-shot {@link run} call or {@link DroidTurn.result}. */
+/** Aggregated result from a one-shot {@link run} call. */
 export interface DroidResult {
   /** Session that produced this result. */
   sessionId: string;
@@ -142,7 +142,7 @@ function extractAssistantText(message: DroidMessage): string {
     .join('');
 }
 
-function aggregateMessages(
+export function aggregateMessages(
   sessionId: string,
   messages: DroidMessage[],
   startedAt: number,
@@ -204,107 +204,12 @@ function aggregateMessages(
   };
 }
 
-export class DroidTurn {
-  private readonly _client: DroidClient;
-  private readonly _sessionId: string;
-  private readonly _bridge: MessageBridge;
-  private readonly _cleanup: () => void;
-  private readonly _options: MessageOptions | undefined;
-  private readonly _startedAt = Date.now();
-  private readonly _messages: DroidMessage[] = [];
-  private _streamStarted = false;
-  private _done = false;
-  private _completionError: unknown = null;
-  private _resolveCompletion: () => void = () => {};
-  private readonly _completion = new Promise<void>((resolve) => {
-    this._resolveCompletion = resolve;
-  });
-
-  /** @internal */
-  constructor(
-    client: DroidClient,
-    sessionId: string,
-    bridge: MessageBridge,
-    cleanup: () => void,
-    options?: MessageOptions
-  ) {
-    this._client = client;
-    this._sessionId = sessionId;
-    this._bridge = bridge;
-    this._cleanup = cleanup;
-    this._options = options;
-  }
-
-  get sessionId(): string {
-    return this._sessionId;
-  }
-
-  async *stream(): AsyncGenerator<DroidMessage, void, undefined> {
-    throwIfAborted(this._options?.abortSignal);
-
-    if (this._streamStarted) {
-      if (!this._done) {
-        throw new Error('Turn stream is already being consumed.');
-      }
-
-      for (const msg of this._messages) {
-        yield msg;
-      }
-      return;
-    }
-
-    this._streamStarted = true;
-
-    try {
-      for await (const msg of this._bridge.messages()) {
-        throwIfAborted(this._options?.abortSignal);
-        this._messages.push(msg);
-        yield msg;
-      }
-      throwIfAborted(this._options?.abortSignal);
-    } catch (error) {
-      this._completionError = error;
-      throw error;
-    } finally {
-      this._done = true;
-      this._cleanup();
-      this._resolveCompletion();
-    }
-  }
-
-  async result(): Promise<DroidResult> {
-    if (!this._streamStarted) {
-      for await (const _msg of this.stream()) {
-        void _msg;
-      }
-    } else if (!this._done) {
-      await this._completion;
-    }
-
-    if (this._completionError) {
-      throw this._completionError;
-    }
-
-    return aggregateMessages(
-      this._sessionId,
-      this._messages,
-      this._startedAt,
-      this._options
-    );
-  }
-
-  async interrupt(): Promise<void> {
-    await this._client.interruptSession();
-  }
-}
-
 /** Create instances via {@link createSession} or {@link resumeSession}. */
 export class DroidSession {
   private _client: DroidClient;
   private _sessionId: string;
   private _initResult: InitializeSessionResult | LoadSessionResult;
   private _closed = false;
-  private _activeTurn: DroidTurn | null = null;
   private _cleanupAbortSignal: (() => void) | null = null;
   private _cleanupCallbacks: Array<() => Promise<void> | void> = [];
 
@@ -337,19 +242,15 @@ export class DroidSession {
     this._cleanupCallbacks.push(cleanup);
   }
 
-  /** Starts a turn and returns a handle for streaming or aggregation. */
-  async send(prompt: string, options?: MessageOptions): Promise<DroidTurn> {
+  /** Yields {@link DroidMessage} events until `turn_complete`. */
+  async *stream(
+    prompt: string,
+    options?: MessageOptions
+  ): AsyncGenerator<DroidMessage, void, undefined> {
     this._ensureNotClosed();
-    if (this._activeTurn !== null) {
-      throw new ConnectionError(
-        'A turn is already active. Consume its stream or result before sending another message.'
-      );
-    }
     throwIfAborted(options?.abortSignal);
 
-    let cleanedUp = false;
-    let cleanup: () => void = () => {};
-    const bridge = new MessageBridge(() => cleanup());
+    const bridge = new MessageBridge();
     const unsubscribe = this._client.onNotification(bridge.notificationHandler);
     let resolveAbort: () => void = () => {};
     const abortPromise = new Promise<void>((resolve) => {
@@ -358,28 +259,8 @@ export class DroidSession {
     const cleanupAbortSignal = wireAbortSignal(options?.abortSignal, () => {
       bridge.signalDone();
       resolveAbort();
-      cleanup();
       void this._client.interruptSession().catch(() => {});
     });
-    cleanup = (): void => {
-      if (cleanedUp) {
-        return;
-      }
-      cleanedUp = true;
-      if (this._activeTurn?.sessionId === this._sessionId) {
-        this._activeTurn = null;
-      }
-      cleanupAbortSignal();
-      unsubscribe();
-    };
-    const turn = new DroidTurn(
-      this._client,
-      this._sessionId,
-      bridge,
-      cleanup,
-      options
-    );
-    this._activeTurn = turn;
 
     try {
       await Promise.race([
@@ -392,10 +273,15 @@ export class DroidSession {
         abortPromise,
       ]);
       throwIfAborted(options?.abortSignal);
-      return turn;
-    } catch (error) {
-      cleanup();
-      throw error;
+
+      for await (const msg of bridge.messages()) {
+        throwIfAborted(options?.abortSignal);
+        yield msg;
+      }
+      throwIfAborted(options?.abortSignal);
+    } finally {
+      cleanupAbortSignal();
+      unsubscribe();
     }
   }
 

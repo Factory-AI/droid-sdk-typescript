@@ -5,7 +5,6 @@ import {
   DroidClient,
   DroidMessageType,
   DroidSession,
-  DroidTurn,
   ProcessExitError,
   ProcessTransport,
   ProtocolEngine,
@@ -23,12 +22,12 @@ describe('public API barrel', () => {
     expect(resumeSession).toBeTypeOf('function');
     expect(listSessions).toBeTypeOf('function');
     expect('query' in publicApi).toBe(false);
-    expect('stream' in DroidSession.prototype).toBe(false);
+    expect(DroidSession.prototype.stream).toBeTypeOf('function');
+    expect('DroidTurn' in publicApi).toBe(false);
   });
 
   it('exports the primary classes and error types', () => {
     expect(DroidSession).toBeTypeOf('function');
-    expect(DroidTurn).toBeTypeOf('function');
     expect(DroidClient).toBeTypeOf('function');
     expect(ProcessTransport).toBeTypeOf('function');
     expect(ProtocolEngine).toBeTypeOf('function');

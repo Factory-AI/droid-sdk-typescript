@@ -20,12 +20,7 @@ import {
   SessionNotificationType,
   SettingsLevel,
 } from '../src/schemas/index.js';
-import {
-  createSession,
-  resumeSession,
-  DroidSession,
-  DroidTurn,
-} from '../src/session.js';
+import { createSession, resumeSession, DroidSession } from '../src/session.js';
 import type { DroidMessage } from '../src/stream.js';
 import {
   InMemoryTransport,
@@ -67,7 +62,7 @@ async function expectStreamToThrow(
   prompt: string
 ): Promise<void> {
   await expect(async () => {
-    for await (const _msg of (await session.send(prompt)).stream()) {
+    for await (const _msg of session.stream(prompt)) {
       void _msg;
     }
   }).rejects.toThrow(ConnectionError);
@@ -328,23 +323,20 @@ describe('resumeSession()', () => {
 });
 
 describe('DroidSession', () => {
-  describe('send() turn API (VAL-API-004)', () => {
-    it('returns a DroidTurn that streams DroidMessage until TurnComplete', async () => {
+  describe('stream() API (VAL-API-004)', () => {
+    it('streams DroidMessage until TurnComplete', async () => {
       const transport = new InMemoryTransport();
       await transport.connect();
 
       setupFullResponder(transport, 'sess-stream-001');
 
       const session = await createSession({ transport });
-      const turn = await session.send('Hello');
 
       const messages: DroidMessage[] = [];
-      for await (const msg of turn.stream()) {
+      for await (const msg of session.stream('Hello')) {
         messages.push(msg);
       }
 
-      expect(turn).toBeInstanceOf(DroidTurn);
-      expect(turn.sessionId).toBe('sess-stream-001');
       expect(messages.length).toBeGreaterThanOrEqual(3);
 
       const textDeltas = messages.filter(
@@ -357,47 +349,7 @@ describe('DroidSession', () => {
       await session.close();
     });
 
-    it('turn.result() returns an aggregated DroidResult', async () => {
-      const transport = new InMemoryTransport();
-      await transport.connect();
-
-      setupFullResponder(transport, 'sess-turn-result');
-
-      const session = await createSession({ transport });
-      const turn = await session.send('Write hello');
-      const result = await turn.result();
-
-      expect(result.text).toBe('Hello world');
-      expect(result.messages.length).toBeGreaterThanOrEqual(3);
-      expect(result.tokenUsage).not.toBeNull();
-      expect(result.sessionId).toBe('sess-turn-result');
-      expect(result.turnCount).toBe(1);
-      expect(result.error).toBeNull();
-      expect(result.structuredOutput).toBeNull();
-      expect(result.success).toBe(true);
-
-      await session.close();
-    });
-
-    it('cleans up an unconsumed turn after it completes', async () => {
-      const transport = new InMemoryTransport();
-      await transport.connect();
-
-      setupFullResponder(transport, 'sess-unconsumed-cleanup');
-
-      const session = await createSession({ transport });
-      const first = await session.send('first');
-      expect(first.sessionId).toBe('sess-unconsumed-cleanup');
-
-      const second = await session.send('second');
-      const result = await second.result();
-
-      expect(result.text).toBe('Hello world');
-
-      await session.close();
-    });
-
-    it('supports multiple send calls (multi-turn)', async () => {
+    it('supports multiple stream calls (multi-turn)', async () => {
       const transport = new InMemoryTransport();
       await transport.connect();
 
@@ -406,13 +358,13 @@ describe('DroidSession', () => {
       const session = await createSession({ transport });
 
       const msgs1: DroidMessage[] = [];
-      for await (const msg of (await session.send('First message')).stream()) {
+      for await (const msg of session.stream('First message')) {
         msgs1.push(msg);
       }
       expect(msgs1[msgs1.length - 1].type).toBe('turn_complete');
 
       const msgs2: DroidMessage[] = [];
-      for await (const msg of (await session.send('Second message')).stream()) {
+      for await (const msg of session.stream('Second message')) {
         msgs2.push(msg);
       }
       expect(msgs2[msgs2.length - 1].type).toBe('turn_complete');
@@ -1018,7 +970,7 @@ describe('DroidSession', () => {
       const session = await createSession({ transport });
 
       const messages: DroidMessage[] = [];
-      for await (const msg of (await session.send('test')).stream()) {
+      for await (const msg of session.stream('test')) {
         messages.push(msg);
         if (msg.type === 'assistant_text_delta') {
           await session.close();
@@ -1029,85 +981,6 @@ describe('DroidSession', () => {
       expect(transport.isConnected).toBe(false);
 
       await expectStreamToThrow(session, 'test');
-    });
-  });
-
-  describe('concurrent usage', () => {
-    it('rejects a second turn while the first is active', async () => {
-      const transport = new InMemoryTransport();
-      await transport.connect();
-
-      let addUserMessageCount = 0;
-
-      const originalSend = transport.send.bind(transport);
-      transport.send = (message: Record<string, unknown>) => {
-        originalSend(message);
-        const msg = message as Record<string, unknown>;
-        const method = msg['method'] as string;
-        const id = msg['id'] as string;
-
-        if (method === DroidServerMethod.INITIALIZE_SESSION) {
-          queueMicrotask(() => {
-            transport.injectMessage(
-              makeSuccessResponse(id, {
-                sessionId: 'sess-concurrent',
-                session: {},
-                settings: { modelId: 'test', reasoningEffort: 'medium' },
-              })
-            );
-          });
-        } else if (method === DroidServerMethod.ADD_USER_MESSAGE) {
-          addUserMessageCount++;
-          const callIndex = addUserMessageCount;
-          queueMicrotask(() => {
-            transport.injectMessage(makeSuccessResponse(id, {}));
-
-            transport.injectMessage(
-              makeSessionNotification(
-                SessionNotificationType.DROID_WORKING_STATE_CHANGED,
-                { newState: DroidWorkingState.StreamingAssistantMessage }
-              )
-            );
-
-            transport.injectMessage(
-              makeSessionNotification(
-                SessionNotificationType.ASSISTANT_TEXT_DELTA,
-                {
-                  messageId: `msg-${callIndex}`,
-                  blockIndex: 0,
-                  textDelta: `Response ${callIndex}`,
-                }
-              )
-            );
-
-            transport.injectMessage(
-              makeSessionNotification(
-                SessionNotificationType.DROID_WORKING_STATE_CHANGED,
-                { newState: DroidWorkingState.Idle }
-              )
-            );
-          });
-        }
-      };
-
-      const session = await createSession({ transport });
-
-      const msgsA: DroidMessage[] = [];
-      const promiseA = (async () => {
-        for await (const msg of (await session.send('A')).stream()) {
-          msgsA.push(msg);
-        }
-      })();
-
-      await expect(session.send('B')).rejects.toThrow(
-        'A turn is already active'
-      );
-      await promiseA;
-
-      expect(msgsA.length).toBeGreaterThan(0);
-      expect(msgsA[msgsA.length - 1].type).toBe('turn_complete');
-
-      await session.close();
     });
   });
 
@@ -1143,7 +1016,7 @@ describe('DroidSession', () => {
       const session = await createSession({ transport });
 
       await expect(async () => {
-        for await (const _msg of (await session.send('test')).stream()) {
+        for await (const _msg of session.stream('test')) {
           void _msg;
         }
       }).rejects.toThrow(ConnectionError);
@@ -1159,7 +1032,7 @@ describe('DroidSession', () => {
 
       const session = await createSession({ transport });
 
-      for await (const msg of (await session.send('test')).stream()) {
+      for await (const msg of session.stream('test')) {
         if (
           msg.type === 'working_state_changed' ||
           msg.type === 'assistant_text_delta'
@@ -1261,7 +1134,7 @@ describe('DroidSession', () => {
       const session = await createSession({ transport });
 
       const result1: DroidMessage[] = [];
-      for await (const msg of (await session.send('first')).stream()) {
+      for await (const msg of session.stream('first')) {
         result1.push(msg);
       }
       const turn1 = findLastTurnComplete(result1);
@@ -1273,7 +1146,7 @@ describe('DroidSession', () => {
       }
 
       const result2: DroidMessage[] = [];
-      for await (const msg of (await session.send('second')).stream()) {
+      for await (const msg of session.stream('second')) {
         result2.push(msg);
       }
       const turn2 = findLastTurnComplete(result2);
@@ -1299,7 +1172,7 @@ describe('DroidSession', () => {
       await session.close();
 
       await expect(async () => {
-        for await (const _msg of (await session.send('test')).stream()) {
+        for await (const _msg of session.stream('test')) {
           void _msg;
         }
       }).rejects.toThrow(ConnectionError);
@@ -1370,7 +1243,7 @@ describe('DroidSession', () => {
 
       let streamComplete = false;
       const streamPromise = (async () => {
-        for await (const msg of (await session.send('test')).stream()) {
+        for await (const msg of session.stream('test')) {
           if (msg.type === 'assistant_text_delta') {
             await Promise.all([session.interrupt(), session.interrupt()]);
           }
@@ -1380,34 +1253,6 @@ describe('DroidSession', () => {
 
       await streamPromise;
       expect(streamComplete).toBe(true);
-
-      await session.close();
-    });
-  });
-
-  describe('concurrent streams', () => {
-    it('rejects concurrent turn starts', async () => {
-      const transport = new InMemoryTransport();
-      await transport.connect();
-
-      setupFullResponder(transport, 'sess-concurrent-send');
-
-      const session = await createSession({ transport });
-
-      const msgsA: DroidMessage[] = [];
-
-      const promiseA = (async () => {
-        for await (const msg of (await session.send('A')).stream()) {
-          msgsA.push(msg);
-        }
-      })();
-
-      await expect(session.send('B')).rejects.toThrow(
-        'A turn is already active'
-      );
-      await promiseA;
-
-      expect(msgsA[msgsA.length - 1].type).toBe('turn_complete');
 
       await session.close();
     });
@@ -1465,7 +1310,7 @@ describe('DroidSession', () => {
       const session = await createSession({ transport });
 
       await expect(async () => {
-        for await (const _msg of (await session.send('first')).stream()) {
+        for await (const _msg of session.stream('first')) {
           void _msg;
         }
       }).rejects.toThrow();
@@ -1487,11 +1332,9 @@ describe('DroidSession', () => {
 
       const session = await createSession({ transport });
 
-      for await (const _msg of (
-        await session.send('Look at this', {
-          images: [{ type: 'base64', data: 'abc123', mediaType: 'image/png' }],
-        })
-      ).stream()) {
+      for await (const _msg of session.stream('Look at this', {
+        images: [{ type: 'base64', data: 'abc123', mediaType: 'image/png' }],
+      })) {
         void _msg;
       }
 

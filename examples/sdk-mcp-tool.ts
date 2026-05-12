@@ -29,11 +29,9 @@ const session = await createSession({
 });
 
 try {
-  for await (const msg of (
-    await session.send(
-      'Use the favorite_number tool for Ada and tell me the answer.'
-    )
-  ).stream()) {
+  for await (const msg of session.stream(
+    'Use the favorite_number tool for Ada and tell me the answer.'
+  )) {
     if (msg.type === DroidMessageType.AssistantTextDelta) {
       process.stdout.write(msg.text);
     }

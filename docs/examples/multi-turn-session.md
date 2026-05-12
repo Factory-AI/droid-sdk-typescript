@@ -5,7 +5,7 @@ Use `createSession()` when you want conversation state to persist across turns.
 ## What this example shows
 
 - creating a persistent session
-- starting turns with `session.send()` and streaming them with `turn.stream()`
+- streaming turns with `session.stream()`
 - closing the session cleanly
 
 ## Key snippet: create the session
@@ -21,24 +21,24 @@ Create the session once and reuse it across prompts.
 ```ts
 import { DroidMessageType } from '@factory/droid-sdk';
 
-for await (const msg of (
-  await session.send('List the TypeScript files in this project')
-).stream()) {
+for await (const msg of session.stream(
+  'List the TypeScript files in this project'
+)) {
   if (msg.type === DroidMessageType.AssistantTextDelta) {
     process.stdout.write(msg.text);
   }
 }
 ```
 
-Use `turn.stream()` when you want incremental output.
+Use `session.stream()` when you want incremental output.
 
 ## Key snippet: collect streamed text
 
 ```ts
 let text = '';
-for await (const msg of (
-  await session.send('Summarize the project in one sentence')
-).stream()) {
+for await (const msg of session.stream(
+  'Summarize the project in one sentence'
+)) {
   if (msg.type === DroidMessageType.AssistantTextDelta) {
     text += msg.text;
   }
@@ -46,7 +46,7 @@ for await (const msg of (
 console.log(text);
 ```
 
-Use `run()` for one-shot aggregated output; use `session.send()` plus `turn.stream()` for persistent sessions.
+Use `run()` for one-shot aggregated output; use `session.stream()` for persistent sessions.
 
 ## Full script
 
@@ -59,9 +59,9 @@ async function main(): Promise<void> {
   console.log(`Session created: ${session.sessionId}\n`);
 
   try {
-    for await (const msg of (
-      await session.send('List the TypeScript files in this project')
-    ).stream()) {
+    for await (const msg of session.stream(
+      'List the TypeScript files in this project'
+    )) {
       if (msg.type === DroidMessageType.AssistantTextDelta) {
         process.stdout.write(msg.text);
       }
@@ -70,9 +70,9 @@ async function main(): Promise<void> {
     console.log('\n');
 
     let summary = '';
-    for await (const msg of (
-      await session.send('Summarize the project in one sentence')
-    ).stream()) {
+    for await (const msg of session.stream(
+      'Summarize the project in one sentence'
+    )) {
       if (msg.type === DroidMessageType.AssistantTextDelta) {
         summary += msg.text;
       }

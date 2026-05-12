@@ -64,12 +64,7 @@ export type {
   SdkMcpServerOptions,
 } from './mcp.js';
 
-export {
-  createSession,
-  resumeSession,
-  DroidSession,
-  DroidTurn,
-} from './session.js';
+export { createSession, resumeSession, DroidSession } from './session.js';
 export type {
   CreateSessionOptions,
   ResumeSessionOptions,

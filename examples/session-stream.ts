@@ -1,7 +1,7 @@
 /**
  * Simple session streaming example.
  *
- * Demonstrates using `session.send()` and `turn.stream()` to send a prompt, streaming
+ * Demonstrates using `session.stream()` to send a prompt, streaming
  * `AssistantTextDelta` messages to stdout, and handling `TurnComplete`.
  *
  * Usage:
@@ -18,7 +18,7 @@ async function main(): Promise<void> {
   const session = await createSession({ cwd: process.cwd() });
 
   try {
-    for await (const msg of (await session.send(prompt)).stream()) {
+    for await (const msg of session.stream(prompt)) {
       switch (msg.type) {
         case DroidMessageType.AssistantTextDelta:
           process.stdout.write(msg.text);

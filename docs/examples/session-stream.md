@@ -5,7 +5,7 @@ Use this when you want to stream output from a session turn as it arrives.
 ## What this example shows
 
 - creating a session with `createSession()`
-- starting a turn with `session.send()` and streaming it with `turn.stream()`
+- streaming a turn with `session.stream()`
 - streaming assistant text incrementally
 - observing tool activity and turn completion
 
@@ -14,8 +14,9 @@ Use this when you want to stream output from a session turn as it arrives.
 ```ts
 const session = await createSession({ cwd: process.cwd() });
 
-const turn = await session.send('List all TypeScript files in this project');
-for await (const msg of turn.stream()) {
+for await (const msg of session.stream(
+  'List all TypeScript files in this project'
+)) {
   // Handle streamed messages.
 }
 ```
@@ -28,7 +29,7 @@ for await (const msg of turn.stream()) {
 ```ts
 import { DroidMessageType } from '@factory/droid-sdk';
 
-for await (const msg of (await session.send(prompt)).stream()) {
+for await (const msg of session.stream(prompt)) {
   if (msg.type === DroidMessageType.AssistantTextDelta) {
     process.stdout.write(msg.text);
   }
@@ -49,7 +50,7 @@ async function main(): Promise<void> {
   const session = await createSession({ cwd: process.cwd() });
 
   try {
-    for await (const msg of (await session.send(prompt)).stream()) {
+    for await (const msg of session.stream(prompt)) {
       switch (msg.type) {
         case DroidMessageType.AssistantTextDelta:
           process.stdout.write(msg.text);

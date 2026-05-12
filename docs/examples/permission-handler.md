@@ -38,11 +38,9 @@ const session = await createSession({
   permissionHandler: (params) => permissionHandler(outputPath, params),
 });
 
-for await (const msg of (
-  await session.send(
-    `Create a file called ${outputPath} with the text 'Hello, World!'`
-  )
-).stream()) {
+for await (const msg of session.stream(
+  `Create a file called ${outputPath} with the text 'Hello, World!'`
+)) {
   // Handle streamed messages.
 }
 ```
@@ -92,11 +90,9 @@ async function main(): Promise<void> {
     });
 
     try {
-      for await (const msg of (
-        await session.send(
-          `Create a file called ${outputPath} with the text 'Hello, World!'`
-        )
-      ).stream()) {
+      for await (const msg of session.stream(
+        `Create a file called ${outputPath} with the text 'Hello, World!'`
+      )) {
         if (msg.type === DroidMessageType.AssistantTextDelta) {
           process.stdout.write(msg.text);
         }
