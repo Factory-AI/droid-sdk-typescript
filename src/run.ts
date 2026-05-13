@@ -6,7 +6,10 @@ import {
 } from './session.js';
 import { DroidMessageType } from './stream.js';
 
-export interface RunOptions extends CreateSessionOptions, MessageOptions {}
+export interface RunOptions
+  extends
+    CreateSessionOptions,
+    Omit<MessageOptions, 'includePartialMessages'> {}
 
 export async function run(
   prompt: string,

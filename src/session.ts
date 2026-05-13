@@ -49,7 +49,11 @@ import type {
 import { DroidInteractionMode } from './schemas/enums.js';
 import type { Base64ImageSource, DocumentSource } from './schemas/messages.js';
 import { DroidMessageType } from './stream.js';
-import type { DroidResultMessage, DroidStreamEvent } from './stream.js';
+import type {
+  DroidResultMessage,
+  DroidStreamEvent,
+  DroidStreamMessage,
+} from './stream.js';
 
 /** Aggregated result from a one-shot {@link run} call. */
 export type DroidResult = DroidResultMessage;
@@ -171,7 +175,7 @@ export class DroidSession {
   stream(
     prompt: string,
     options?: MessageOptions & { includePartialMessages?: false }
-  ): AsyncGenerator<DroidStreamEvent, void, undefined>;
+  ): AsyncGenerator<DroidStreamMessage, void, undefined>;
   /** Yields message-level events plus partial chunks until the final `result` message. */
   stream(
     prompt: string,

@@ -350,6 +350,79 @@ describe('DroidSession', () => {
       await session.close();
     });
 
+    it('defaults to message-level events and opts into partial events', async () => {
+      const createStreamingSession = async (
+        sessionId: string
+      ): Promise<DroidSession> => {
+        const transport = new InMemoryTransport();
+        await transport.connect();
+
+        wireTransportSend(transport, ({ method, id }) => {
+          if (method === DroidServerMethod.INITIALIZE_SESSION) {
+            queueMicrotask(() => {
+              transport.injectMessage(
+                makeSuccessResponse(id, {
+                  sessionId,
+                  session: {},
+                  settings: {
+                    modelId: 'test-model',
+                    reasoningEffort: 'medium',
+                  },
+                  availableModels: [],
+                })
+              );
+            });
+          } else if (method === DroidServerMethod.ADD_USER_MESSAGE) {
+            queueMicrotask(() => {
+              transport.injectMessage(makeSuccessResponse(id, {}));
+              sendDefaultStreamSequence(transport);
+            });
+          }
+        });
+
+        return createSession({ transport });
+      };
+
+      const defaultSession = await createStreamingSession('sess-default');
+      const partialSession = await createStreamingSession('sess-partial');
+
+      try {
+        const defaultMessages: DroidMessage[] = [];
+        for await (const msg of defaultSession.stream('Hello')) {
+          defaultMessages.push(msg);
+        }
+
+        const partialMessages: DroidMessage[] = [];
+        for await (const msg of partialSession.stream('Hello', {
+          includePartialMessages: true,
+        })) {
+          partialMessages.push(msg);
+        }
+
+        expect(defaultMessages.map((message) => message.type)).toEqual([
+          'assistant',
+          'result',
+        ]);
+        expect(defaultMessages).not.toContainEqual(
+          expect.objectContaining({ type: 'assistant_text_delta' })
+        );
+        expect(defaultMessages).not.toContainEqual(
+          expect.objectContaining({ type: 'working_state_changed' })
+        );
+
+        expect(partialMessages).toContainEqual(
+          expect.objectContaining({ type: 'assistant_text_delta' })
+        );
+        expect(partialMessages).toContainEqual(
+          expect.objectContaining({ type: 'working_state_changed' })
+        );
+        expect(partialMessages[partialMessages.length - 1].type).toBe('result');
+      } finally {
+        await defaultSession.close();
+        await partialSession.close();
+      }
+    });
+
     it('streams backend structured output notifications', async () => {
       const transport = new InMemoryTransport();
       await transport.connect();
@@ -1145,7 +1218,9 @@ describe('DroidSession', () => {
 
       const session = await createSession({ transport });
 
-      for await (const msg of session.stream('test')) {
+      for await (const msg of session.stream('test', {
+        includePartialMessages: true,
+      })) {
         if (
           msg.type === 'working_state_changed' ||
           msg.type === 'assistant_text_delta'
@@ -1356,7 +1431,9 @@ describe('DroidSession', () => {
 
       let streamComplete = false;
       const streamPromise = (async () => {
-        for await (const msg of session.stream('test')) {
+        for await (const msg of session.stream('test', {
+          includePartialMessages: true,
+        })) {
           if (msg.type === 'assistant_text_delta') {
             await Promise.all([session.interrupt(), session.interrupt()]);
           }
