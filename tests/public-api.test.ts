@@ -36,10 +36,11 @@ describe('public API barrel', () => {
   });
 
   it('exports stable message type constants', () => {
+    expect(DroidMessageType.Assistant).toBe('assistant');
+    expect(DroidMessageType.ToolCall).toBe('tool_call');
     expect(DroidMessageType.AssistantTextDelta).toBe('assistant_text_delta');
-    expect(DroidMessageType.ToolUse).toBe('tool_use');
+    expect(DroidMessageType.ToolCallDelta).toBe('tool_call_delta');
     expect(DroidMessageType.TokenUsageUpdate).toBe('token_usage_update');
-    expect(DroidMessageType.StructuredOutput).toBe('structured_output');
-    expect(DroidMessageType.TurnComplete).toBe('turn_complete');
+    expect(DroidMessageType.Result).toBe('result');
   });
 });

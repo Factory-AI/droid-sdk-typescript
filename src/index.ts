@@ -28,8 +28,19 @@ export {
   StreamStateTracker,
 } from './stream.js';
 export type {
+  DroidAssistantMessage,
+  DroidUserMessage,
+  DroidToolCallMessage,
+  DroidToolResultMessage,
+  DroidErrorMessage,
+  DroidResultMessage,
+  DroidStreamMessage,
+  DroidStreamEvent,
   AssistantTextDelta,
+  AssistantTextComplete,
   ThinkingTextDelta,
+  ThinkingTextComplete,
+  ToolCallDelta,
   ToolUse,
   ToolResult,
   ToolProgress,
@@ -51,7 +62,6 @@ export type {
   StructuredOutput,
   StructuredOutputFields,
   ErrorEvent,
-  TurnComplete,
   DroidMessage,
 } from './stream.js';
 

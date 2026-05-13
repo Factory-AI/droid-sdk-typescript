@@ -175,11 +175,14 @@ describe('enums', () => {
     expect(DroidClientMethod.ASK_USER).toBe('droid.ask_user');
   });
 
-  it('SessionNotificationType has 21 types', () => {
+  it('SessionNotificationType has 24 types', () => {
     const values = Object.values(SessionNotificationType);
     const expectedValues = [
       'assistant_text_delta',
+      'assistant_text_complete',
       'thinking_text_delta',
+      'thinking_text_complete',
+      'tool_call',
       'tool_result',
       'tool_progress_update',
       'create_message',

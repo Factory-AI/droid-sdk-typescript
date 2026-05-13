@@ -8,7 +8,7 @@ import {
   ToolConfirmationOutcome,
 } from '../src/schemas/index.js';
 import type { DroidSession } from '../src/session.js';
-import type { DroidMessage } from '../src/stream.js';
+import type { DroidMessage, DroidResultMessage } from '../src/stream.js';
 import type {
   DroidClientTransport,
   ErrorCallback,
@@ -25,8 +25,10 @@ export async function collectStreamText(
   let text = '';
   for await (const msg of session.stream(prompt)) {
     messages.push(msg);
-    if (msg.type === 'assistant_text_delta') {
+    if (msg.type === 'assistant') {
       text += msg.text;
+    } else if (msg.type === 'result' && text.length === 0) {
+      text = msg.result;
     }
   }
 
@@ -36,12 +38,12 @@ export async function collectStreamText(
   };
 }
 
-export function findLastTurnComplete(
+export function findLastResult(
   messages: DroidMessage[]
-): Extract<DroidMessage, { type: 'turn_complete' }> | undefined {
+): DroidResultMessage | undefined {
   for (let index = messages.length - 1; index >= 0; index--) {
     const msg = messages[index];
-    if (msg?.type === 'turn_complete') {
+    if (msg?.type === 'result') {
       return msg;
     }
   }
@@ -292,6 +294,20 @@ export function sendDefaultStreamSequence(
         messageId,
         blockIndex: 0,
         textDelta,
+      })
+    );
+  }
+
+  if (deltas.length > 0) {
+    transport.injectMessage(
+      makeSessionNotification(SessionNotificationType.CREATE_MESSAGE, {
+        message: {
+          id: messageId,
+          role: 'assistant',
+          createdAt: 1000,
+          updatedAt: 1000,
+          content: [{ type: 'text', text: deltas.join('') }],
+        },
       })
     );
   }

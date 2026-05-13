@@ -1,11 +1,10 @@
 import {
-  aggregateMessages,
   createSession,
   type CreateSessionOptions,
   type DroidResult,
   type MessageOptions,
 } from './session.js';
-import type { DroidMessage } from './stream.js';
+import { DroidMessageType } from './stream.js';
 
 export interface RunOptions extends CreateSessionOptions, MessageOptions {}
 
@@ -16,12 +15,16 @@ export async function run(
   const session = await createSession(options);
 
   try {
-    const startedAt = Date.now();
-    const messages: DroidMessage[] = [];
-    for await (const msg of session.stream(prompt, options)) {
-      messages.push(msg);
+    for await (const msg of session.stream(prompt, {
+      ...options,
+      includePartialMessages: false,
+    })) {
+      if (msg.type === DroidMessageType.Result) {
+        return msg;
+      }
     }
-    return aggregateMessages(session.sessionId, messages, startedAt, options);
+
+    throw new Error('Stream completed without a result message');
   } finally {
     await session.close();
   }

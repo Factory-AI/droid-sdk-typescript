@@ -27,11 +27,13 @@ async function main(): Promise<void> {
       console.log(`=== Turn ${i + 1} ===`);
       console.log(`Prompt: "${prompts[i]}"\n`);
 
-      for await (const msg of session.stream(prompts[i])) {
+      for await (const msg of session.stream(prompts[i], {
+        includePartialMessages: true,
+      })) {
         if (msg.type === DroidMessageType.AssistantTextDelta) {
           process.stdout.write(msg.text);
         }
-        if (msg.type === DroidMessageType.TurnComplete) {
+        if (msg.type === DroidMessageType.Result) {
           console.log('\n');
         }
       }

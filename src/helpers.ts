@@ -8,6 +8,7 @@ import type { DroidMcpServerConfig } from './mcp.js';
 import type {
   InitializeSessionRequestParams,
   McpServerConfig,
+  OutputFormat,
   SessionTag,
 } from './schemas/client.js';
 import type {
@@ -23,9 +24,11 @@ import type { ToolSelectionOverrides } from './schemas/shared.js';
 import {
   convertNotificationToStreamMessage,
   DroidMessageType,
+  isDefaultStreamMessage,
+  isInternalMessage,
   StreamStateTracker,
 } from './stream.js';
-import type { DroidMessage } from './stream.js';
+import type { DroidStreamEvent, InternalDroidMessage } from './stream.js';
 import { ProcessTransport } from './transport.js';
 import type { DroidClientTransport, ProcessTransportOptions } from './types.js';
 
@@ -52,14 +55,27 @@ export function extractInnerNotification(
 }
 
 export class MessageBridge {
-  private readonly _queue: DroidMessage[] = [];
+  private readonly _queue: DroidStreamEvent[] = [];
   private readonly _onDone: (() => void) | undefined;
   private _resolveWaiting: (() => void) | null = null;
   private _done = false;
-  private readonly _stateTracker = new StreamStateTracker();
+  private readonly _stateTracker: StreamStateTracker;
 
-  constructor(onDone?: () => void) {
+  constructor(
+    onDone?: () => void,
+    private readonly _options: {
+      includePartialMessages?: boolean;
+      sessionId?: string;
+      startedAt?: number;
+      outputFormat?: OutputFormat;
+    } = {}
+  ) {
     this._onDone = onDone;
+    this._stateTracker = new StreamStateTracker({
+      sessionId: _options.sessionId,
+      startedAt: _options.startedAt,
+      hasOutputFormat: _options.outputFormat !== undefined,
+    });
   }
 
   readonly notificationHandler = (
@@ -75,11 +91,15 @@ export class MessageBridge {
 
     for (const msg of messages) {
       const { message, additional } = this._stateTracker.processMessage(msg);
-      this._enqueue(message);
+      if (message && this._shouldYield(message)) {
+        this._enqueue(message);
+      }
 
       for (const extra of additional) {
-        this._enqueue(extra);
-        if (extra.type === DroidMessageType.TurnComplete) {
+        if (this._shouldYield(extra)) {
+          this._enqueue(extra);
+        }
+        if (extra.type === DroidMessageType.Result) {
           this._signalDone();
         }
       }
@@ -90,13 +110,13 @@ export class MessageBridge {
     this._signalDone();
   }
 
-  async *messages(): AsyncGenerator<DroidMessage, void, undefined> {
+  async *messages(): AsyncGenerator<DroidStreamEvent, void, undefined> {
     while (true) {
       while (this._queue.length > 0) {
         const msg = this._queue.shift()!;
         yield msg;
 
-        if (msg.type === DroidMessageType.TurnComplete) {
+        if (msg.type === DroidMessageType.Result) {
           return;
         }
       }
@@ -111,7 +131,18 @@ export class MessageBridge {
     }
   }
 
-  private _enqueue(msg: DroidMessage): void {
+  private _shouldYield(
+    message: InternalDroidMessage
+  ): message is DroidStreamEvent {
+    if (isInternalMessage(message)) {
+      return false;
+    }
+    return this._options.includePartialMessages
+      ? true
+      : isDefaultStreamMessage(message);
+  }
+
+  private _enqueue(msg: DroidStreamEvent): void {
     this._queue.push(msg);
     if (this._resolveWaiting) {
       const resolve = this._resolveWaiting;

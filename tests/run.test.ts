@@ -273,15 +273,12 @@ describe('run()', () => {
     expect(result.text).toEqual(JSON.stringify({ name: 'Ada' }));
     expect(result.structuredOutput).toEqual({ name: 'Ada' });
     expect(result.messages).toContainEqual({
-      type: 'create_message',
-      messageId: 'msg-structured',
-      role: 'assistant',
-      content: [
-        {
-          type: 'text',
-          text: JSON.stringify({ name: 'Ada' }),
-        },
-      ],
+      type: 'assistant',
+      text: JSON.stringify({ name: 'Ada' }),
+      message: expect.objectContaining({
+        id: 'msg-structured',
+        role: 'assistant',
+      }),
     });
   });
 

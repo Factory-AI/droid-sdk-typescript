@@ -1,5 +1,7 @@
 import { OutputFormatType, run } from '@factory/droid-sdk';
 
+type FavoriteNumber = { favoriteNumber: number };
+
 const result = await run('Pick a favorite number between 1 and 42.', {
   cwd: process.cwd(),
   outputFormat: {
@@ -18,4 +20,6 @@ const result = await run('Pick a favorite number between 1 and 42.', {
   },
 });
 
-console.log(result.structuredOutput?.favoriteNumber);
+console.log(
+  (result.structuredOutput as FavoriteNumber | undefined)?.favoriteNumber
+);

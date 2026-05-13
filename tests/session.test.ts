@@ -26,7 +26,7 @@ import type { DroidMessage } from '../src/stream.js';
 import {
   InMemoryTransport,
   collectStreamText,
-  findLastTurnComplete,
+  findLastResult,
   makeErrorResponse,
   makeSessionNotification,
   makeSuccessResponse,
@@ -325,7 +325,7 @@ describe('resumeSession()', () => {
 
 describe('DroidSession', () => {
   describe('stream() API (VAL-API-004)', () => {
-    it('streams DroidMessage until TurnComplete', async () => {
+    it('streams DroidMessage until Result', async () => {
       const transport = new InMemoryTransport();
       await transport.connect();
 
@@ -338,14 +338,14 @@ describe('DroidSession', () => {
         messages.push(msg);
       }
 
-      expect(messages.length).toBeGreaterThanOrEqual(3);
+      expect(messages.length).toBeGreaterThanOrEqual(2);
 
-      const textDeltas = messages.filter(
-        (m) => m.type === 'assistant_text_delta'
+      const results = messages.filter(
+        (m) => m.type === 'result' && m.result.length > 0
       );
-      expect(textDeltas.length).toBeGreaterThanOrEqual(1);
+      expect(results.length).toBeGreaterThanOrEqual(1);
 
-      expect(messages[messages.length - 1].type).toBe('turn_complete');
+      expect(messages[messages.length - 1].type).toBe('result');
 
       await session.close();
     });
@@ -393,14 +393,8 @@ describe('DroidSession', () => {
         messages.push(msg);
       }
 
-      expect(messages).toContainEqual({
-        type: 'structured_output',
-        messageId: 'msg-structured',
-        structuredOutput: { name: 'Ada' },
-        structuredOutputError: null,
-      });
       expect(messages[messages.length - 1]).toMatchObject({
-        type: 'turn_complete',
+        type: 'result',
         structuredOutput: { name: 'Ada' },
         structuredOutputError: null,
       });
@@ -454,17 +448,8 @@ describe('DroidSession', () => {
         messages.push(msg);
       }
 
-      expect(messages).toContainEqual({
-        type: 'structured_output',
-        messageId: 'msg-structured',
-        structuredOutput: null,
-        structuredOutputError: {
-          code: 'schema_validation_failed',
-          message: '/name must be string',
-        },
-      });
       expect(messages[messages.length - 1]).toMatchObject({
-        type: 'turn_complete',
+        type: 'result',
         structuredOutput: null,
         structuredOutputError: {
           code: 'schema_validation_failed',
@@ -487,13 +472,13 @@ describe('DroidSession', () => {
       for await (const msg of session.stream('First message')) {
         msgs1.push(msg);
       }
-      expect(msgs1[msgs1.length - 1].type).toBe('turn_complete');
+      expect(msgs1[msgs1.length - 1].type).toBe('result');
 
       const msgs2: DroidMessage[] = [];
       for await (const msg of session.stream('Second message')) {
         msgs2.push(msg);
       }
-      expect(msgs2[msgs2.length - 1].type).toBe('turn_complete');
+      expect(msgs2[msgs2.length - 1].type).toBe('result');
 
       const addMsgCalls = transport.sentMessages.filter(
         (m) =>
@@ -1096,14 +1081,16 @@ describe('DroidSession', () => {
       const session = await createSession({ transport });
 
       const messages: DroidMessage[] = [];
-      for await (const msg of session.stream('test')) {
+      for await (const msg of session.stream('test', {
+        includePartialMessages: true,
+      })) {
         messages.push(msg);
         if (msg.type === 'assistant_text_delta') {
           await session.close();
         }
       }
 
-      expect(messages[messages.length - 1].type).toBe('turn_complete');
+      expect(messages[messages.length - 1].type).toBe('result');
       expect(transport.isConnected).toBe(false);
 
       await expectStreamToThrow(session, 'test');
@@ -1169,7 +1156,7 @@ describe('DroidSession', () => {
 
       const result = await collectStreamText(session, 'second turn');
       expect(result.text).toBe('Hello world');
-      expect(result.messages.length).toBeGreaterThanOrEqual(3);
+      expect(result.messages.length).toBeGreaterThanOrEqual(1);
 
       const addMsgCalls = transport.sentMessages.filter(
         (m) =>
@@ -1263,9 +1250,9 @@ describe('DroidSession', () => {
       for await (const msg of session.stream('first')) {
         result1.push(msg);
       }
-      const turn1 = findLastTurnComplete(result1);
-      expect(turn1?.type).toBe('turn_complete');
-      if (turn1?.type === 'turn_complete') {
+      const turn1 = findLastResult(result1);
+      expect(turn1?.type).toBe('result');
+      if (turn1?.type === 'result') {
         expect(turn1.tokenUsage).not.toBeNull();
         expect(turn1.tokenUsage!.inputTokens).toBe(100);
         expect(turn1.tokenUsage!.outputTokens).toBe(50);
@@ -1275,9 +1262,9 @@ describe('DroidSession', () => {
       for await (const msg of session.stream('second')) {
         result2.push(msg);
       }
-      const turn2 = findLastTurnComplete(result2);
-      expect(turn2?.type).toBe('turn_complete');
-      if (turn2?.type === 'turn_complete') {
+      const turn2 = findLastResult(result2);
+      expect(turn2?.type).toBe('result');
+      if (turn2?.type === 'result') {
         expect(turn2.tokenUsage).not.toBeNull();
         expect(turn2.tokenUsage!.inputTokens).toBe(200);
         expect(turn2.tokenUsage!.outputTokens).toBe(75);

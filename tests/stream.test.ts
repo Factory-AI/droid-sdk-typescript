@@ -37,10 +37,10 @@ import type {
   MissionWorkerCompleted,
   McpAuthRequired,
   McpAuthCompleted,
-  StructuredOutput,
   ErrorEvent,
-  TurnComplete,
   DroidMessage,
+  DroidResultMessage,
+  StructuredOutput,
 } from '../src/stream.js';
 
 function makeNotification(type: string, payload: Record<string, unknown>) {
@@ -48,14 +48,18 @@ function makeNotification(type: string, payload: Record<string, unknown>) {
 }
 
 const expectedDroidMessageTypes = [
+  'assistant',
+  'user',
+  'tool_call',
   'assistant_text_delta',
+  'assistant_text_complete',
   'thinking_text_delta',
-  'tool_use',
+  'thinking_text_complete',
+  'tool_call_delta',
   'tool_result',
   'tool_progress',
   'working_state_changed',
   'token_usage_update',
-  'create_message',
   'permission_resolved',
   'settings_updated',
   'session_title_updated',
@@ -68,9 +72,8 @@ const expectedDroidMessageTypes = [
   'mission_worker_completed',
   'mcp_auth_required',
   'mcp_auth_completed',
-  'structured_output',
   'error',
-  'turn_complete',
+  'result',
 ] as const satisfies readonly DroidMessage['type'][];
 
 const allMessageTypesCovered: Exclude<
@@ -338,20 +341,7 @@ describe('DroidMessage types', () => {
     expect(msg.errorType).toBe(DroidErrorType.SESSION_ERROR);
   });
 
-  it('TurnComplete has correct structure', () => {
-    const msg: TurnComplete = {
-      type: 'turn_complete',
-      tokenUsage: null,
-      structuredOutput: null,
-      structuredOutputError: null,
-    };
-    expect(msg.type).toBe('turn_complete');
-    expect(msg.tokenUsage).toBeNull();
-    expect(msg.structuredOutput).toBeNull();
-    expect(msg.structuredOutputError).toBeNull();
-  });
-
-  it('TurnComplete with token usage', () => {
+  it('DroidResultMessage has correct structure', () => {
     const tokenUsage: TokenUsageUpdate = {
       type: 'token_usage_update',
       inputTokens: 100,
@@ -360,12 +350,22 @@ describe('DroidMessage types', () => {
       cacheCreationTokens: 5,
       thinkingTokens: 20,
     };
-    const msg: TurnComplete = {
-      type: 'turn_complete',
+    const msg: DroidResultMessage = {
+      type: 'result',
+      subtype: 'success',
+      sessionId: 's1',
+      durationMs: 1,
+      isError: false,
+      numTurns: 1,
+      result: 'done',
       tokenUsage,
-      structuredOutput: null,
-      structuredOutputError: null,
+      messages: [],
+      text: 'done',
+      turnCount: 1,
+      success: true,
+      error: null,
     };
+    expect(msg.type).toBe('result');
     expect(msg.tokenUsage).not.toBeNull();
     expect(msg.tokenUsage!.inputTokens).toBe(100);
   });
@@ -373,10 +373,45 @@ describe('DroidMessage types', () => {
   it('DroidMessage union type allows all 23 types', () => {
     const messages: DroidMessage[] = [
       {
+        type: 'assistant',
+        message: {
+          id: 'a1',
+          role: 'assistant',
+          content: [{ type: 'text', text: 'hi' }],
+          createdAt: 1,
+          updatedAt: 1,
+        },
+        text: 'hi',
+      },
+      {
+        type: 'user',
+        message: {
+          id: 'u1',
+          role: 'user',
+          content: [{ type: 'text', text: 'hi' }],
+          createdAt: 1,
+          updatedAt: 1,
+        },
+      },
+      {
+        type: 'tool_call',
+        toolUse: {
+          type: 'tool_use',
+          id: 'tu-1',
+          name: 'Read',
+          input: {},
+        },
+      },
+      {
         type: 'assistant_text_delta',
         messageId: 'm1',
         blockIndex: 0,
         text: 'hi',
+      },
+      {
+        type: 'assistant_text_complete',
+        messageId: 'm1',
+        blockIndex: 0,
       },
       {
         type: 'thinking_text_delta',
@@ -384,7 +419,20 @@ describe('DroidMessage types', () => {
         blockIndex: 0,
         text: 'hmm',
       },
-      { type: 'tool_use', toolName: 'x', toolInput: {}, toolUseId: 'tu1' },
+      {
+        type: 'thinking_text_complete',
+        messageId: 'm1',
+        blockIndex: 0,
+      },
+      {
+        type: 'tool_call_delta',
+        toolUse: {
+          type: 'tool_use',
+          id: 'tu-1',
+          name: 'Read',
+          input: {},
+        },
+      },
       {
         type: 'tool_result',
         toolUseId: 'tu1',
@@ -407,12 +455,6 @@ describe('DroidMessage types', () => {
         cacheReadTokens: 0,
         cacheCreationTokens: 0,
         thinkingTokens: 0,
-      },
-      {
-        type: 'create_message',
-        messageId: 'm1',
-        role: 'assistant',
-        content: [],
       },
       {
         type: 'permission_resolved',
@@ -447,22 +489,25 @@ describe('DroidMessage types', () => {
         message: 'm',
       },
       {
-        type: 'structured_output',
-        messageId: 'm1',
-        structuredOutput: { name: 'Ada' },
-        structuredOutputError: null,
-      },
-      {
         type: 'error',
         message: 'err',
         errorType: DroidErrorType.ERROR,
         timestamp: 't',
       },
       {
-        type: 'turn_complete',
+        type: 'result',
+        subtype: 'success',
+        sessionId: 's1',
+        durationMs: 1,
+        isError: false,
+        numTurns: 1,
+        result: 'hi',
         tokenUsage: null,
-        structuredOutput: null,
-        structuredOutputError: null,
+        messages: [],
+        text: 'hi',
+        turnCount: 1,
+        success: true,
+        error: null,
       },
     ];
     expect(messages).toHaveLength(expectedDroidMessageTypes.length);
@@ -718,7 +763,7 @@ describe('convertNotificationToStreamMessage', () => {
   });
 
   describe('create_message', () => {
-    it('converts message with tool_use blocks to ToolUse + CreateMessage', () => {
+    it('converts message with tool_use blocks to tool_call + assistant', () => {
       const notification = makeNotification(
         SessionNotificationType.CREATE_MESSAGE,
         {
@@ -750,22 +795,28 @@ describe('convertNotificationToStreamMessage', () => {
       const messages = result as DroidMessage[];
       expect(messages).toHaveLength(3);
 
-      const tu1 = messages[0] as ToolUse;
-      expect(tu1.type).toBe('tool_use');
-      expect(tu1.toolName).toBe('read_file');
-      expect(tu1.toolUseId).toBe('tu-1');
-      expect(tu1.toolInput).toEqual({ path: '/tmp/test' });
-
-      const tu2 = messages[1] as ToolUse;
-      expect(tu2.type).toBe('tool_use');
-      expect(tu2.toolName).toBe('write_file');
-      expect(tu2.toolUseId).toBe('tu-2');
-
-      const cm = messages[2] as CreateMessage;
-      expect(cm.type).toBe('create_message');
-      expect(cm.messageId).toBe('msg-1');
-      expect(cm.role).toBe('assistant');
-      expect(cm.parentId).toBe('parent-1');
+      expect(messages[0]).toMatchObject({
+        type: 'tool_call',
+        toolUse: {
+          id: 'tu-1',
+          name: 'read_file',
+          input: { path: '/tmp/test' },
+        },
+      });
+      expect(messages[1]).toMatchObject({
+        type: 'tool_call',
+        toolUse: {
+          id: 'tu-2',
+          name: 'write_file',
+        },
+      });
+      expect(messages[2]).toMatchObject({
+        type: 'assistant',
+        message: {
+          id: 'msg-1',
+          role: 'assistant',
+        },
+      });
     });
 
     it('converts message without tool_use blocks to just CreateMessage', () => {
@@ -785,7 +836,7 @@ describe('convertNotificationToStreamMessage', () => {
       expect(Array.isArray(result)).toBe(true);
       const messages = result as DroidMessage[];
       expect(messages).toHaveLength(1);
-      expect(messages[0].type).toBe('create_message');
+      expect(messages[0].type).toBe('assistant');
     });
 
     it('handles empty content array', () => {
@@ -805,7 +856,7 @@ describe('convertNotificationToStreamMessage', () => {
       expect(Array.isArray(result)).toBe(true);
       const messages = result as DroidMessage[];
       expect(messages).toHaveLength(1);
-      expect(messages[0].type).toBe('create_message');
+      expect(messages[0].type).toBe('assistant');
     });
   });
 
@@ -1143,10 +1194,27 @@ describe('convertNotificationToStreamMessage', () => {
           blockIndex: 0,
           textDelta: 't',
         },
+        [SessionNotificationType.ASSISTANT_TEXT_COMPLETE]: {
+          messageId: 'm',
+          blockIndex: 0,
+        },
         [SessionNotificationType.THINKING_TEXT_DELTA]: {
           messageId: 'm',
           blockIndex: 0,
           textDelta: 't',
+        },
+        [SessionNotificationType.THINKING_TEXT_COMPLETE]: {
+          messageId: 'm',
+          blockIndex: 0,
+          durationMs: 1,
+        },
+        [SessionNotificationType.TOOL_CALL]: {
+          toolUse: {
+            type: 'tool_use',
+            id: 'tu',
+            name: 'Read',
+            input: {},
+          },
         },
         [SessionNotificationType.TOOL_RESULT]: {
           messageId: 'm',
@@ -1252,8 +1320,8 @@ describe('StreamStateTracker', () => {
     tracker = new StreamStateTracker();
   });
 
-  describe('TurnComplete emission', () => {
-    it('emits TurnComplete on non-idle → idle transition', () => {
+  describe('Result emission', () => {
+    it('emits Result on non-idle → idle transition', () => {
       const r1 = tracker.processMessage({
         type: 'working_state_changed',
         state: DroidWorkingState.StreamingAssistantMessage,
@@ -1265,11 +1333,11 @@ describe('StreamStateTracker', () => {
         state: DroidWorkingState.Idle,
       });
       expect(r2.additional).toHaveLength(1);
-      expect(r2.additional[0].type).toBe('turn_complete');
-      expect((r2.additional[0] as TurnComplete).tokenUsage).toBeNull();
+      expect(r2.additional[0].type).toBe('result');
+      expect((r2.additional[0] as DroidResultMessage).tokenUsage).toBeNull();
     });
 
-    it('does NOT emit TurnComplete for initial idle', () => {
+    it('does NOT emit Result for initial idle', () => {
       const result = tracker.processMessage({
         type: 'working_state_changed',
         state: DroidWorkingState.Idle,
@@ -1277,7 +1345,7 @@ describe('StreamStateTracker', () => {
       expect(result.additional).toEqual([]);
     });
 
-    it('does NOT emit TurnComplete for non-idle → non-idle transitions', () => {
+    it('does NOT emit Result for non-idle → non-idle transitions', () => {
       tracker.processMessage({
         type: 'working_state_changed',
         state: DroidWorkingState.StreamingAssistantMessage,
@@ -1289,7 +1357,7 @@ describe('StreamStateTracker', () => {
       expect(result.additional).toEqual([]);
     });
 
-    it('emits TurnComplete after multiple non-idle states', () => {
+    it('emits Result after multiple non-idle states', () => {
       tracker.processMessage({
         type: 'working_state_changed',
         state: DroidWorkingState.StreamingAssistantMessage,
@@ -1303,10 +1371,10 @@ describe('StreamStateTracker', () => {
         state: DroidWorkingState.Idle,
       });
       expect(result.additional).toHaveLength(1);
-      expect(result.additional[0].type).toBe('turn_complete');
+      expect(result.additional[0].type).toBe('result');
     });
 
-    it('can emit TurnComplete again after reset', () => {
+    it('can emit Result again after reset', () => {
       tracker.processMessage({
         type: 'working_state_changed',
         state: DroidWorkingState.StreamingAssistantMessage,
@@ -1333,12 +1401,12 @@ describe('StreamStateTracker', () => {
         state: DroidWorkingState.Idle,
       });
       expect(r2.additional).toHaveLength(1);
-      expect(r2.additional[0].type).toBe('turn_complete');
+      expect(r2.additional[0].type).toBe('result');
     });
   });
 
-  describe('StructuredOutput propagation to TurnComplete', () => {
-    it('attaches structured output to TurnComplete', () => {
+  describe('StructuredOutput and Result', () => {
+    it('attaches structured output to Result', () => {
       tracker.processMessage({
         type: 'working_state_changed',
         state: DroidWorkingState.StreamingAssistantMessage,
@@ -1355,12 +1423,16 @@ describe('StreamStateTracker', () => {
         state: DroidWorkingState.Idle,
       });
 
-      const tc = result.additional[0] as TurnComplete;
-      expect(tc.structuredOutput).toEqual({ name: 'Ada' });
-      expect(tc.structuredOutputError).toBeNull();
+      const tc = result.additional[0] as DroidResultMessage;
+      expect(tc).toMatchObject({
+        type: 'result',
+        tokenUsage: null,
+        structuredOutput: { name: 'Ada' },
+        structuredOutputError: null,
+      });
     });
 
-    it('attaches structured output errors to TurnComplete', () => {
+    it('attaches structured output errors to Result', () => {
       tracker.processMessage({
         type: 'working_state_changed',
         state: DroidWorkingState.StreamingAssistantMessage,
@@ -1380,15 +1452,19 @@ describe('StreamStateTracker', () => {
         state: DroidWorkingState.Idle,
       });
 
-      const tc = result.additional[0] as TurnComplete;
-      expect(tc.structuredOutput).toBeNull();
-      expect(tc.structuredOutputError).toEqual({
-        code: 'schema_validation_failed',
-        message: '/name must be string',
+      const tc = result.additional[0] as DroidResultMessage;
+      expect(tc).toMatchObject({
+        type: 'result',
+        tokenUsage: null,
+        structuredOutput: null,
+        structuredOutputError: {
+          code: 'schema_validation_failed',
+          message: '/name must be string',
+        },
       });
     });
 
-    it('does not leak structured output between turns', () => {
+    it('does not carry structured output across turns', () => {
       tracker.processMessage({
         type: 'working_state_changed',
         state: DroidWorkingState.StreamingAssistantMessage,
@@ -1413,14 +1489,18 @@ describe('StreamStateTracker', () => {
         state: DroidWorkingState.Idle,
       });
 
-      const tc = result.additional[0] as TurnComplete;
-      expect(tc.structuredOutput).toBeNull();
-      expect(tc.structuredOutputError).toBeNull();
+      const tc = result.additional[0] as DroidResultMessage;
+      expect(tc).toMatchObject({
+        type: 'result',
+        tokenUsage: null,
+        structuredOutput: null,
+        structuredOutputError: null,
+      });
     });
   });
 
-  describe('TokenUsage propagation to TurnComplete', () => {
-    it('carries last-seen TokenUsageUpdate in TurnComplete', () => {
+  describe('TokenUsage propagation to Result', () => {
+    it('carries last-seen TokenUsageUpdate in Result', () => {
       const tokenUsage: TokenUsageUpdate = {
         type: 'token_usage_update',
         inputTokens: 100,
@@ -1441,8 +1521,8 @@ describe('StreamStateTracker', () => {
       });
 
       expect(result.additional).toHaveLength(1);
-      const tc = result.additional[0] as TurnComplete;
-      expect(tc.type).toBe('turn_complete');
+      const tc = result.additional[0] as DroidResultMessage;
+      expect(tc.type).toBe('result');
       expect(tc.tokenUsage).not.toBeNull();
       expect(tc.tokenUsage!.inputTokens).toBe(100);
       expect(tc.tokenUsage!.outputTokens).toBe(50);
@@ -1478,7 +1558,7 @@ describe('StreamStateTracker', () => {
         state: DroidWorkingState.Idle,
       });
 
-      const tc = result.additional[0] as TurnComplete;
+      const tc = result.additional[0] as DroidResultMessage;
       expect(tc.tokenUsage!.inputTokens).toBe(200);
       expect(tc.tokenUsage!.outputTokens).toBe(100);
     });
@@ -1493,7 +1573,7 @@ describe('StreamStateTracker', () => {
         state: DroidWorkingState.Idle,
       });
 
-      const tc = result.additional[0] as TurnComplete;
+      const tc = result.additional[0] as DroidResultMessage;
       expect(tc.tokenUsage).toBeNull();
     });
 
@@ -1526,7 +1606,7 @@ describe('StreamStateTracker', () => {
         state: DroidWorkingState.Idle,
       });
 
-      const tc = result.additional[0] as TurnComplete;
+      const tc = result.additional[0] as DroidResultMessage;
       expect(tc.tokenUsage).toBeNull();
     });
   });
@@ -1546,7 +1626,7 @@ describe('StreamStateTracker', () => {
         content: 'file contents',
         isError: false,
       });
-      expect(message.type).toBe('tool_result');
+      expect(message?.type).toBe('tool_result');
       expect((message as ToolResult).toolName).toBe('read_file');
     });
 
@@ -1647,7 +1727,7 @@ describe('StreamStateTracker', () => {
         state: DroidWorkingState.Idle,
       });
       expect(r1.additional).toHaveLength(1);
-      expect(r1.additional[0].type).toBe('turn_complete');
+      expect(r1.additional[0].type).toBe('result');
     });
 
     it('simulates multi-turn session with reset between turns', () => {
@@ -1669,7 +1749,8 @@ describe('StreamStateTracker', () => {
       });
       expect(turn1Result.additional).toHaveLength(1);
       expect(
-        (turn1Result.additional[0] as TurnComplete).tokenUsage!.inputTokens
+        (turn1Result.additional[0] as DroidResultMessage).tokenUsage!
+          .inputTokens
       ).toBe(50);
 
       tracker = new StreamStateTracker();
@@ -1692,7 +1773,8 @@ describe('StreamStateTracker', () => {
       });
       expect(turn2Result.additional).toHaveLength(1);
       expect(
-        (turn2Result.additional[0] as TurnComplete).tokenUsage!.inputTokens
+        (turn2Result.additional[0] as DroidResultMessage).tokenUsage!
+          .inputTokens
       ).toBe(200);
     });
   });
@@ -1714,7 +1796,7 @@ describe('StreamStateTracker', () => {
         state: DroidWorkingState.Idle,
       });
       expect(result.additional).toHaveLength(1);
-      expect(result.additional[0].type).toBe('turn_complete');
+      expect(result.additional[0].type).toBe('result');
     });
 
     it('handles WaitingForToolConfirmation as non-idle', () => {
@@ -1727,7 +1809,7 @@ describe('StreamStateTracker', () => {
         state: DroidWorkingState.Idle,
       });
       expect(result.additional).toHaveLength(1);
-      expect(result.additional[0].type).toBe('turn_complete');
+      expect(result.additional[0].type).toBe('result');
     });
 
     it('handles CompactingConversation as non-idle', () => {
@@ -1740,10 +1822,10 @@ describe('StreamStateTracker', () => {
         state: DroidWorkingState.Idle,
       });
       expect(result.additional).toHaveLength(1);
-      expect(result.additional[0].type).toBe('turn_complete');
+      expect(result.additional[0].type).toBe('result');
     });
 
-    it('multiple idle transitions after non-idle only emit first TurnComplete (no duplicate)', () => {
+    it('multiple idle transitions after non-idle only emit first Result (no duplicate)', () => {
       tracker.processMessage({
         type: 'working_state_changed',
         state: DroidWorkingState.StreamingAssistantMessage,
