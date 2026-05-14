@@ -273,16 +273,88 @@ describe('run()', () => {
     expect(result.text).toEqual(JSON.stringify({ name: 'Ada' }));
     expect(result.structuredOutput).toEqual({ name: 'Ada' });
     expect(result.messages).toContainEqual({
-      type: 'create_message',
-      messageId: 'msg-structured',
-      role: 'assistant',
-      content: [
-        {
-          type: 'text',
-          text: JSON.stringify({ name: 'Ada' }),
-        },
-      ],
+      type: 'assistant',
+      text: JSON.stringify({ name: 'Ada' }),
+      message: expect.objectContaining({
+        id: 'msg-structured',
+        role: 'assistant',
+      }),
     });
+  });
+
+  it('prefers backend structured output notifications', async () => {
+    const transport = new InMemoryTransport();
+    await transport.connect();
+
+    wireTransportSend(transport, ({ method, id }) => {
+      if (method === DroidServerMethod.INITIALIZE_SESSION) {
+        queueMicrotask(() => {
+          transport.injectMessage(
+            makeSuccessResponse(id, {
+              sessionId: 'sess-run-structured-output-notification',
+              session: {},
+              settings: { modelId: 'test', reasoningEffort: 'medium' },
+            })
+          );
+        });
+      } else if (method === DroidServerMethod.ADD_USER_MESSAGE) {
+        queueMicrotask(() => {
+          transport.injectMessage(makeSuccessResponse(id, {}));
+          transport.injectMessage(
+            makeSessionNotification(
+              SessionNotificationType.DROID_WORKING_STATE_CHANGED,
+              { newState: DroidWorkingState.StreamingAssistantMessage }
+            )
+          );
+          transport.injectMessage(
+            makeSessionNotification(SessionNotificationType.CREATE_MESSAGE, {
+              message: {
+                id: 'msg-structured',
+                role: 'assistant',
+                content: [
+                  {
+                    type: 'text',
+                    text: JSON.stringify({ name: 'text-fallback' }),
+                  },
+                ],
+                createdAt: Date.now(),
+                updatedAt: Date.now(),
+              },
+            })
+          );
+          transport.injectMessage(
+            makeSessionNotification(SessionNotificationType.STRUCTURED_OUTPUT, {
+              messageId: 'msg-structured',
+              structuredOutput: { name: 'Ada' },
+              structuredOutputError: null,
+            })
+          );
+          transport.injectMessage(
+            makeSessionNotification(
+              SessionNotificationType.DROID_WORKING_STATE_CHANGED,
+              { newState: DroidWorkingState.Idle }
+            )
+          );
+        });
+      }
+    });
+
+    const result = await run('Return a person', {
+      transport,
+      outputFormat: {
+        type: OutputFormatType.JsonSchema,
+        schema: {
+          type: 'object',
+          properties: {
+            name: { type: 'string' },
+          },
+          required: ['name'],
+        },
+      },
+    });
+
+    expect(result.structuredOutput).toEqual({ name: 'Ada' });
+    expect(result.structuredOutputError).toBeNull();
   });
 
   it('concatenates multiple text deltas', async () => {

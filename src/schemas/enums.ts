@@ -56,7 +56,10 @@ export enum SessionNotificationType {
   SESSION_TITLE_UPDATED = 'session_title_updated',
   MCP_STATUS_CHANGED = 'mcp_status_changed',
   ASSISTANT_TEXT_DELTA = 'assistant_text_delta',
+  ASSISTANT_TEXT_COMPLETE = 'assistant_text_complete',
   THINKING_TEXT_DELTA = 'thinking_text_delta',
+  THINKING_TEXT_COMPLETE = 'thinking_text_complete',
+  TOOL_CALL = 'tool_call',
   SESSION_TOKEN_USAGE_CHANGED = 'session_token_usage_changed',
   MISSION_STATE_CHANGED = 'mission_state_changed',
   MISSION_FEATURES_CHANGED = 'mission_features_changed',
@@ -66,6 +69,7 @@ export enum SessionNotificationType {
   MISSION_WORKER_COMPLETED = 'mission_worker_completed',
   MCP_AUTH_REQUIRED = 'mcp_auth_required',
   MCP_AUTH_COMPLETED = 'mcp_auth_completed',
+  STRUCTURED_OUTPUT = 'structured_output',
 }
 
 /** Tool confirmation outcome options (possible user responses to permission requests). */

@@ -25,7 +25,7 @@ import type { DroidMessage } from '../src/stream.js';
 import {
   InMemoryTransport,
   collectStreamText,
-  findLastTurnComplete,
+  findLastResult,
   makePermissionRequestParams,
   makeServerRequest,
   makeSessionNotification,
@@ -114,7 +114,7 @@ function wireTransport(
 }
 
 describe('Full session stream lifecycle (VAL-CROSS-001)', () => {
-  it('session.stream() sends initializeSession + addUserMessage, receives streaming notifications, and yields TurnComplete', async () => {
+  it('session.stream() sends initializeSession + addUserMessage, receives streaming notifications, and yields Result', async () => {
     const transport = new InMemoryTransport();
     await transport.connect();
 
@@ -223,7 +223,9 @@ describe('Full session stream lifecycle (VAL-CROSS-001)', () => {
     const session = await createSession({ cwd: '/tmp', transport });
     const messages: DroidMessage[] = [];
 
-    for await (const msg of session.stream('Fix the bug')) {
+    for await (const msg of session.stream('Fix the bug', {
+      includePartialMessages: true,
+    })) {
       messages.push(msg);
     }
 
@@ -237,19 +239,19 @@ describe('Full session stream lifecycle (VAL-CROSS-001)', () => {
 
     expect(types).toContain('working_state_changed');
     expect(types).toContain('assistant_text_delta');
-    expect(types).toContain('tool_use');
-    expect(types).toContain('create_message');
+    expect(types).toContain('tool_call');
+    expect(types).toContain('assistant');
     expect(types).toContain('tool_result');
     expect(types).toContain('token_usage_update');
 
-    expect(types[types.length - 1]).toBe('turn_complete');
+    expect(types[types.length - 1]).toBe('result');
 
-    const turnComplete = messages[messages.length - 1];
-    expect(turnComplete.type).toBe('turn_complete');
-    if (turnComplete.type === 'turn_complete') {
-      expect(turnComplete.tokenUsage).not.toBeNull();
-      expect(turnComplete.tokenUsage!.inputTokens).toBe(200);
-      expect(turnComplete.tokenUsage!.outputTokens).toBe(100);
+    const resultMessage = messages[messages.length - 1];
+    expect(resultMessage.type).toBe('result');
+    if (resultMessage.type === 'result') {
+      expect(resultMessage.tokenUsage).not.toBeNull();
+      expect(resultMessage.tokenUsage!.inputTokens).toBe(200);
+      expect(resultMessage.tokenUsage!.outputTokens).toBe(100);
     }
 
     const textDeltas = messages.filter(
@@ -263,12 +265,12 @@ describe('Full session stream lifecycle (VAL-CROSS-001)', () => {
       expect(textDeltas[1].text).toBe('Done!');
     }
 
-    const toolUse = messages.find((m) => m.type === 'tool_use');
+    const toolUse = messages.find((m) => m.type === 'tool_call');
     expect(toolUse).toBeDefined();
-    if (toolUse?.type === 'tool_use') {
-      expect(toolUse.toolName).toBe('read_file');
-      expect(toolUse.toolUseId).toBe('tu-1');
-      expect(toolUse.toolInput).toEqual({ path: '/tmp/test.ts' });
+    if (toolUse?.type === 'tool_call') {
+      expect(toolUse.toolUse.name).toBe('read_file');
+      expect(toolUse.toolUse.id).toBe('tu-1');
+      expect(toolUse.toolUse.input).toEqual({ path: '/tmp/test.ts' });
     }
 
     const toolResult = messages.find((m) => m.type === 'tool_result');
@@ -286,7 +288,7 @@ describe('Full session stream lifecycle (VAL-CROSS-001)', () => {
 });
 
 describe('Full session lifecycle (VAL-CROSS-002)', () => {
-  it("createSession() → session.stream('first') → session.stream('second') → session.close()", async () => {
+  it("createSession() → session.stream('first', { includePartialMessages: true }) → session.stream('second', { includePartialMessages: true }) → session.close()", async () => {
     const transport = new InMemoryTransport();
     await transport.connect();
 
@@ -348,7 +350,9 @@ describe('Full session lifecycle (VAL-CROSS-002)', () => {
     expect(session.sessionId).toBe('sess-multi-turn');
 
     const streamMessages: DroidMessage[] = [];
-    for await (const msg of session.stream('first message')) {
+    for await (const msg of session.stream('first message', {
+      includePartialMessages: true,
+    })) {
       streamMessages.push(msg);
     }
 
@@ -360,12 +364,12 @@ describe('Full session lifecycle (VAL-CROSS-002)', () => {
     if (firstTextDelta?.type === 'assistant_text_delta') {
       expect(firstTextDelta.text).toBe('Response to turn 1');
     }
-    expect(streamMessages[streamMessages.length - 1].type).toBe(
-      'turn_complete'
-    );
+    expect(streamMessages[streamMessages.length - 1].type).toBe('result');
 
     const secondMessages: DroidMessage[] = [];
-    for await (const msg of session.stream('second message')) {
+    for await (const msg of session.stream('second message', {
+      includePartialMessages: true,
+    })) {
       secondMessages.push(msg);
     }
 
@@ -376,12 +380,12 @@ describe('Full session lifecycle (VAL-CROSS-002)', () => {
     if (secondTextDelta?.type === 'assistant_text_delta') {
       expect(secondTextDelta.text).toBe('Response to turn 2');
     }
-    const turnComplete = findLastTurnComplete(secondMessages);
-    expect(turnComplete?.type).toBe('turn_complete');
-    if (turnComplete?.type === 'turn_complete') {
-      expect(turnComplete.tokenUsage).not.toBeNull();
-      expect(turnComplete.tokenUsage!.inputTokens).toBe(200);
-      expect(turnComplete.tokenUsage!.outputTokens).toBe(100);
+    const resultMessage = findLastResult(secondMessages);
+    expect(resultMessage?.type).toBe('result');
+    if (resultMessage?.type === 'result') {
+      expect(resultMessage.tokenUsage).not.toBeNull();
+      expect(resultMessage.tokenUsage!.inputTokens).toBe(200);
+      expect(resultMessage.tokenUsage!.outputTokens).toBe(100);
     }
 
     expect(addUserMessageCount).toBe(2);
@@ -458,22 +462,28 @@ describe('Full session lifecycle (VAL-CROSS-002)', () => {
     const session = await createSession({ cwd: '/tmp', transport });
 
     const turn1Msgs: DroidMessage[] = [];
-    for await (const msg of session.stream('turn 1')) {
+    for await (const msg of session.stream('turn 1', {
+      includePartialMessages: true,
+    })) {
       turn1Msgs.push(msg);
     }
-    expect(turn1Msgs[turn1Msgs.length - 1].type).toBe('turn_complete');
+    expect(turn1Msgs[turn1Msgs.length - 1].type).toBe('result');
 
     const turn2Msgs: DroidMessage[] = [];
-    for await (const msg of session.stream('turn 2')) {
+    for await (const msg of session.stream('turn 2', {
+      includePartialMessages: true,
+    })) {
       turn2Msgs.push(msg);
     }
-    expect(turn2Msgs[turn2Msgs.length - 1].type).toBe('turn_complete');
+    expect(turn2Msgs[turn2Msgs.length - 1].type).toBe('result');
 
     const turn3Msgs: DroidMessage[] = [];
-    for await (const msg of session.stream('turn 3')) {
+    for await (const msg of session.stream('turn 3', {
+      includePartialMessages: true,
+    })) {
       turn3Msgs.push(msg);
     }
-    expect(turn3Msgs[turn3Msgs.length - 1].type).toBe('turn_complete');
+    expect(turn3Msgs[turn3Msgs.length - 1].type).toBe('result');
 
     expect(turnCount).toBe(3);
 
@@ -659,7 +669,9 @@ describe('Permission handler integration (VAL-CROSS-003)', () => {
     });
 
     const messages: DroidMessage[] = [];
-    for await (const msg of session.stream('Run the tests')) {
+    for await (const msg of session.stream('Run the tests', {
+      includePartialMessages: true,
+    })) {
       messages.push(msg);
     }
 
@@ -685,7 +697,7 @@ describe('Permission handler integration (VAL-CROSS-003)', () => {
     expect(types).toContain('assistant_text_delta');
     expect(types).toContain('tool_result');
     expect(types).toContain('permission_resolved');
-    expect(types[types.length - 1]).toBe('turn_complete');
+    expect(types[types.length - 1]).toBe('result');
 
     const textDeltas = messages.filter(
       (m) => m.type === 'assistant_text_delta'
@@ -807,7 +819,9 @@ describe('Permission handler integration (VAL-CROSS-003)', () => {
     });
 
     const messages: DroidMessage[] = [];
-    for await (const msg of session.stream('Do two things')) {
+    for await (const msg of session.stream('Do two things', {
+      includePartialMessages: true,
+    })) {
       messages.push(msg);
     }
 
@@ -824,7 +838,7 @@ describe('Permission handler integration (VAL-CROSS-003)', () => {
     expect(permResponses.length).toBe(2);
 
     const types = messages.map((m) => m.type);
-    expect(types[types.length - 1]).toBe('turn_complete');
+    expect(types[types.length - 1]).toBe('result');
 
     await session.close();
   });
@@ -898,7 +912,9 @@ describe('Permission handler integration (VAL-CROSS-003)', () => {
     });
 
     const messages: DroidMessage[] = [];
-    for await (const msg of session.stream('dangerous command')) {
+    for await (const msg of session.stream('dangerous command', {
+      includePartialMessages: true,
+    })) {
       messages.push(msg);
     }
 
@@ -914,7 +930,7 @@ describe('Permission handler integration (VAL-CROSS-003)', () => {
       (permResponse['result'] as Record<string, unknown>)['selectedOption']
     ).toBe(ToolConfirmationOutcome.Cancel);
 
-    expect(messages[messages.length - 1].type).toBe('turn_complete');
+    expect(messages[messages.length - 1].type).toBe('result');
 
     await session.close();
     expect(transport.isConnected).toBe(false);
@@ -1087,7 +1103,9 @@ describe('Ask-user handler integration (VAL-CROSS-004)', () => {
     });
 
     const messages: DroidMessage[] = [];
-    for await (const msg of session.stream('Set up the project')) {
+    for await (const msg of session.stream('Set up the project', {
+      includePartialMessages: true,
+    })) {
       messages.push(msg);
     }
 
@@ -1115,7 +1133,7 @@ describe('Ask-user handler integration (VAL-CROSS-004)', () => {
 
     const types = messages.map((m) => m.type);
     expect(types).toContain('assistant_text_delta');
-    expect(types[types.length - 1]).toBe('turn_complete');
+    expect(types[types.length - 1]).toBe('result');
 
     const textDeltas = messages.filter(
       (m) => m.type === 'assistant_text_delta'
@@ -1203,7 +1221,7 @@ describe('Ask-user handler integration (VAL-CROSS-004)', () => {
 });
 
 describe('Interrupt during active streaming (VAL-CROSS-005)', () => {
-  it('interrupt during ExecutingTool state emits TurnComplete', async () => {
+  it('interrupt during ExecutingTool state emits Result', async () => {
     const transport = new InMemoryTransport();
     await transport.connect();
 
@@ -1260,7 +1278,9 @@ describe('Interrupt during active streaming (VAL-CROSS-005)', () => {
     const messages: DroidMessage[] = [];
     let didInterrupt = false;
 
-    for await (const msg of session.stream('test')) {
+    for await (const msg of session.stream('test', {
+      includePartialMessages: true,
+    })) {
       messages.push(msg);
 
       if (
@@ -1277,7 +1297,7 @@ describe('Interrupt during active streaming (VAL-CROSS-005)', () => {
     expect(didInterrupt).toBe(true);
 
     const types = messages.map((m) => m.type);
-    expect(types[types.length - 1]).toBe('turn_complete');
+    expect(types[types.length - 1]).toBe('result');
 
     await session.close();
   });
@@ -1363,13 +1383,15 @@ describe('Interrupt during active streaming (VAL-CROSS-005)', () => {
     const session = await createSession({ cwd: '/tmp', transport });
 
     const msgs1: DroidMessage[] = [];
-    for await (const msg of session.stream('first')) {
+    for await (const msg of session.stream('first', {
+      includePartialMessages: true,
+    })) {
       msgs1.push(msg);
       if (msg.type === 'assistant_text_delta') {
         await session.interrupt();
       }
     }
-    expect(msgs1[msgs1.length - 1].type).toBe('turn_complete');
+    expect(msgs1[msgs1.length - 1].type).toBe('result');
 
     const result = await collectStreamText(session, 'second');
     expect(result.text).toBe('Full second response');
@@ -1380,7 +1402,7 @@ describe('Interrupt during active streaming (VAL-CROSS-005)', () => {
     await session.close();
   });
 
-  it('session.stream() active → interrupt() called → remaining messages yielded → TurnComplete', async () => {
+  it('session.stream() active → interrupt() called → remaining messages yielded → Result', async () => {
     const transport = new InMemoryTransport();
     await transport.connect();
 
@@ -1468,7 +1490,9 @@ describe('Interrupt during active streaming (VAL-CROSS-005)', () => {
     const messages: DroidMessage[] = [];
     let didInterrupt = false;
 
-    for await (const msg of session.stream('Write a long essay')) {
+    for await (const msg of session.stream('Write a long essay', {
+      includePartialMessages: true,
+    })) {
       messages.push(msg);
 
       if (msg.type === 'assistant_text_delta' && !didInterrupt) {
@@ -1487,7 +1511,7 @@ describe('Interrupt during active streaming (VAL-CROSS-005)', () => {
 
     const types = messages.map((m) => m.type);
     expect(types.filter((t) => t === 'assistant_text_delta').length).toBe(3);
-    expect(types[types.length - 1]).toBe('turn_complete');
+    expect(types[types.length - 1]).toBe('result');
 
     const textDeltas = messages.filter(
       (m) => m.type === 'assistant_text_delta'
@@ -1496,10 +1520,10 @@ describe('Interrupt during active streaming (VAL-CROSS-005)', () => {
       expect(textDeltas[2].text).toBe('Final chunk after interrupt.');
     }
 
-    const turnComplete = messages[messages.length - 1];
-    if (turnComplete.type === 'turn_complete') {
-      expect(turnComplete.tokenUsage).not.toBeNull();
-      expect(turnComplete.tokenUsage!.inputTokens).toBe(50);
+    const resultMessage = messages[messages.length - 1];
+    if (resultMessage.type === 'result') {
+      expect(resultMessage.tokenUsage).not.toBeNull();
+      expect(resultMessage.tokenUsage!.inputTokens).toBe(50);
     }
 
     await session.close();
@@ -1565,7 +1589,9 @@ describe('Transport errors during supported session APIs (VAL-CROSS-006)', () =>
     const session = await createSession({ transport });
 
     try {
-      for await (const _msg of session.stream('Do something')) {
+      for await (const _msg of session.stream('Do something', {
+        includePartialMessages: true,
+      })) {
         void _msg;
       }
     } catch (err) {
@@ -1663,7 +1689,9 @@ describe('Transport errors during supported session APIs (VAL-CROSS-006)', () =>
 
     let caughtError: Error | null = null;
     try {
-      for await (const _msg of session.stream('trigger crash')) {
+      for await (const _msg of session.stream('trigger crash', {
+        includePartialMessages: true,
+      })) {
         void _msg;
       }
     } catch (err) {
@@ -1751,7 +1779,9 @@ describe('Settings update notification flow (VAL-CROSS-007)', () => {
     const session = await createSession({ cwd: '/tmp', transport });
 
     const messages: DroidMessage[] = [];
-    for await (const msg of session.stream('do work')) {
+    for await (const msg of session.stream('do work', {
+      includePartialMessages: true,
+    })) {
       messages.push(msg);
     }
 
@@ -1871,7 +1901,9 @@ describe('Settings update notification flow (VAL-CROSS-007)', () => {
     });
 
     const messages: DroidMessage[] = [];
-    for await (const msg of session.stream('Edit the file')) {
+    for await (const msg of session.stream('Edit the file', {
+      includePartialMessages: true,
+    })) {
       messages.push(msg);
     }
 
@@ -1890,7 +1922,7 @@ describe('Settings update notification flow (VAL-CROSS-007)', () => {
       ],
     });
 
-    expect(messages[messages.length - 1].type).toBe('turn_complete');
+    expect(messages[messages.length - 1].type).toBe('result');
     await session.close();
   });
 
@@ -1958,7 +1990,9 @@ describe('Settings update notification flow (VAL-CROSS-007)', () => {
     });
 
     const messages: DroidMessage[] = [];
-    for await (const msg of session.stream('Set up DB')) {
+    for await (const msg of session.stream('Set up DB', {
+      includePartialMessages: true,
+    })) {
       messages.push(msg);
     }
 
@@ -1974,7 +2008,7 @@ describe('Settings update notification flow (VAL-CROSS-007)', () => {
     expect(result['cancelled']).toBe(true);
     expect(result['answers']).toEqual([]);
 
-    expect(messages[messages.length - 1].type).toBe('turn_complete');
+    expect(messages[messages.length - 1].type).toBe('result');
     await session.close();
   });
 
@@ -2027,7 +2061,9 @@ describe('Settings update notification flow (VAL-CROSS-007)', () => {
     const session = await createSession({ transport });
     const messages: DroidMessage[] = [];
 
-    for await (const msg of session.stream('Do something')) {
+    for await (const msg of session.stream('Do something', {
+      includePartialMessages: true,
+    })) {
       messages.push(msg);
     }
 
@@ -2042,7 +2078,7 @@ describe('Settings update notification flow (VAL-CROSS-007)', () => {
       });
     }
 
-    expect(types[types.length - 1]).toBe('turn_complete');
+    expect(types[types.length - 1]).toBe('result');
     await session.close();
   });
 });

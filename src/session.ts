@@ -48,32 +48,15 @@ import type {
 } from './schemas/client.js';
 import { DroidInteractionMode } from './schemas/enums.js';
 import type { Base64ImageSource, DocumentSource } from './schemas/messages.js';
-import { FactoryDroidMessageRole } from './schemas/messages.js';
-import { JsonObjectSchema, type JsonObject } from './schemas/shared.js';
 import { DroidMessageType } from './stream.js';
-import type { DroidMessage, ErrorEvent, TokenUsageUpdate } from './stream.js';
+import type {
+  DroidResultMessage,
+  DroidStreamEvent,
+  DroidStreamMessage,
+} from './stream.js';
 
 /** Aggregated result from a one-shot {@link run} call. */
-export interface DroidResult {
-  /** Session that produced this result. */
-  sessionId: string;
-  /** Concatenated assistant text deltas emitted during the turn. */
-  text: string;
-  /** All stream messages emitted during the turn. */
-  messages: DroidMessage[];
-  /** Latest token usage update for the turn, when reported by Droid. */
-  tokenUsage: TokenUsageUpdate | null;
-  /** Wall-clock duration spent consuming the turn. */
-  durationMs: number;
-  /** Number of completed turns observed while consuming the stream. */
-  turnCount: number;
-  /** First error event emitted during the turn, if any. */
-  error: ErrorEvent | null;
-  /** Structured JSON object emitted by the turn, when requested. */
-  structuredOutput: JsonObject | null;
-  /** True when the stream completed without an error event. */
-  success: boolean;
-}
+export type DroidResult = DroidResultMessage;
 
 export interface CreateSessionOptions
   extends SessionInitOptions, HandlerOptions, TransportCreationOptions {
@@ -98,6 +81,7 @@ export interface MessageOptions {
   images?: Base64ImageSource[];
   files?: DocumentSource[];
   outputFormat?: OutputFormat;
+  includePartialMessages?: boolean;
   abortSignal?: AbortSignal;
 }
 
@@ -117,90 +101,35 @@ function throwIfAborted(signal: AbortSignal | undefined): void {
   }
 }
 
-function parseJsonObject(text: string): JsonObject | null {
-  try {
-    const parsed: unknown = JSON.parse(text);
-    const result = JsonObjectSchema.safeParse(parsed);
-    return result.success ? result.data : null;
-  } catch {
-    return null;
-  }
-}
-
-function extractAssistantText(message: DroidMessage): string {
-  if (message.type !== DroidMessageType.CreateMessage) {
-    return '';
-  }
-
-  if (message.role !== FactoryDroidMessageRole.Assistant) {
-    return '';
-  }
-
-  return message.content
-    .filter((block) => block.type === 'text')
-    .map((block) => block.text)
-    .join('');
-}
-
 export function aggregateMessages(
   sessionId: string,
-  messages: DroidMessage[],
+  messages: DroidStreamEvent[],
   startedAt: number,
-  options?: MessageOptions
+  _options?: MessageOptions
 ): DroidResult {
-  let fullText = '';
-  let lastTokenUsage: TokenUsageUpdate | null = null;
-  let firstError: ErrorEvent | null = null;
-  let structuredOutput: JsonObject | null = null;
-  let finalAssistantText = '';
-  let turnCount = 0;
-
-  for (const msg of messages) {
-    if (msg.type === DroidMessageType.AssistantTextDelta) {
-      fullText += msg.text;
-    }
-
-    const assistantText = extractAssistantText(msg);
-    if (assistantText) {
-      finalAssistantText = assistantText;
-      if (options?.outputFormat && fullText.length === 0) {
-        fullText = assistantText;
-      }
-    }
-
-    if (msg.type === DroidMessageType.TokenUsageUpdate) {
-      lastTokenUsage = msg;
-    }
-
-    if (msg.type === DroidMessageType.Error && firstError === null) {
-      firstError = msg;
-    }
-
-    if (msg.type === DroidMessageType.TurnComplete) {
-      turnCount++;
-      if (msg.tokenUsage) {
-        lastTokenUsage = msg.tokenUsage;
-      }
-    }
-  }
-
-  if (options?.outputFormat) {
-    const textToParse = finalAssistantText || fullText;
-    if (textToParse) {
-      structuredOutput = parseJsonObject(textToParse);
-    }
+  const result = messages.find(
+    (message): message is DroidResultMessage =>
+      message.type === DroidMessageType.Result
+  );
+  if (result) {
+    return result;
   }
 
   return {
+    type: DroidMessageType.Result,
+    subtype: 'error_during_execution',
     sessionId,
-    text: fullText,
-    messages,
-    tokenUsage: lastTokenUsage,
     durationMs: Date.now() - startedAt,
-    turnCount,
-    error: firstError,
-    structuredOutput,
-    success: firstError === null,
+    isError: true,
+    numTurns: 0,
+    result: '',
+    tokenUsage: null,
+    errors: ['Stream completed without a result message'],
+    messages,
+    text: '',
+    turnCount: 0,
+    success: false,
+    error: null,
   };
 }
 
@@ -242,15 +171,30 @@ export class DroidSession {
     this._cleanupCallbacks.push(cleanup);
   }
 
-  /** Yields {@link DroidMessage} events until `turn_complete`. */
+  /** Yields message-level events until the final `result` message. */
+  stream(
+    prompt: string,
+    options?: MessageOptions & { includePartialMessages?: false }
+  ): AsyncGenerator<DroidStreamMessage, void, undefined>;
+  /** Yields message-level events plus partial chunks until the final `result` message. */
+  stream(
+    prompt: string,
+    options: MessageOptions & { includePartialMessages: true }
+  ): AsyncGenerator<DroidStreamEvent, void, undefined>;
   async *stream(
     prompt: string,
     options?: MessageOptions
-  ): AsyncGenerator<DroidMessage, void, undefined> {
+  ): AsyncGenerator<DroidStreamEvent, void, undefined> {
     this._ensureNotClosed();
     throwIfAborted(options?.abortSignal);
 
-    const bridge = new MessageBridge();
+    const startedAt = Date.now();
+    const bridge = new MessageBridge(undefined, {
+      includePartialMessages: options?.includePartialMessages,
+      sessionId: this._sessionId,
+      startedAt,
+      outputFormat: options?.outputFormat,
+    });
     const unsubscribe = this._client.onNotification(bridge.notificationHandler);
     let resolveAbort: () => void = () => {};
     const abortPromise = new Promise<void>((resolve) => {

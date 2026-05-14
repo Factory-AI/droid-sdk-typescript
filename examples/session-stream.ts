@@ -2,7 +2,7 @@
  * Simple session streaming example.
  *
  * Demonstrates using `session.stream()` to send a prompt, streaming
- * `AssistantTextDelta` messages to stdout, and handling `TurnComplete`.
+ * full assistant/tool messages, and handling the final `result`.
  *
  * Usage:
  *   npx tsx examples/session-stream.ts
@@ -20,19 +20,19 @@ async function main(): Promise<void> {
   try {
     for await (const msg of session.stream(prompt)) {
       switch (msg.type) {
-        case DroidMessageType.AssistantTextDelta:
+        case DroidMessageType.Assistant:
           process.stdout.write(msg.text);
           break;
 
-        case DroidMessageType.ToolUse:
-          console.log(`\n[Tool] ${msg.toolName}`);
+        case DroidMessageType.ToolCall:
+          console.log(`\n[Tool] ${msg.toolUse.name}`);
           break;
 
         case DroidMessageType.ToolResult:
           console.log(`[Tool Result] ${msg.isError ? 'Error' : 'OK'}`);
           break;
 
-        case DroidMessageType.TurnComplete:
+        case DroidMessageType.Result:
           console.log('\n\n--- Turn complete ---');
           if (msg.tokenUsage) {
             console.log(

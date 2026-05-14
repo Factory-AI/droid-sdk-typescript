@@ -16,6 +16,7 @@ import {
   DroidWorkingState,
   JsonRpcErrorCode,
   McpServerType,
+  OutputFormatType,
   ReasoningEffort,
   SessionNotificationType,
   SettingsLevel,
@@ -25,7 +26,7 @@ import type { DroidMessage } from '../src/stream.js';
 import {
   InMemoryTransport,
   collectStreamText,
-  findLastTurnComplete,
+  findLastResult,
   makeErrorResponse,
   makeSessionNotification,
   makeSuccessResponse,
@@ -324,7 +325,7 @@ describe('resumeSession()', () => {
 
 describe('DroidSession', () => {
   describe('stream() API (VAL-API-004)', () => {
-    it('streams DroidMessage until TurnComplete', async () => {
+    it('streams DroidMessage until Result', async () => {
       const transport = new InMemoryTransport();
       await transport.connect();
 
@@ -337,14 +338,197 @@ describe('DroidSession', () => {
         messages.push(msg);
       }
 
-      expect(messages.length).toBeGreaterThanOrEqual(3);
+      expect(messages.length).toBeGreaterThanOrEqual(2);
 
-      const textDeltas = messages.filter(
-        (m) => m.type === 'assistant_text_delta'
+      const results = messages.filter(
+        (m) => m.type === 'result' && m.result.length > 0
       );
-      expect(textDeltas.length).toBeGreaterThanOrEqual(1);
+      expect(results.length).toBeGreaterThanOrEqual(1);
 
-      expect(messages[messages.length - 1].type).toBe('turn_complete');
+      expect(messages[messages.length - 1].type).toBe('result');
+
+      await session.close();
+    });
+
+    it('defaults to message-level events and opts into partial events', async () => {
+      const createStreamingSession = async (
+        sessionId: string
+      ): Promise<DroidSession> => {
+        const transport = new InMemoryTransport();
+        await transport.connect();
+
+        wireTransportSend(transport, ({ method, id }) => {
+          if (method === DroidServerMethod.INITIALIZE_SESSION) {
+            queueMicrotask(() => {
+              transport.injectMessage(
+                makeSuccessResponse(id, {
+                  sessionId,
+                  session: {},
+                  settings: {
+                    modelId: 'test-model',
+                    reasoningEffort: 'medium',
+                  },
+                  availableModels: [],
+                })
+              );
+            });
+          } else if (method === DroidServerMethod.ADD_USER_MESSAGE) {
+            queueMicrotask(() => {
+              transport.injectMessage(makeSuccessResponse(id, {}));
+              sendDefaultStreamSequence(transport);
+            });
+          }
+        });
+
+        return createSession({ transport });
+      };
+
+      const defaultSession = await createStreamingSession('sess-default');
+      const partialSession = await createStreamingSession('sess-partial');
+
+      try {
+        const defaultMessages: DroidMessage[] = [];
+        for await (const msg of defaultSession.stream('Hello')) {
+          defaultMessages.push(msg);
+        }
+
+        const partialMessages: DroidMessage[] = [];
+        for await (const msg of partialSession.stream('Hello', {
+          includePartialMessages: true,
+        })) {
+          partialMessages.push(msg);
+        }
+
+        expect(defaultMessages.map((message) => message.type)).toEqual([
+          'assistant',
+          'result',
+        ]);
+        expect(defaultMessages).not.toContainEqual(
+          expect.objectContaining({ type: 'assistant_text_delta' })
+        );
+        expect(defaultMessages).not.toContainEqual(
+          expect.objectContaining({ type: 'working_state_changed' })
+        );
+
+        expect(partialMessages).toContainEqual(
+          expect.objectContaining({ type: 'assistant_text_delta' })
+        );
+        expect(partialMessages).toContainEqual(
+          expect.objectContaining({ type: 'working_state_changed' })
+        );
+        expect(partialMessages[partialMessages.length - 1].type).toBe('result');
+      } finally {
+        await defaultSession.close();
+        await partialSession.close();
+      }
+    });
+
+    it('streams backend structured output notifications', async () => {
+      const transport = new InMemoryTransport();
+      await transport.connect();
+
+      wireTransportSend(transport, ({ method, id }) => {
+        if (method === DroidServerMethod.INITIALIZE_SESSION) {
+          queueMicrotask(() => {
+            transport.injectMessage(
+              makeSuccessResponse(id, {
+                sessionId: 'sess-structured-notification',
+                session: {},
+                settings: { modelId: 'test-model', reasoningEffort: 'medium' },
+                availableModels: [],
+              })
+            );
+          });
+        } else if (method === DroidServerMethod.ADD_USER_MESSAGE) {
+          queueMicrotask(() => {
+            transport.injectMessage(makeSuccessResponse(id, {}));
+            sendDefaultStreamSequence(transport, {
+              deltas: [],
+              includeTokenUsage: false,
+              structuredOutputMessageId: 'msg-structured',
+              structuredOutput: { name: 'Ada' },
+            });
+          });
+        }
+      });
+
+      const session = await createSession({ transport });
+      const messages: DroidMessage[] = [];
+      for await (const msg of session.stream('Return a person', {
+        outputFormat: {
+          type: OutputFormatType.JsonSchema,
+          schema: {
+            type: 'object',
+            properties: { name: { type: 'string' } },
+          },
+        },
+      })) {
+        messages.push(msg);
+      }
+
+      expect(messages[messages.length - 1]).toMatchObject({
+        type: 'result',
+        structuredOutput: { name: 'Ada' },
+        structuredOutputError: null,
+      });
+
+      await session.close();
+    });
+
+    it('streams backend structured output errors', async () => {
+      const transport = new InMemoryTransport();
+      await transport.connect();
+
+      wireTransportSend(transport, ({ method, id }) => {
+        if (method === DroidServerMethod.INITIALIZE_SESSION) {
+          queueMicrotask(() => {
+            transport.injectMessage(
+              makeSuccessResponse(id, {
+                sessionId: 'sess-structured-error',
+                session: {},
+                settings: { modelId: 'test-model', reasoningEffort: 'medium' },
+                availableModels: [],
+              })
+            );
+          });
+        } else if (method === DroidServerMethod.ADD_USER_MESSAGE) {
+          queueMicrotask(() => {
+            transport.injectMessage(makeSuccessResponse(id, {}));
+            sendDefaultStreamSequence(transport, {
+              deltas: [],
+              includeTokenUsage: false,
+              structuredOutputMessageId: 'msg-structured',
+              structuredOutputError: {
+                code: 'schema_validation_failed',
+                message: '/name must be string',
+              },
+            });
+          });
+        }
+      });
+
+      const session = await createSession({ transport });
+      const messages: DroidMessage[] = [];
+      for await (const msg of session.stream('Return a person', {
+        outputFormat: {
+          type: OutputFormatType.JsonSchema,
+          schema: {
+            type: 'object',
+            properties: { name: { type: 'string' } },
+          },
+        },
+      })) {
+        messages.push(msg);
+      }
+
+      expect(messages[messages.length - 1]).toMatchObject({
+        type: 'result',
+        structuredOutput: null,
+        structuredOutputError: {
+          code: 'schema_validation_failed',
+          message: '/name must be string',
+        },
+      });
 
       await session.close();
     });
@@ -361,13 +545,13 @@ describe('DroidSession', () => {
       for await (const msg of session.stream('First message')) {
         msgs1.push(msg);
       }
-      expect(msgs1[msgs1.length - 1].type).toBe('turn_complete');
+      expect(msgs1[msgs1.length - 1].type).toBe('result');
 
       const msgs2: DroidMessage[] = [];
       for await (const msg of session.stream('Second message')) {
         msgs2.push(msg);
       }
-      expect(msgs2[msgs2.length - 1].type).toBe('turn_complete');
+      expect(msgs2[msgs2.length - 1].type).toBe('result');
 
       const addMsgCalls = transport.sentMessages.filter(
         (m) =>
@@ -970,14 +1154,16 @@ describe('DroidSession', () => {
       const session = await createSession({ transport });
 
       const messages: DroidMessage[] = [];
-      for await (const msg of session.stream('test')) {
+      for await (const msg of session.stream('test', {
+        includePartialMessages: true,
+      })) {
         messages.push(msg);
         if (msg.type === 'assistant_text_delta') {
           await session.close();
         }
       }
 
-      expect(messages[messages.length - 1].type).toBe('turn_complete');
+      expect(messages[messages.length - 1].type).toBe('result');
       expect(transport.isConnected).toBe(false);
 
       await expectStreamToThrow(session, 'test');
@@ -1032,7 +1218,9 @@ describe('DroidSession', () => {
 
       const session = await createSession({ transport });
 
-      for await (const msg of session.stream('test')) {
+      for await (const msg of session.stream('test', {
+        includePartialMessages: true,
+      })) {
         if (
           msg.type === 'working_state_changed' ||
           msg.type === 'assistant_text_delta'
@@ -1043,7 +1231,7 @@ describe('DroidSession', () => {
 
       const result = await collectStreamText(session, 'second turn');
       expect(result.text).toBe('Hello world');
-      expect(result.messages.length).toBeGreaterThanOrEqual(3);
+      expect(result.messages.length).toBeGreaterThanOrEqual(1);
 
       const addMsgCalls = transport.sentMessages.filter(
         (m) =>
@@ -1137,9 +1325,9 @@ describe('DroidSession', () => {
       for await (const msg of session.stream('first')) {
         result1.push(msg);
       }
-      const turn1 = findLastTurnComplete(result1);
-      expect(turn1?.type).toBe('turn_complete');
-      if (turn1?.type === 'turn_complete') {
+      const turn1 = findLastResult(result1);
+      expect(turn1?.type).toBe('result');
+      if (turn1?.type === 'result') {
         expect(turn1.tokenUsage).not.toBeNull();
         expect(turn1.tokenUsage!.inputTokens).toBe(100);
         expect(turn1.tokenUsage!.outputTokens).toBe(50);
@@ -1149,9 +1337,9 @@ describe('DroidSession', () => {
       for await (const msg of session.stream('second')) {
         result2.push(msg);
       }
-      const turn2 = findLastTurnComplete(result2);
-      expect(turn2?.type).toBe('turn_complete');
-      if (turn2?.type === 'turn_complete') {
+      const turn2 = findLastResult(result2);
+      expect(turn2?.type).toBe('result');
+      if (turn2?.type === 'result') {
         expect(turn2.tokenUsage).not.toBeNull();
         expect(turn2.tokenUsage!.inputTokens).toBe(200);
         expect(turn2.tokenUsage!.outputTokens).toBe(75);
@@ -1243,7 +1431,9 @@ describe('DroidSession', () => {
 
       let streamComplete = false;
       const streamPromise = (async () => {
-        for await (const msg of session.stream('test')) {
+        for await (const msg of session.stream('test', {
+          includePartialMessages: true,
+        })) {
           if (msg.type === 'assistant_text_delta') {
             await Promise.all([session.interrupt(), session.interrupt()]);
           }

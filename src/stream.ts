@@ -7,6 +7,11 @@ import {
   ToolConfirmationOutcome,
 } from './schemas/enums.js';
 import type { McpServerStatusInfo, McpStatusSummary } from './schemas/mcp.js';
+import {
+  FactoryDroidMessageRole,
+  type FactoryDroidMessage,
+  type ToolUseBlock,
+} from './schemas/messages.js';
 import type { MissionFeature, ProgressLogEntry } from './schemas/mission.js';
 import {
   SessionNotificationPayloadSchema,
@@ -14,19 +19,28 @@ import {
   type ErrorNotification,
   type SessionNotificationPayload,
   type SettingsUpdatedPayload,
+  type StructuredOutputError as ServerStructuredOutputError,
   type ToolProgressUpdate,
 } from './schemas/server.js';
-import type { JsonObject, JsonValue } from './schemas/shared.js';
+import {
+  JsonObjectSchema,
+  type JsonObject,
+  type JsonValue,
+} from './schemas/shared.js';
 
 export const DroidMessageType = {
+  Assistant: 'assistant',
+  User: 'user',
+  ToolCall: 'tool_call',
   AssistantTextDelta: 'assistant_text_delta',
+  AssistantTextComplete: 'assistant_text_complete',
   ThinkingTextDelta: 'thinking_text_delta',
-  ToolUse: 'tool_use',
+  ThinkingTextComplete: 'thinking_text_complete',
+  ToolCallDelta: 'tool_call_delta',
   ToolResult: 'tool_result',
   ToolProgress: 'tool_progress',
   WorkingStateChanged: 'working_state_changed',
   TokenUsageUpdate: 'token_usage_update',
-  CreateMessage: 'create_message',
   PermissionResolved: 'permission_resolved',
   SettingsUpdated: 'settings_updated',
   SessionTitleUpdated: 'session_title_updated',
@@ -40,7 +54,7 @@ export const DroidMessageType = {
   McpAuthRequired: 'mcp_auth_required',
   McpAuthCompleted: 'mcp_auth_completed',
   Error: 'error',
-  TurnComplete: 'turn_complete',
+  Result: 'result',
 } as const;
 
 export interface AssistantTextDelta {
@@ -50,6 +64,12 @@ export interface AssistantTextDelta {
   readonly text: string;
 }
 
+export interface AssistantTextComplete {
+  readonly type: 'assistant_text_complete';
+  readonly messageId: string;
+  readonly blockIndex: number;
+}
+
 export interface ThinkingTextDelta {
   readonly type: 'thinking_text_delta';
   readonly messageId: string;
@@ -57,11 +77,39 @@ export interface ThinkingTextDelta {
   readonly text: string;
 }
 
+export interface ThinkingTextComplete {
+  readonly type: 'thinking_text_complete';
+  readonly messageId: string;
+  readonly blockIndex: number;
+  readonly durationMs?: number;
+}
+
+export interface ToolCallDelta {
+  readonly type: 'tool_call_delta';
+  readonly toolUse: ToolUseBlock;
+}
+
 export interface ToolUse {
   readonly type: 'tool_use';
   readonly toolName: string;
   readonly toolInput: JsonObject;
   readonly toolUseId: string;
+}
+
+export interface DroidToolCallMessage {
+  readonly type: 'tool_call';
+  readonly toolUse: ToolUseBlock;
+}
+
+export interface DroidAssistantMessage {
+  readonly type: 'assistant';
+  readonly message: FactoryDroidMessage;
+  readonly text: string;
+}
+
+export interface DroidUserMessage {
+  readonly type: 'user';
+  readonly message: FactoryDroidMessage;
 }
 
 export interface ToolResult {
@@ -168,6 +216,16 @@ export interface McpAuthCompleted {
   readonly message: string;
 }
 
+export interface StructuredOutputFields {
+  readonly structuredOutput: JsonObject | null;
+  readonly structuredOutputError: ServerStructuredOutputError | null;
+}
+
+export interface StructuredOutput extends StructuredOutputFields {
+  readonly type: 'structured_output';
+  readonly messageId: string;
+}
+
 export interface ErrorEvent {
   readonly type: 'error';
   readonly message: string;
@@ -175,21 +233,68 @@ export interface ErrorEvent {
   readonly timestamp: string;
 }
 
-/** Sentinel yielded when the agent turn finishes (returns to Idle). */
-export interface TurnComplete {
-  readonly type: 'turn_complete';
-  readonly tokenUsage: TokenUsageUpdate | null;
+export type DroidErrorMessage = ErrorEvent;
+
+export type DroidToolResultMessage = ToolResult;
+
+export type DroidResultSubtype =
+  | 'success'
+  | 'error_during_execution'
+  | 'error_structured_output';
+
+interface DroidResultBase {
+  readonly type: 'result';
+  readonly sessionId: string;
+  readonly durationMs: number;
+  readonly numTurns: number;
+  readonly result: string;
+  readonly tokenUsage: TokenUsage | null;
+  /** Stream messages emitted before this result. */
+  readonly messages: DroidStreamEvent[];
+  readonly text: string;
+  readonly turnCount: number;
+  readonly success: boolean;
 }
 
-export type DroidMessage =
-  | AssistantTextDelta
-  | ThinkingTextDelta
-  | ToolUse
+export interface DroidResultSuccessMessage extends DroidResultBase {
+  readonly subtype: 'success';
+  readonly isError: false;
+  readonly structuredOutput?: unknown;
+  readonly structuredOutputError?: null;
+  readonly error: null;
+}
+
+export interface DroidResultErrorMessage extends DroidResultBase {
+  readonly subtype: 'error_during_execution' | 'error_structured_output';
+  readonly isError: true;
+  readonly errors: string[];
+  readonly structuredOutput?: unknown;
+  readonly structuredOutputError?: ServerStructuredOutputError | null;
+  readonly error: ErrorEvent | null;
+}
+
+export type DroidResultMessage =
+  | DroidResultSuccessMessage
+  | DroidResultErrorMessage;
+
+export type DroidStreamMessage =
+  | DroidAssistantMessage
+  | DroidUserMessage
+  | DroidToolCallMessage
   | ToolResult
+  | ErrorEvent
+  | DroidResultMessage;
+
+export type DroidStreamEvent =
+  | DroidStreamMessage
+  | AssistantTextDelta
+  | AssistantTextComplete
+  | ThinkingTextDelta
+  | ThinkingTextComplete
+  | ToolCallDelta
   | ToolProgress
   | WorkingStateChanged
   | TokenUsageUpdate
-  | CreateMessage
   | PermissionResolved
   | SettingsUpdated
   | SessionTitleUpdated
@@ -201,16 +306,22 @@ export type DroidMessage =
   | MissionWorkerStarted
   | MissionWorkerCompleted
   | McpAuthRequired
-  | McpAuthCompleted
-  | ErrorEvent
-  | TurnComplete;
+  | McpAuthCompleted;
+
+export type InternalDroidMessage =
+  | DroidStreamEvent
+  | ToolUse
+  | CreateMessage
+  | StructuredOutput;
+
+export type DroidMessage = DroidStreamEvent;
 
 export type DroidMessageType =
   (typeof DroidMessageType)[keyof typeof DroidMessageType];
 
 export function convertNotificationToStreamMessage(
   raw: unknown
-): DroidMessage | DroidMessage[] | null {
+): InternalDroidMessage | InternalDroidMessage[] | null {
   const parsed = SessionNotificationPayloadSchema.safeParse(raw);
   if (!parsed.success) {
     return null;
@@ -227,12 +338,33 @@ export function convertNotificationToStreamMessage(
         text: notification.textDelta,
       };
 
+    case SessionNotificationType.ASSISTANT_TEXT_COMPLETE:
+      return {
+        type: DroidMessageType.AssistantTextComplete,
+        messageId: notification.messageId,
+        blockIndex: notification.blockIndex,
+      };
+
     case SessionNotificationType.THINKING_TEXT_DELTA:
       return {
         type: DroidMessageType.ThinkingTextDelta,
         messageId: notification.messageId,
         blockIndex: notification.blockIndex,
         text: notification.textDelta,
+      };
+
+    case SessionNotificationType.THINKING_TEXT_COMPLETE:
+      return {
+        type: DroidMessageType.ThinkingTextComplete,
+        messageId: notification.messageId,
+        blockIndex: notification.blockIndex,
+        durationMs: notification.durationMs,
+      };
+
+    case SessionNotificationType.TOOL_CALL:
+      return {
+        type: DroidMessageType.ToolCallDelta,
+        toolUse: notification.toolUse,
       };
 
     case SessionNotificationType.TOOL_RESULT:
@@ -276,26 +408,37 @@ export function convertNotificationToStreamMessage(
 
     case SessionNotificationType.CREATE_MESSAGE: {
       const msg = notification.message;
-      const messages: DroidMessage[] = [];
+      const messages: InternalDroidMessage[] = [];
 
       for (const block of msg.content) {
-        if (block.type === DroidMessageType.ToolUse) {
+        if (block.type === 'tool_use') {
           messages.push({
-            type: DroidMessageType.ToolUse,
-            toolName: block.name,
-            toolInput: block.input,
-            toolUseId: block.id,
+            type: DroidMessageType.ToolCall,
+            toolUse: block,
           });
         }
       }
 
-      messages.push({
-        type: DroidMessageType.CreateMessage,
-        messageId: msg.id,
-        role: msg.role,
-        content: msg.content,
-        parentId: notification.parentId,
-      });
+      if (msg.role === FactoryDroidMessageRole.Assistant) {
+        messages.push({
+          type: DroidMessageType.Assistant,
+          message: msg,
+          text: extractTextFromMessage(msg),
+        });
+      } else if (msg.role === FactoryDroidMessageRole.User) {
+        messages.push({
+          type: DroidMessageType.User,
+          message: msg,
+        });
+      } else {
+        messages.push({
+          type: 'create_message',
+          messageId: msg.id,
+          role: msg.role,
+          content: msg.content,
+          parentId: notification.parentId,
+        });
+      }
 
       return messages;
     }
@@ -389,6 +532,14 @@ export function convertNotificationToStreamMessage(
         message: notification.message,
       };
 
+    case SessionNotificationType.STRUCTURED_OUTPUT:
+      return {
+        type: 'structured_output',
+        messageId: notification.messageId,
+        structuredOutput: notification.structuredOutput,
+        structuredOutputError: notification.structuredOutputError,
+      };
+
     default:
       return null;
   }
@@ -403,20 +554,50 @@ export class StreamStateTracker {
 
   private lastTokenUsage: TokenUsageUpdate | null = null;
 
+  private fullText = '';
+
+  private finalAssistantText = '';
+
+  private structuredOutput: JsonObject | null = null;
+
+  private structuredOutputError: ServerStructuredOutputError | null = null;
+
+  private errors: ErrorEvent[] = [];
+
+  private numTurns = 0;
+
+  private emittedMessages: DroidStreamEvent[] = [];
+
   private toolNameMap = new Map<string, string>();
+
+  constructor(
+    private readonly options: {
+      sessionId?: string;
+      startedAt?: number;
+      hasOutputFormat?: boolean;
+    } = {}
+  ) {}
 
   private getToolName(toolUseId: string): string {
     return this.toolNameMap.get(toolUseId) ?? '';
   }
 
-  processMessage(message: DroidMessage): {
-    message: DroidMessage;
-    additional: DroidMessage[];
+  processMessage(message: InternalDroidMessage): {
+    message: InternalDroidMessage | null;
+    additional: InternalDroidMessage[];
   } {
-    const additional: DroidMessage[] = [];
+    const additional: InternalDroidMessage[] = [];
 
-    if (message.type === DroidMessageType.ToolUse) {
+    if (message.type === 'tool_use') {
       this.toolNameMap.set(message.toolUseId, message.toolName);
+    }
+
+    if (message.type === DroidMessageType.ToolCall) {
+      this.toolNameMap.set(message.toolUse.id, message.toolUse.name);
+    }
+
+    if (message.type === DroidMessageType.ToolCallDelta) {
+      this.toolNameMap.set(message.toolUse.id, message.toolUse.name);
     }
 
     // Enrich tool_result with toolName from prior tool_use
@@ -424,23 +605,185 @@ export class StreamStateTracker {
       message = { ...message, toolName: this.getToolName(message.toolUseId) };
     }
 
+    if (message.type === DroidMessageType.AssistantTextDelta) {
+      this.fullText += message.text;
+    }
+
+    if (message.type === DroidMessageType.Assistant) {
+      this.finalAssistantText = message.text;
+      if (this.fullText.length === 0) {
+        this.fullText = message.text;
+      }
+    }
+
     if (message.type === DroidMessageType.TokenUsageUpdate) {
       this.lastTokenUsage = message;
+    }
+
+    if (message.type === DroidMessageType.Error) {
+      this.errors.push(message);
+    }
+
+    if (message.type === 'structured_output') {
+      this.structuredOutput = message.structuredOutput;
+      this.structuredOutputError = message.structuredOutputError;
+      return { message: null, additional };
     }
 
     if (message.type === DroidMessageType.WorkingStateChanged) {
       if (message.state !== DroidWorkingState.Idle) {
         this.hasBeenNonIdle = true;
       } else if (this.hasBeenNonIdle) {
-        additional.push({
-          type: DroidMessageType.TurnComplete,
-          tokenUsage: this.lastTokenUsage,
-        });
+        this.numTurns++;
+        additional.push(this.createResultMessage());
         this.hasBeenNonIdle = false;
+        this.resetTurnState();
       }
     }
 
+    if (message.type !== DroidMessageType.WorkingStateChanged) {
+      this.trackEmittedMessage(message);
+    }
+
     return { message, additional };
+  }
+
+  private createResultMessage(): DroidResultMessage {
+    if (
+      this.options.hasOutputFormat &&
+      this.structuredOutput === null &&
+      this.structuredOutputError === null
+    ) {
+      this.structuredOutput =
+        parseJsonObject(this.finalAssistantText || this.fullText) ?? null;
+    }
+
+    const tokenUsage = this.lastTokenUsage
+      ? stripTokenUsageType(this.lastTokenUsage)
+      : null;
+    const result = this.finalAssistantText || this.fullText;
+    const base = {
+      type: DroidMessageType.Result,
+      sessionId: this.options.sessionId ?? '',
+      durationMs: Date.now() - (this.options.startedAt ?? Date.now()),
+      numTurns: this.numTurns,
+      result,
+      tokenUsage,
+      messages: [...this.emittedMessages],
+      text: result,
+      turnCount: this.numTurns,
+    };
+
+    if (this.structuredOutputError) {
+      return {
+        ...base,
+        subtype: 'error_structured_output',
+        isError: true,
+        success: false,
+        errors: [this.structuredOutputError.message],
+        structuredOutput: this.structuredOutput,
+        structuredOutputError: this.structuredOutputError,
+        error: null,
+      };
+    }
+
+    if (this.errors.length > 0) {
+      return {
+        ...base,
+        subtype: 'error_during_execution',
+        isError: true,
+        success: false,
+        errors: this.errors.map((error) => error.message),
+        structuredOutput: this.structuredOutput,
+        structuredOutputError: null,
+        error: this.errors[0] ?? null,
+      };
+    }
+
+    return {
+      ...base,
+      subtype: 'success',
+      isError: false,
+      success: true,
+      structuredOutput: this.structuredOutput,
+      structuredOutputError: null,
+      error: null,
+    };
+  }
+
+  private trackEmittedMessage(message: InternalDroidMessage): void {
+    if (isDefaultStreamMessage(message)) {
+      this.emittedMessages.push(message);
+    }
+  }
+
+  private resetTurnState(): void {
+    this.lastTokenUsage = null;
+    this.fullText = '';
+    this.finalAssistantText = '';
+    this.structuredOutput = null;
+    this.structuredOutputError = null;
+    this.errors = [];
+    this.emittedMessages = [];
+  }
+}
+
+export function isPartialMessage(message: InternalDroidMessage): boolean {
+  return (
+    message.type === DroidMessageType.AssistantTextDelta ||
+    message.type === DroidMessageType.AssistantTextComplete ||
+    message.type === DroidMessageType.ThinkingTextDelta ||
+    message.type === DroidMessageType.ThinkingTextComplete ||
+    message.type === DroidMessageType.ToolCallDelta ||
+    message.type === DroidMessageType.ToolProgress
+  );
+}
+
+export function isInternalMessage(message: InternalDroidMessage): boolean {
+  return (
+    message.type === 'structured_output' ||
+    message.type === 'tool_use' ||
+    message.type === 'create_message'
+  );
+}
+
+export function isDefaultStreamMessage(
+  message: InternalDroidMessage
+): message is DroidStreamMessage {
+  return (
+    message.type === DroidMessageType.Assistant ||
+    message.type === DroidMessageType.User ||
+    message.type === DroidMessageType.ToolCall ||
+    message.type === DroidMessageType.ToolResult ||
+    message.type === DroidMessageType.Error ||
+    message.type === DroidMessageType.Result
+  );
+}
+
+function stripTokenUsageType(message: TokenUsageUpdate): TokenUsage {
+  const {
+    inputTokens,
+    outputTokens,
+    cacheCreationTokens,
+    cacheReadTokens,
+    thinkingTokens,
+  } = message;
+  return {
+    inputTokens,
+    outputTokens,
+    cacheCreationTokens,
+    cacheReadTokens,
+    thinkingTokens,
+  };
+}
+
+function parseJsonObject(text: string): JsonObject | null {
+  try {
+    const parsed: unknown = JSON.parse(text);
+    const result = JsonObjectSchema.safeParse(parsed);
+    return result.success ? result.data : null;
+  } catch {
+    return null;
   }
 }
 
@@ -457,4 +800,11 @@ function normalizeToolResultContent(
     return content;
   }
   return String(content);
+}
+
+function extractTextFromMessage(message: FactoryDroidMessage): string {
+  return message.content
+    .filter((block) => block.type === 'text')
+    .map((block) => block.text)
+    .join('');
 }

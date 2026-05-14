@@ -149,6 +149,7 @@ describe('MessageBridge', () => {
   });
 
   it('processes notifications and yields messages via messages() generator', async () => {
+    bridge = new MessageBridge(undefined, { includePartialMessages: true });
     bridge.notificationHandler(
       makeSessionNotification(
         SessionNotificationType.DROID_WORKING_STATE_CHANGED,
@@ -167,8 +168,8 @@ describe('MessageBridge', () => {
     expect(messages.some((m) => m.type === 'working_state_changed')).toBe(true);
   });
 
-  it('terminates generator on turn_complete message', async () => {
-    // Transition to streaming state then back to idle to trigger turn_complete
+  it('terminates generator on result message', async () => {
+    // Transition to streaming state then back to idle to trigger result
     bridge.notificationHandler(
       makeSessionNotification(
         SessionNotificationType.DROID_WORKING_STATE_CHANGED,
@@ -186,12 +187,12 @@ describe('MessageBridge', () => {
     const messages = [];
     for await (const msg of bridge.messages()) {
       messages.push(msg);
-      if (msg.type === 'turn_complete') {
+      if (msg.type === 'result') {
         break;
       }
     }
 
-    expect(messages.some((m) => m.type === 'turn_complete')).toBe(true);
+    expect(messages.some((m) => m.type === 'result')).toBe(true);
   });
 
   it('signalDone() terminates the generator when queue is empty', async () => {

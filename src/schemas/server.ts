@@ -232,6 +232,19 @@ export type AssistantTextDeltaNotification = z.infer<
   typeof AssistantTextDeltaNotificationSchema
 >;
 
+/** Assistant text complete notification (streaming block finished). */
+export const AssistantTextCompleteNotificationSchema = z
+  .object({
+    type: z.literal(SessionNotificationType.ASSISTANT_TEXT_COMPLETE),
+    messageId: z.string(),
+    blockIndex: z.number(),
+  })
+  .passthrough();
+
+export type AssistantTextCompleteNotification = z.infer<
+  typeof AssistantTextCompleteNotificationSchema
+>;
+
 /** Thinking text delta notification (streaming thinking token). */
 export const ThinkingTextDeltaNotificationSchema = z
   .object({
@@ -245,6 +258,30 @@ export const ThinkingTextDeltaNotificationSchema = z
 export type ThinkingTextDeltaNotification = z.infer<
   typeof ThinkingTextDeltaNotificationSchema
 >;
+
+/** Thinking text complete notification (streaming thinking block finished). */
+export const ThinkingTextCompleteNotificationSchema = z
+  .object({
+    type: z.literal(SessionNotificationType.THINKING_TEXT_COMPLETE),
+    messageId: z.string(),
+    blockIndex: z.number(),
+    durationMs: z.number().optional(),
+  })
+  .passthrough();
+
+export type ThinkingTextCompleteNotification = z.infer<
+  typeof ThinkingTextCompleteNotificationSchema
+>;
+
+/** Tool call partial notification. */
+export const ToolCallNotificationSchema = z
+  .object({
+    type: z.literal(SessionNotificationType.TOOL_CALL),
+    toolUse: ToolUseBlockSchema,
+  })
+  .passthrough();
+
+export type ToolCallNotification = z.infer<typeof ToolCallNotificationSchema>;
 
 /** Session token usage changed notification. */
 export const SessionTokenUsageChangedNotificationSchema = z
@@ -361,6 +398,31 @@ export type McpAuthCompletedNotification = z.infer<
   typeof McpAuthCompletedNotificationSchema
 >;
 
+/** Structured output validation error emitted by Droid. */
+export const StructuredOutputErrorSchema = z
+  .object({
+    code: z.string(),
+    message: z.string(),
+    details: z.unknown().optional(),
+  })
+  .passthrough();
+
+export type StructuredOutputError = z.infer<typeof StructuredOutputErrorSchema>;
+
+/** Backend-validated structured output for the completed turn. */
+export const StructuredOutputNotificationSchema = z
+  .object({
+    type: z.literal(SessionNotificationType.STRUCTURED_OUTPUT),
+    messageId: z.string(),
+    structuredOutput: JsonObjectSchema.nullable(),
+    structuredOutputError: StructuredOutputErrorSchema.nullable(),
+  })
+  .passthrough();
+
+export type StructuredOutputNotification = z.infer<
+  typeof StructuredOutputNotificationSchema
+>;
+
 /** List of all session notification schemas (for discriminatedUnion). */
 export const SessionNotificationSchemaList = [
   ToolResultNotificationSchema,
@@ -373,7 +435,10 @@ export const SessionNotificationSchemaList = [
   SessionTitleUpdatedNotificationSchema,
   McpStatusChangedNotificationSchema,
   AssistantTextDeltaNotificationSchema,
+  AssistantTextCompleteNotificationSchema,
   ThinkingTextDeltaNotificationSchema,
+  ThinkingTextCompleteNotificationSchema,
+  ToolCallNotificationSchema,
   SessionTokenUsageChangedNotificationSchema,
   MissionStateChangedNotificationSchema,
   MissionFeaturesChangedNotificationSchema,
@@ -383,9 +448,10 @@ export const SessionNotificationSchemaList = [
   MissionWorkerCompletedNotificationSchema,
   McpAuthRequiredNotificationSchema,
   McpAuthCompletedNotificationSchema,
+  StructuredOutputNotificationSchema,
 ] as const;
 
-/** Discriminated union over all 20 session notification types. */
+/** Discriminated union over all session notification types. */
 export const SessionNotificationPayloadSchema = z.discriminatedUnion(
   'type',
   SessionNotificationSchemaList

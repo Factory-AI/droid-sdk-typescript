@@ -13,6 +13,8 @@ import assert from 'node:assert/strict';
 
 import { OutputFormatType, run } from '@factory/droid-sdk';
 
+type FavoriteNumber = { favoriteNumber: number };
+
 async function main(): Promise<void> {
   const prompt =
     process.argv.slice(2).join(' ') ||
@@ -40,11 +42,13 @@ async function main(): Promise<void> {
     outputFormat,
   });
 
-  assert.ok(result.structuredOutput, 'Expected structuredOutput to be set');
-  assert.equal(typeof result.structuredOutput['favoriteNumber'], 'number');
+  const structuredOutput = result.structuredOutput as FavoriteNumber | null;
+
+  assert.ok(structuredOutput, 'Expected structuredOutput to be set');
+  assert.equal(typeof structuredOutput.favoriteNumber, 'number');
 
   console.log('=== Structured output ===');
-  console.log(JSON.stringify(result.structuredOutput, null, 2));
+  console.log(JSON.stringify(structuredOutput, null, 2));
 
   console.log('\nStructured output example passed');
 }
