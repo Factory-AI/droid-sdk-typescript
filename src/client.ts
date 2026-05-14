@@ -4,6 +4,7 @@ import { ConnectionError, SessionError } from './errors.js';
 import {
   ProtocolEngine,
   type AskUserHandler,
+  type HookRequestHandler,
   type NotificationCallback,
   type NotificationFilter,
   type PermissionHandler,
@@ -90,6 +91,10 @@ import {
   SESSION_INIT_TIMEOUT,
 } from './schemas/constants.js';
 import { DroidServerMethod, ToolConfirmationOutcome } from './schemas/enums.js';
+import type {
+  ExecuteHooksRequestParams,
+  ExecuteHooksResult,
+} from './schemas/hooks.js';
 import { SessionNotificationParamsSchema } from './schemas/server.js';
 import type {
   AskUserRequestParams,
@@ -102,6 +107,8 @@ import type { DroidClientTransport } from './types.js';
 export type ClientPermissionHandler = PermissionHandler;
 
 export type ClientAskUserHandler = AskUserHandler;
+
+export type ClientHookRequestHandler = HookRequestHandler;
 
 interface ClientNotificationListener {
   readonly callback: NotificationCallback;
@@ -133,6 +140,9 @@ export class DroidClient {
   /** Client-level ask-user handler. */
   private _askUserHandler: ClientAskUserHandler | null = null;
 
+  /** Client-level hook handler. */
+  private _hookHandler: ClientHookRequestHandler | null = null;
+
   constructor(options: DroidClientOptions) {
     this._engine = new ProtocolEngine({
       transport: options.transport,
@@ -149,6 +159,7 @@ export class DroidClient {
     this._engine.setAskUserHandler((params) =>
       this._dispatchAskUserRequest(params)
     );
+    this._engine.setHookHandler((params) => this._dispatchHookRequest(params));
   }
 
   private async _rpc<T extends z.ZodTypeAny>(
@@ -481,6 +492,14 @@ export class DroidClient {
     this._askUserHandler = null;
   }
 
+  setHookHandler(handler: ClientHookRequestHandler): void {
+    this._hookHandler = handler;
+  }
+
+  clearHookHandler(): void {
+    this._hookHandler = null;
+  }
+
   async close(): Promise<void> {
     if (this._closed) {
       return;
@@ -490,6 +509,7 @@ export class DroidClient {
     this._notificationListeners.length = 0;
     this._permissionHandler = null;
     this._askUserHandler = null;
+    this._hookHandler = null;
 
     await this._engine.close();
   }
@@ -536,6 +556,16 @@ export class DroidClient {
     const handler = this._askUserHandler;
     if (handler == null) {
       return { cancelled: true, answers: [] };
+    }
+    return handler(params);
+  }
+
+  private _dispatchHookRequest(
+    params: ExecuteHooksRequestParams
+  ): ExecuteHooksResult | Promise<ExecuteHooksResult> {
+    const handler = this._hookHandler;
+    if (handler == null) {
+      return { results: [] };
     }
     return handler(params);
   }

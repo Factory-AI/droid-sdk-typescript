@@ -18,9 +18,29 @@ export type {
 export { DroidClient } from './client.js';
 export type {
   ClientAskUserHandler,
+  ClientHookRequestHandler,
   ClientPermissionHandler,
   DroidClientOptions,
 } from './client.js';
+
+export type {
+  BaseDroidHookInput,
+  DroidHookCallback,
+  DroidHookEvent,
+  DroidHookInput,
+  DroidHookMatcher,
+  DroidHookOutput,
+  DroidHooks,
+  DroidPermissionMode,
+  NotificationHookInput,
+  PreCompactHookInput,
+  SessionEndHookInput,
+  SessionStartHookInput,
+  StopHookInput,
+  SubagentStopHookInput,
+  ToolHookInput,
+  UserPromptSubmitHookInput,
+} from './hooks.js';
 
 export {
   convertNotificationToStreamMessage,

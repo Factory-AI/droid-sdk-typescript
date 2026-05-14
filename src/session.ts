@@ -12,6 +12,11 @@ import type {
   SessionInitOptions,
   TransportCreationOptions,
 } from './helpers.js';
+import {
+  buildSdkHookRegistrations,
+  createHookRequestHandler,
+  type DroidHooks,
+} from './hooks.js';
 import { startSdkMcpServers } from './mcp.js';
 import type { DroidMcpServerConfig } from './mcp.js';
 import type { NotificationCallback, NotificationFilter } from './protocol.js';
@@ -61,6 +66,7 @@ export type DroidResult = DroidResultMessage;
 export interface CreateSessionOptions
   extends SessionInitOptions, HandlerOptions, TransportCreationOptions {
   abortSignal?: AbortSignal;
+  hooks?: DroidHooks;
 }
 
 export interface ResumeSessionOptions extends Pick<
@@ -73,6 +79,7 @@ export interface ResumeSessionOptions extends Pick<
   | 'askUserHandler'
   | 'transport'
   | 'abortSignal'
+  | 'hooks'
 > {
   mcpServers?: DroidMcpServerConfig[];
 }
@@ -387,13 +394,18 @@ export async function createSession(
 
   try {
     sdkMcpServers = await startSdkMcpServers(options.mcpServers);
+    if (options.hooks) {
+      client.setHookHandler(createHookRequestHandler(options.hooks));
+    }
     const initParams = buildInitParams({
       ...options,
       mcpServers: sdkMcpServers.mcpServers,
+      sdkHooks: buildSdkHookRegistrations(options.hooks),
     });
     const initResult = await client.initializeSession(initParams);
     const session = new DroidSession(client, initResult.sessionId, initResult);
     session.addCleanup(sdkMcpServers.cleanup);
+    session.addCleanup(() => client.clearHookHandler());
     cleanupInitAbortSignal();
     cleanupInitAbortSignal = () => {};
     session.setAbortSignalCleanup(
@@ -419,13 +431,18 @@ export async function resumeSession(
 
   try {
     sdkMcpServers = await startSdkMcpServers(options.mcpServers);
+    if (options.hooks) {
+      client.setHookHandler(createHookRequestHandler(options.hooks));
+    }
     const loadParams: LoadSessionRequestParams = {
       sessionId,
       mcpServers: sdkMcpServers.mcpServers,
+      sdkHooks: buildSdkHookRegistrations(options.hooks),
     };
     const loadResult = await client.loadSession(loadParams);
     const session = new DroidSession(client, sessionId, loadResult);
     session.addCleanup(sdkMcpServers.cleanup);
+    session.addCleanup(() => client.clearHookHandler());
     session.setAbortSignalCleanup(
       wireAbortSignal(options.abortSignal, () => void session.close())
     );

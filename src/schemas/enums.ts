@@ -42,6 +42,7 @@ export enum DroidClientMethod {
   SESSION_NOTIFICATION = 'droid.session_notification',
   REQUEST_PERMISSION = 'droid.request_permission',
   ASK_USER = 'droid.ask_user',
+  EXECUTE_HOOKS = 'droid.execute_hooks',
 }
 
 /** Session notification types. */

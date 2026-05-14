@@ -16,6 +16,7 @@ import type {
   DroidInteractionMode,
   ReasoningEffort,
 } from './schemas/enums.js';
+import type { SdkHookRegistration } from './schemas/hooks.js';
 import {
   SessionNotificationSchema,
   type SessionNotificationPayload,
@@ -255,6 +256,7 @@ export interface SessionInitOptions extends ToolSelectionOverrides {
 
 type ResolvedSessionInitOptions = Omit<SessionInitOptions, 'mcpServers'> & {
   mcpServers?: McpServerConfig[];
+  sdkHooks?: SdkHookRegistration[];
 };
 
 export function buildInitParams(
@@ -281,6 +283,9 @@ export function buildInitParams(
     }),
     ...(options.mcpServers !== undefined && {
       mcpServers: options.mcpServers,
+    }),
+    ...(options.sdkHooks !== undefined && {
+      sdkHooks: options.sdkHooks,
     }),
     ...(options.enabledToolIds !== undefined && {
       enabledToolIds: options.enabledToolIds,

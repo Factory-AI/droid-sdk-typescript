@@ -100,6 +100,24 @@ export type {
 } from './session-metadata.js';
 
 export {
+  DroidHookEventSchema,
+  DroidHookExecutionResultSchema,
+  DroidHookOutputSchema,
+  DroidHookSpecificOutputSchema,
+  ExecuteHooksRequestParamsSchema,
+  ExecuteHooksResultSchema,
+  SdkHookRegistrationSchema,
+} from './hooks.js';
+export type {
+  DroidHookEvent,
+  DroidHookExecutionResult,
+  DroidHookOutput,
+  ExecuteHooksRequestParams,
+  ExecuteHooksResult,
+  SdkHookRegistration,
+} from './hooks.js';
+
+export {
   Base64ImageSourceSchema,
   ContentBlockSchema,
   DocumentBlockSchema,
@@ -484,6 +502,8 @@ export {
   ErrorDetailSchema,
   ErrorNotificationSchema,
   ExecuteToolConfirmationDetailsSchema,
+  ExecuteHooksRequestSchema,
+  ExecuteHooksResponseSchema,
   ExitSpecModeConfirmationDetailsSchema,
   McpAuthCompletedNotificationSchema,
   McpAuthRequiredNotificationSchema,
@@ -543,6 +563,8 @@ export type {
   ErrorDetail,
   ErrorNotification,
   ExecuteToolConfirmationDetails,
+  ExecuteHooksRequest,
+  ExecuteHooksResponse,
   ExitSpecModeConfirmationDetails,
   McpAuthCompletedNotification,
   McpAuthRequiredNotification,

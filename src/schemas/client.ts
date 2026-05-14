@@ -14,6 +14,7 @@ import {
   SettingsLevel,
   SkillLocation,
 } from './enums.js';
+import { SdkHookRegistrationSchema } from './hooks.js';
 import {
   McpRegistryServerSchema,
   McpServerStatusInfoSchema,
@@ -251,6 +252,7 @@ export const InitializeSessionRequestParamsSchema = z
     sessionSource: SessionSourceSchema.optional(),
     tags: z.array(SessionTagSchema).optional(),
     mcpOAuthCallbackUri: z.string().optional(),
+    sdkHooks: z.array(SdkHookRegistrationSchema).optional(),
   })
   .strict();
 
@@ -264,6 +266,7 @@ export const LoadSessionRequestParamsSchema = z
     sessionId: z.string(),
     mcpServers: z.array(McpServerConfigSchema).optional(),
     mcpOAuthCallbackUri: z.string().optional(),
+    sdkHooks: z.array(SdkHookRegistrationSchema).optional(),
   })
   .strict();
 

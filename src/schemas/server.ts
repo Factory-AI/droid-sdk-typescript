@@ -16,6 +16,10 @@ import {
   ToolConfirmationType,
 } from './enums.js';
 import {
+  ExecuteHooksRequestParamsSchema,
+  ExecuteHooksResultSchema,
+} from './hooks.js';
+import {
   McpServerStatusInfoSchema,
   McpStatusSummarySchema,
   ToolConfirmationListItemSchema,
@@ -780,11 +784,28 @@ export const AskUserResponseSchema = z.union([
 
 export type AskUserResponse = z.infer<typeof AskUserResponseSchema>;
 
-/** Union over all 3 server → client methods. */
+/** Execute SDK hook callbacks request from the server (server → client). */
+export const ExecuteHooksRequestSchema = JsonRpcRequestSchema.extend({
+  method: z.literal(DroidClientMethod.EXECUTE_HOOKS),
+  params: ExecuteHooksRequestParamsSchema,
+});
+
+export type ExecuteHooksRequest = z.infer<typeof ExecuteHooksRequestSchema>;
+
+/** Response to droid.execute_hooks. */
+export const ExecuteHooksResponseSchema = z.union([
+  JsonRpcResponseSuccessSchema.extend({ result: ExecuteHooksResultSchema }),
+  JsonRpcResponseFailureSchema,
+]);
+
+export type ExecuteHooksResponse = z.infer<typeof ExecuteHooksResponseSchema>;
+
+/** Union over all server → client methods. */
 const _CliRequestOrNotificationSchema = z.union([
   SessionNotificationSchema,
   RequestPermissionRequestSchema,
   AskUserRequestSchema,
+  ExecuteHooksRequestSchema,
 ]);
 
 /* eslint-disable @typescript-eslint/consistent-type-assertions -- Zod workaround for deep type inference */
@@ -802,4 +823,5 @@ export const CliRequestOrNotificationSchema: z.ZodType<
 export type CliRequestOrNotification =
   | SessionNotification
   | RequestPermissionRequest
-  | AskUserRequest;
+  | AskUserRequest
+  | ExecuteHooksRequest;
