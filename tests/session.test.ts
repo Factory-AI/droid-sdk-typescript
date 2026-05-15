@@ -389,6 +389,10 @@ describe('DroidSession', () => {
               transport.injectMessage(makeSuccessResponse(id, {}));
               sendDefaultStreamSequence(transport);
             });
+          } else if (method === DroidServerMethod.CLOSE_SESSION) {
+            queueMicrotask(() => {
+              transport.injectMessage(makeSuccessResponse(id, {}));
+            });
           }
         });
 
@@ -461,6 +465,10 @@ describe('DroidSession', () => {
               structuredOutput: { name: 'Ada' },
             });
           });
+        } else if (method === DroidServerMethod.CLOSE_SESSION) {
+          queueMicrotask(() => {
+            transport.injectMessage(makeSuccessResponse(id, {}));
+          });
         }
       });
 
@@ -515,6 +523,10 @@ describe('DroidSession', () => {
                 message: '/name must be string',
               },
             });
+          });
+        } else if (method === DroidServerMethod.CLOSE_SESSION) {
+          queueMicrotask(() => {
+            transport.injectMessage(makeSuccessResponse(id, {}));
           });
         }
       });
@@ -1187,6 +1199,10 @@ describe('DroidSession', () => {
               )
             );
           });
+        } else if (method === DroidServerMethod.CLOSE_SESSION) {
+          queueMicrotask(() => {
+            transport.injectMessage(makeSuccessResponse(id, {}));
+          });
         }
       };
 
@@ -1354,6 +1370,10 @@ describe('DroidSession', () => {
                 { newState: DroidWorkingState.Idle }
               )
             );
+          });
+        } else if (method === DroidServerMethod.CLOSE_SESSION) {
+          queueMicrotask(() => {
+            transport.injectMessage(makeSuccessResponse(id, {}));
           });
         }
       };
