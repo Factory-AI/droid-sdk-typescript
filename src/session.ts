@@ -148,16 +148,19 @@ export class DroidSession {
   private _closed = false;
   private _cleanupAbortSignal: (() => void) | null = null;
   private _cleanupCallbacks: Array<() => Promise<void> | void> = [];
+  private readonly _runSessionEndOnClose: boolean;
 
   /** @internal */
   constructor(
     client: DroidClient,
     sessionId: string,
-    initResult: InitializeSessionResult | LoadSessionResult
+    initResult: InitializeSessionResult | LoadSessionResult,
+    runSessionEndOnClose = false
   ) {
     this._client = client;
     this._sessionId = sessionId;
     this._initResult = initResult;
+    this._runSessionEndOnClose = runSessionEndOnClose;
   }
 
   get sessionId(): string {
@@ -250,6 +253,9 @@ export class DroidSession {
     this._cleanupAbortSignal = null;
 
     try {
+      if (this._runSessionEndOnClose) {
+        await this._client.closeSession({ reason: 'other' }).catch(() => {});
+      }
       await this._client.close();
     } finally {
       const cleanups = this._cleanupCallbacks.splice(0);
@@ -403,7 +409,12 @@ export async function createSession(
       sdkHooks: buildSdkHookRegistrations(options.hooks),
     });
     const initResult = await client.initializeSession(initParams);
-    const session = new DroidSession(client, initResult.sessionId, initResult);
+    const session = new DroidSession(
+      client,
+      initResult.sessionId,
+      initResult,
+      (options.hooks?.SessionEnd?.length ?? 0) > 0
+    );
     session.addCleanup(sdkMcpServers.cleanup);
     session.addCleanup(() => client.clearHookHandler());
     cleanupInitAbortSignal();
@@ -440,7 +451,12 @@ export async function resumeSession(
       sdkHooks: buildSdkHookRegistrations(options.hooks),
     };
     const loadResult = await client.loadSession(loadParams);
-    const session = new DroidSession(client, sessionId, loadResult);
+    const session = new DroidSession(
+      client,
+      sessionId,
+      loadResult,
+      (options.hooks?.SessionEnd?.length ?? 0) > 0
+    );
     session.addCleanup(sdkMcpServers.cleanup);
     session.addCleanup(() => client.clearHookHandler());
     session.setAbortSignalCleanup(

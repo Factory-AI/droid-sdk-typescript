@@ -592,6 +592,35 @@ describe('DroidSession', () => {
       await session.close();
       await session.close();
     });
+
+    it('requests graceful close when a SessionEnd SDK hook is registered', async () => {
+      const transport = new InMemoryTransport();
+      await transport.connect();
+
+      setupFullResponder(transport, 'sess-close-session-end', {
+        [DroidServerMethod.CLOSE_SESSION]: (id) => {
+          queueMicrotask(() => {
+            transport.injectMessage(makeSuccessResponse(id, {}));
+          });
+        },
+      });
+
+      const session = await createSession({
+        transport,
+        hooks: {
+          SessionEnd: [{ hooks: [() => ({})] }],
+        },
+      });
+
+      await session.close();
+
+      const closeMessage = transport.sentMessages.find(
+        (message) => message['method'] === DroidServerMethod.CLOSE_SESSION
+      );
+      expect(closeMessage).toBeDefined();
+      expect(closeMessage?.['params']).toEqual({ reason: 'other' });
+      expect(transport.isConnected).toBe(false);
+    });
   });
 
   describe('MCP methods (VAL-API-011)', () => {

@@ -7,6 +7,7 @@ import {
   type DroidHooks,
   type DroidHookOutput,
 } from '../src/hooks.js';
+import { ExecuteHooksResultSchema } from '../src/schemas/hooks.js';
 
 describe('SDK hooks', () => {
   it('builds serializable hook registrations without callbacks', () => {
@@ -85,6 +86,42 @@ describe('SDK hooks', () => {
         },
       },
     ]);
+  });
+
+  it('accepts minimal hookSpecificOutput without hookEventName', async () => {
+    const handler = createHookRequestHandler({
+      PreToolUse: [
+        {
+          matcher: 'Execute',
+          hooks: [
+            () => ({
+              hookSpecificOutput: {
+                permissionDecision: 'deny' as const,
+              },
+            }),
+          ],
+        },
+      ],
+    });
+
+    const result = await handler({
+      eventName: 'PreToolUse',
+      matcher: 'Execute',
+      input: {
+        hook_event_name: 'PreToolUse',
+        session_id: 's1',
+        transcript_path: '',
+        cwd: '.',
+        permission_mode: 'off',
+        tool_name: 'Execute',
+        tool_input: { command: 'npm test' },
+      },
+    });
+
+    expect(() => ExecuteHooksResultSchema.parse(result)).not.toThrow();
+    expect(result.results[0]?.hookSpecificOutput).toEqual({
+      permissionDecision: 'deny',
+    });
   });
 
   it('converts thrown callback errors to non-throwing hook failures', async () => {

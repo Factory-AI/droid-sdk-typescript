@@ -26,7 +26,7 @@ export type SdkHookRegistration = z.infer<typeof SdkHookRegistrationSchema>;
 
 export const DroidHookSpecificOutputSchema = z
   .object({
-    hookEventName: DroidHookEventSchema,
+    hookEventName: DroidHookEventSchema.optional(),
     permissionDecision: z.enum(['allow', 'deny', 'ask']).optional(),
     permissionDecisionReason: z.string().optional(),
     additionalContext: z.string().optional(),

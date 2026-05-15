@@ -20,6 +20,8 @@ import type {
   CancelMcpAuthResult,
   ClearMcpAuthRequestParams,
   ClearMcpAuthResult,
+  CloseSessionRequestParams,
+  CloseSessionResult,
   CompactSessionRequestParams,
   CompactSessionResult,
   GetContextStatsResult,
@@ -62,6 +64,7 @@ import {
   AuthenticateMcpServerResultSchema,
   CancelMcpAuthResultSchema,
   ClearMcpAuthResultSchema,
+  CloseSessionResultSchema,
   CompactSessionResultSchema,
   GetContextStatsResultSchema,
   ExecuteRewindResultSchema,
@@ -249,6 +252,16 @@ export class DroidClient {
     return this._sessionRpcWithoutParams(
       DroidServerMethod.INTERRUPT_SESSION,
       InterruptSessionResultSchema
+    );
+  }
+
+  async closeSession(
+    params: CloseSessionRequestParams = {}
+  ): Promise<CloseSessionResult> {
+    return this._sessionRpc(
+      DroidServerMethod.CLOSE_SESSION,
+      params,
+      CloseSessionResultSchema
     );
   }
 

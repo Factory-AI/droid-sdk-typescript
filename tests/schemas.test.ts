@@ -134,12 +134,13 @@ import {
 } from '../src/schemas/index.js';
 
 describe('enums', () => {
-  it('DroidServerMethod has all 26 methods', () => {
+  it('DroidServerMethod has all 27 methods', () => {
     const values = Object.values(DroidServerMethod);
-    expect(values).toHaveLength(26);
+    expect(values).toHaveLength(27);
     expect(values).toContain('droid.initialize_session');
     expect(values).toContain('droid.load_session');
     expect(values).toContain('droid.add_user_message');
+    expect(values).toContain('droid.close_session');
     expect(values).toContain('droid.interrupt_session');
     expect(values).toContain('droid.kill_worker_session');
     expect(values).toContain('droid.update_session_settings');

@@ -314,6 +314,19 @@ export type InterruptSessionRequestParams = z.infer<
   typeof InterruptSessionRequestParamsSchema
 >;
 
+/** Parameters for droid.close_session request. */
+export const CloseSessionRequestParamsSchema = z
+  .object({
+    reason: z
+      .enum(['clear', 'logout', 'prompt_input_exit', 'other'])
+      .optional(),
+  })
+  .strict();
+
+export type CloseSessionRequestParams = z.infer<
+  typeof CloseSessionRequestParamsSchema
+>;
+
 /** Parameters for droid.kill_worker_session request. */
 export const KillWorkerSessionRequestParamsSchema = z
   .object({
@@ -637,6 +650,13 @@ export type InterruptSessionRequest = z.infer<
   typeof InterruptSessionRequestSchema
 >;
 
+export const CloseSessionRequestSchema = JsonRpcRequestSchema.extend({
+  method: z.literal(DroidServerMethod.CLOSE_SESSION),
+  params: CloseSessionRequestParamsSchema,
+});
+
+export type CloseSessionRequest = z.infer<typeof CloseSessionRequestSchema>;
+
 export const KillWorkerSessionRequestSchema = JsonRpcRequestSchema.extend({
   method: z.literal(DroidServerMethod.KILL_WORKER_SESSION),
   params: KillWorkerSessionRequestParamsSchema,
@@ -814,6 +834,7 @@ export const ClientRequestSchema = z.discriminatedUnion('method', [
   InitializeSessionRequestSchema,
   LoadSessionRequestSchema,
   AddUserMessageRequestSchema,
+  CloseSessionRequestSchema,
   InterruptSessionRequestSchema,
   KillWorkerSessionRequestSchema,
   UpdateSessionSettingsRequestSchema,
@@ -906,6 +927,11 @@ export const InterruptSessionResultSchema = EmptyResultSchema;
 export type InterruptSessionResult = z.infer<
   typeof InterruptSessionResultSchema
 >;
+
+/** Result for droid.close_session response (empty). */
+export const CloseSessionResultSchema = EmptyResultSchema;
+
+export type CloseSessionResult = z.infer<typeof CloseSessionResultSchema>;
 
 /** Result for droid.kill_worker_session response (empty). */
 export const KillWorkerSessionResultSchema = EmptyResultSchema;
@@ -1116,6 +1142,15 @@ export const InterruptSessionResponseSchema = z.union([
 export type InterruptSessionResponse = z.infer<
   typeof InterruptSessionResponseSchema
 >;
+
+export const CloseSessionResponseSchema = z.union([
+  JsonRpcResponseSuccessSchema.extend({
+    result: CloseSessionResultSchema,
+  }),
+  JsonRpcResponseFailureSchema,
+]);
+
+export type CloseSessionResponse = z.infer<typeof CloseSessionResponseSchema>;
 
 export const KillWorkerSessionResponseSchema = z.union([
   JsonRpcResponseSuccessSchema.extend({
