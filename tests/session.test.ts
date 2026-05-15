@@ -631,7 +631,6 @@ describe('DroidSession', () => {
 
       const session = await createSession({
         transport,
-        settingSources: [SettingsLevel.Project],
       });
 
       await session.close();

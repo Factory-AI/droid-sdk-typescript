@@ -73,7 +73,6 @@ export interface ResumeSessionOptions extends Pick<
   | 'askUserHandler'
   | 'transport'
   | 'abortSignal'
-  | 'settingSources'
 > {
   mcpServers?: DroidMcpServerConfig[];
 }
@@ -424,9 +423,6 @@ export async function resumeSession(
     const loadParams: LoadSessionRequestParams = {
       sessionId,
       mcpServers: sdkMcpServers.mcpServers,
-      ...(options.settingSources !== undefined && {
-        settingSources: options.settingSources,
-      }),
     };
     const loadResult = await client.loadSession(loadParams);
     const session = new DroidSession(client, sessionId, loadResult);

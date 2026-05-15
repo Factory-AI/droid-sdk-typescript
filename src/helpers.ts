@@ -9,7 +9,6 @@ import type {
   InitializeSessionRequestParams,
   McpServerConfig,
   OutputFormat,
-  SettingSource,
   SessionTag,
 } from './schemas/client.js';
 import type {
@@ -251,7 +250,6 @@ export interface SessionInitOptions extends ToolSelectionOverrides {
   specModeModelId?: string;
   specModeReasoningEffort?: ReasoningEffort;
   mcpServers?: DroidMcpServerConfig[];
-  settingSources?: SettingSource[];
   tags?: SessionTag[];
 }
 
@@ -283,9 +281,6 @@ export function buildInitParams(
     }),
     ...(options.mcpServers !== undefined && {
       mcpServers: options.mcpServers,
-    }),
-    ...(options.settingSources !== undefined && {
-      settingSources: options.settingSources,
     }),
     ...(options.enabledToolIds !== undefined && {
       enabledToolIds: options.enabledToolIds,
