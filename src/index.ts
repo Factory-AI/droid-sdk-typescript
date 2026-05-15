@@ -75,6 +75,7 @@ export type {
   MissionWorkerCompleted,
   McpAuthRequired,
   McpAuthCompleted,
+  HookExecution,
   StructuredOutput,
   StructuredOutputFields,
   ErrorEvent,

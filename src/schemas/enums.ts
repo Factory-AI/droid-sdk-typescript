@@ -70,6 +70,8 @@ export enum SessionNotificationType {
   MISSION_WORKER_COMPLETED = 'mission_worker_completed',
   MCP_AUTH_REQUIRED = 'mcp_auth_required',
   MCP_AUTH_COMPLETED = 'mcp_auth_completed',
+  HOOK_EXECUTION_STARTED = 'hook_execution_started',
+  HOOK_EXECUTION_COMPLETED = 'hook_execution_completed',
   STRUCTURED_OUTPUT = 'structured_output',
 }
 

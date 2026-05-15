@@ -398,6 +398,64 @@ export type McpAuthCompletedNotification = z.infer<
   typeof McpAuthCompletedNotificationSchema
 >;
 
+/** Hook command metadata included in hook execution notifications. */
+export const HookCommandSchema = z
+  .object({
+    command: z.string(),
+    timeout: z.number().optional(),
+  })
+  .passthrough();
+
+export type HookCommand = z.infer<typeof HookCommandSchema>;
+
+/** Hook execution result included in hook completion notifications. */
+export const HookResultSchema = z
+  .object({
+    exitCode: z.number(),
+    stdout: z.string(),
+    stderr: z.string(),
+    command: z.string().optional(),
+    timeout: z.number().optional(),
+  })
+  .passthrough();
+
+export type HookResult = z.infer<typeof HookResultSchema>;
+
+/** Hook execution started notification. */
+export const HookExecutionStartedNotificationSchema = z
+  .object({
+    type: z.literal(SessionNotificationType.HOOK_EXECUTION_STARTED),
+    hookId: z.string(),
+    hookEventName: z.string(),
+    hookMatcher: z.string().optional(),
+    hookCommands: z.array(HookCommandSchema),
+    hookToolCallId: z.string().optional(),
+    isParallelExecution: z.boolean().optional(),
+    parallelGroupId: z.string().optional(),
+  })
+  .passthrough();
+
+export type HookExecutionStartedNotification = z.infer<
+  typeof HookExecutionStartedNotificationSchema
+>;
+
+/** Hook execution completed notification. */
+export const HookExecutionCompletedNotificationSchema = z
+  .object({
+    type: z.literal(SessionNotificationType.HOOK_EXECUTION_COMPLETED),
+    hookId: z.string(),
+    hookEventName: z.string().optional(),
+    hookMatcher: z.string().optional(),
+    hookToolCallId: z.string().optional(),
+    hookStatus: z.enum(['completed', 'error']),
+    hookResults: z.array(HookResultSchema).optional(),
+  })
+  .passthrough();
+
+export type HookExecutionCompletedNotification = z.infer<
+  typeof HookExecutionCompletedNotificationSchema
+>;
+
 /** Structured output validation error emitted by Droid. */
 export const StructuredOutputErrorSchema = z
   .object({
@@ -448,6 +506,8 @@ export const SessionNotificationSchemaList = [
   MissionWorkerCompletedNotificationSchema,
   McpAuthRequiredNotificationSchema,
   McpAuthCompletedNotificationSchema,
+  HookExecutionStartedNotificationSchema,
+  HookExecutionCompletedNotificationSchema,
   StructuredOutputNotificationSchema,
 ] as const;
 

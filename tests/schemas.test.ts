@@ -176,7 +176,7 @@ describe('enums', () => {
     expect(DroidClientMethod.ASK_USER).toBe('droid.ask_user');
   });
 
-  it('SessionNotificationType has 24 types', () => {
+  it('SessionNotificationType has 26 types', () => {
     const values = Object.values(SessionNotificationType);
     const expectedValues = [
       'assistant_text_delta',
@@ -202,6 +202,8 @@ describe('enums', () => {
       'mission_worker_completed',
       'mcp_auth_required',
       'mcp_auth_completed',
+      'hook_execution_started',
+      'hook_execution_completed',
       'structured_output',
     ];
     expect(values).toHaveLength(expectedValues.length);
