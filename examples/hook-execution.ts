@@ -30,9 +30,13 @@ async function main(): Promise<void> {
 
         case DroidMessageType.Hook:
           if (msg.status === 'started') {
-            console.log(`  [Hook Started] ID: ${msg.hookId}, Event: ${msg.eventName}, Command: ${msg.command}`);
+            console.log(
+              `  [Hook Started] ID: ${msg.hookId}, Event: ${msg.eventName}, Command: ${msg.command}`
+            );
           } else {
-            console.log(`  [Hook ${msg.status}] ID: ${msg.hookId}, Exit Code: ${msg.exitCode}`);
+            console.log(
+              `  [Hook ${msg.status}] ID: ${msg.hookId}, Exit Code: ${msg.exitCode}`
+            );
             if (msg.stdout) console.log(`    stdout: ${msg.stdout.trim()}`);
             if (msg.stderr) console.log(`    stderr: ${msg.stderr.trim()}`);
           }
