@@ -15,6 +15,7 @@ import {
   ToolConfirmationOutcome,
   ToolConfirmationType,
 } from './enums.js';
+import { DroidHookEventSchema } from './hooks.js';
 import {
   McpServerStatusInfoSchema,
   McpStatusSummarySchema,
@@ -426,7 +427,7 @@ export const HookExecutionStartedNotificationSchema = z
   .object({
     type: z.literal(SessionNotificationType.HOOK_EXECUTION_STARTED),
     hookId: z.string(),
-    hookEventName: z.string(),
+    hookEventName: DroidHookEventSchema,
     hookMatcher: z.string().optional(),
     hookCommands: z.array(HookCommandSchema),
     hookToolCallId: z.string().optional(),
@@ -444,7 +445,7 @@ export const HookExecutionCompletedNotificationSchema = z
   .object({
     type: z.literal(SessionNotificationType.HOOK_EXECUTION_COMPLETED),
     hookId: z.string(),
-    hookEventName: z.string().optional(),
+    hookEventName: DroidHookEventSchema.optional(),
     hookMatcher: z.string().optional(),
     hookToolCallId: z.string().optional(),
     hookStatus: z.enum(['completed', 'error']),

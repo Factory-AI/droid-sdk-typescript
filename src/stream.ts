@@ -6,6 +6,7 @@ import {
   SessionNotificationType,
   ToolConfirmationOutcome,
 } from './schemas/enums.js';
+import type { DroidHookEvent } from './schemas/hooks.js';
 import type { McpServerStatusInfo, McpStatusSummary } from './schemas/mcp.js';
 import {
   FactoryDroidMessageRole,
@@ -220,7 +221,7 @@ export interface McpAuthCompleted {
 export interface HookExecution {
   readonly type: 'hook';
   readonly hookId: string;
-  readonly eventName?: string;
+  readonly eventName?: DroidHookEvent;
   readonly matcher?: string;
   readonly toolCallId?: string;
   readonly command?: string;
