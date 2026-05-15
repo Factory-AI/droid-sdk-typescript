@@ -25,6 +25,7 @@ import {
   JSONRPC_VERSION,
   LEGACY_FACTORY_API_VERSION,
   SessionNotificationType,
+  SettingsLevel,
   ToolConfirmationOutcome,
 } from '../src/schemas/index.js';
 import { InMemoryTransport } from './helpers.js';
@@ -336,7 +337,7 @@ describe('buildInitParams', () => {
       specModeReasoningEffort: 'max' as never,
       enabledToolIds: ['Read', 'Grep'],
       disabledToolIds: ['Execute'],
-      sdkHooks: [{ eventName: 'PreToolUse', matcher: 'Execute', timeout: 30 }],
+      settingSources: [SettingsLevel.Project, SettingsLevel.User],
       mcpServers: [
         {
           name: 'test-server',
@@ -357,8 +358,9 @@ describe('buildInitParams', () => {
     expect(params.specModeReasoningEffort).toBe('max');
     expect(params.enabledToolIds).toEqual(['Read', 'Grep']);
     expect(params.disabledToolIds).toEqual(['Execute']);
-    expect(params.sdkHooks).toEqual([
-      { eventName: 'PreToolUse', matcher: 'Execute', timeout: 30 },
+    expect(params.settingSources).toEqual([
+      SettingsLevel.Project,
+      SettingsLevel.User,
     ]);
     expect(params.mcpServers).toHaveLength(1);
   });
@@ -390,7 +392,7 @@ describe('buildInitParams', () => {
     expect(params).not.toHaveProperty('specModeModelId');
     expect(params).not.toHaveProperty('specModeReasoningEffort');
     expect(params).not.toHaveProperty('mcpServers');
-    expect(params).not.toHaveProperty('sdkHooks');
+    expect(params).not.toHaveProperty('settingSources');
     expect(params).not.toHaveProperty('enabledToolIds');
     expect(params).not.toHaveProperty('disabledToolIds');
   });

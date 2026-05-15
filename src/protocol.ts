@@ -19,12 +19,6 @@ import {
   ToolConfirmationOutcome,
 } from './schemas/enums.js';
 import {
-  ExecuteHooksRequestParamsSchema,
-  ExecuteHooksResultSchema,
-  type ExecuteHooksRequestParams,
-  type ExecuteHooksResult,
-} from './schemas/hooks.js';
-import {
   AskUserRequestParamsSchema,
   AskUserResultSchema,
   RequestPermissionRequestParamsSchema,
@@ -48,10 +42,6 @@ export type PermissionHandler = (
 export type AskUserHandler = (
   params: AskUserRequestParams
 ) => AskUserResult | Promise<AskUserResult>;
-
-export type HookRequestHandler = (
-  params: ExecuteHooksRequestParams
-) => ExecuteHooksResult | Promise<ExecuteHooksResult>;
 
 export type NotificationCallback = (
   notification: Record<string, unknown>
@@ -83,7 +73,6 @@ export class ProtocolEngine {
   private readonly _notificationListeners = new Set<NotificationListener>();
   private _permissionHandler: PermissionHandler | null = null;
   private _askUserHandler: AskUserHandler | null = null;
-  private _hookHandler: HookRequestHandler | null = null;
   private _transportError: Error | null = null;
   private _closed = false;
 
@@ -207,14 +196,6 @@ export class ProtocolEngine {
     this._askUserHandler = null;
   }
 
-  setHookHandler(handler: HookRequestHandler): void {
-    this._hookHandler = handler;
-  }
-
-  clearHookHandler(): void {
-    this._hookHandler = null;
-  }
-
   get isHealthy(): boolean {
     return !this._closed && this._transportError === null;
   }
@@ -232,7 +213,6 @@ export class ProtocolEngine {
 
     this._permissionHandler = null;
     this._askUserHandler = null;
-    this._hookHandler = null;
     this._notificationListeners.clear();
 
     await this._transport.close();
@@ -330,8 +310,6 @@ export class ProtocolEngine {
       await this._handlePermissionRequest(requestId, params);
     } else if (method === DroidClientMethod.ASK_USER) {
       await this._handleAskUserRequest(requestId, params);
-    } else if (method === DroidClientMethod.EXECUTE_HOOKS) {
-      await this._handleHookRequest(requestId, params);
     }
   }
 
@@ -404,35 +382,6 @@ export class ProtocolEngine {
     }
   }
 
-  private async _handleHookRequest(
-    requestId: string,
-    params: unknown
-  ): Promise<void> {
-    const handler = this._hookHandler;
-
-    if (handler == null) {
-      this._sendResponse(
-        requestId,
-        ExecuteHooksResultSchema.parse({ results: [] })
-      );
-      return;
-    }
-
-    try {
-      const parsedParams = ExecuteHooksRequestParamsSchema.parse(params);
-      const result = await Promise.resolve(handler(parsedParams));
-      this._sendResponse(requestId, ExecuteHooksResultSchema.parse(result));
-    } catch (exc) {
-      const errorMessage = exc instanceof Error ? exc.message : String(exc);
-      this._sendErrorResponse(
-        requestId,
-        JsonRpcErrorCode.INTERNAL_ERROR,
-        'Failed to handle hook request',
-        errorMessage
-      );
-    }
-  }
-
   /**
    * Handle a transport error.
    * Sets the sticky transport error and rejects all pending requests.
@@ -449,7 +398,7 @@ export class ProtocolEngine {
 
   private _sendResponse(
     requestId: string,
-    result: RequestPermissionResult | AskUserResult | ExecuteHooksResult
+    result: RequestPermissionResult | AskUserResult
   ): void {
     const response: Record<string, unknown> = {
       jsonrpc: JSONRPC_VERSION,

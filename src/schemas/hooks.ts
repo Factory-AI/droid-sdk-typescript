@@ -14,16 +14,6 @@ export const DroidHookEventSchema = z.enum([
 
 export type DroidHookEvent = z.infer<typeof DroidHookEventSchema>;
 
-export const SdkHookRegistrationSchema = z
-  .object({
-    eventName: DroidHookEventSchema,
-    matcher: z.string().optional(),
-    timeout: z.number().optional(),
-  })
-  .strict();
-
-export type SdkHookRegistration = z.infer<typeof SdkHookRegistrationSchema>;
-
 export const DroidHookSpecificOutputSchema = z
   .object({
     hookEventName: DroidHookEventSchema.optional(),
@@ -57,24 +47,3 @@ export const DroidHookExecutionResultSchema = DroidHookOutputSchema.extend({
 export type DroidHookExecutionResult = z.infer<
   typeof DroidHookExecutionResultSchema
 >;
-
-export const ExecuteHooksRequestParamsSchema = z
-  .object({
-    eventName: DroidHookEventSchema,
-    input: z.record(z.unknown()),
-    matcher: z.string().optional(),
-    toolUseId: z.string().optional(),
-  })
-  .strict();
-
-export type ExecuteHooksRequestParams = z.infer<
-  typeof ExecuteHooksRequestParamsSchema
->;
-
-export const ExecuteHooksResultSchema = z
-  .object({
-    results: z.array(DroidHookExecutionResultSchema),
-  })
-  .strict();
-
-export type ExecuteHooksResult = z.infer<typeof ExecuteHooksResultSchema>;

@@ -8,13 +8,12 @@ import {
   DroidInteractionMode,
   DroidServerMethod,
   McpServerType,
-  MissionState,
   ModelProvider,
+  MissionState,
   ReasoningEffort,
   SettingsLevel,
   SkillLocation,
 } from './enums.js';
-import { SdkHookRegistrationSchema } from './hooks.js';
 import {
   McpRegistryServerSchema,
   McpServerStatusInfoSchema,
@@ -232,6 +231,13 @@ export const SkillInfoSchema = z
 
 export type SkillInfo = z.infer<typeof SkillInfoSchema>;
 
+export const SettingSourceSchema = z.union([
+  z.nativeEnum(SettingsLevel),
+  z.literal('all'),
+]);
+
+export type SettingSource = z.infer<typeof SettingSourceSchema>;
+
 /** Parameters for droid.initialize_session request. */
 export const InitializeSessionRequestParamsSchema = z
   .object({
@@ -252,7 +258,7 @@ export const InitializeSessionRequestParamsSchema = z
     sessionSource: SessionSourceSchema.optional(),
     tags: z.array(SessionTagSchema).optional(),
     mcpOAuthCallbackUri: z.string().optional(),
-    sdkHooks: z.array(SdkHookRegistrationSchema).optional(),
+    settingSources: z.array(SettingSourceSchema).optional(),
   })
   .strict();
 
@@ -266,7 +272,7 @@ export const LoadSessionRequestParamsSchema = z
     sessionId: z.string(),
     mcpServers: z.array(McpServerConfigSchema).optional(),
     mcpOAuthCallbackUri: z.string().optional(),
-    sdkHooks: z.array(SdkHookRegistrationSchema).optional(),
+    settingSources: z.array(SettingSourceSchema).optional(),
   })
   .strict();
 

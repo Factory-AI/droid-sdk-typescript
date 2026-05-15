@@ -54,6 +54,10 @@ function setupInitResponder(
           })
         );
       });
+    } else if (method === DroidServerMethod.CLOSE_SESSION) {
+      queueMicrotask(() => {
+        transport.injectMessage(makeSuccessResponse(id, {}));
+      });
     }
   });
 }
@@ -85,6 +89,10 @@ function setupLoadResponder(
             settings: { modelId: 'test-model', reasoningEffort: 'medium' },
           })
         );
+      });
+    } else if (method === DroidServerMethod.CLOSE_SESSION) {
+      queueMicrotask(() => {
+        transport.injectMessage(makeSuccessResponse(id, {}));
       });
     }
   });
@@ -133,6 +141,10 @@ function setupFullResponder(
         });
       });
     } else if (method === DroidServerMethod.INTERRUPT_SESSION) {
+      queueMicrotask(() => {
+        transport.injectMessage(makeSuccessResponse(id, {}));
+      });
+    } else if (method === DroidServerMethod.CLOSE_SESSION) {
       queueMicrotask(() => {
         transport.injectMessage(makeSuccessResponse(id, {}));
       });
@@ -593,7 +605,7 @@ describe('DroidSession', () => {
       await session.close();
     });
 
-    it('requests graceful close when a SessionEnd SDK hook is registered', async () => {
+    it('requests graceful close so file hooks can receive SessionEnd', async () => {
       const transport = new InMemoryTransport();
       await transport.connect();
 
@@ -607,9 +619,7 @@ describe('DroidSession', () => {
 
       const session = await createSession({
         transport,
-        hooks: {
-          SessionEnd: [{ hooks: [() => ({})] }],
-        },
+        settingSources: [SettingsLevel.Project],
       });
 
       await session.close();
