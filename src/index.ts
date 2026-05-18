@@ -22,6 +22,22 @@ export type {
   DroidClientOptions,
 } from './client.js';
 
+export type {
+  BaseDroidHookInput,
+  DroidHookEvent,
+  DroidHookInput,
+  DroidHookOutput,
+  DroidPermissionMode,
+  NotificationHookInput,
+  PreCompactHookInput,
+  SessionEndHookInput,
+  SessionStartHookInput,
+  StopHookInput,
+  SubagentStopHookInput,
+  ToolHookInput,
+  UserPromptSubmitHookInput,
+} from './hooks.js';
+
 export {
   convertNotificationToStreamMessage,
   DroidMessageType,
@@ -59,6 +75,7 @@ export type {
   MissionWorkerCompleted,
   McpAuthRequired,
   McpAuthCompleted,
+  HookExecution,
   StructuredOutput,
   StructuredOutputFields,
   ErrorEvent,

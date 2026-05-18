@@ -37,6 +37,7 @@ import type {
   MissionWorkerCompleted,
   McpAuthRequired,
   McpAuthCompleted,
+  HookExecution,
   ErrorEvent,
   DroidMessage,
   DroidResultMessage,
@@ -72,6 +73,7 @@ const expectedDroidMessageTypes = [
   'mission_worker_completed',
   'mcp_auth_required',
   'mcp_auth_completed',
+  'hook',
   'error',
   'result',
 ] as const satisfies readonly DroidMessage['type'][];
@@ -329,6 +331,20 @@ describe('DroidMessage types', () => {
     expect(msg.outcome).toBe(McpAuthOutcome.Success);
   });
 
+  it('HookExecution has correct structure', () => {
+    const msg: HookExecution = {
+      type: 'hook',
+      hookId: 'hook-1',
+      eventName: 'PreToolUse',
+      matcher: 'Execute',
+      toolCallId: 'tool-1',
+      command: 'echo hook',
+      status: 'started',
+    };
+    expect(msg.type).toBe('hook');
+    expect(msg.command).toBe('echo hook');
+  });
+
   it('ErrorEvent has correct structure', () => {
     const msg: ErrorEvent = {
       type: 'error',
@@ -370,7 +386,7 @@ describe('DroidMessage types', () => {
     expect(msg.tokenUsage!.inputTokens).toBe(100);
   });
 
-  it('DroidMessage union type allows all 23 types', () => {
+  it('DroidMessage union type allows all message types', () => {
     const messages: DroidMessage[] = [
       {
         type: 'assistant',
@@ -487,6 +503,19 @@ describe('DroidMessage types', () => {
         serverName: 's',
         outcome: McpAuthOutcome.Success,
         message: 'm',
+      },
+      {
+        type: 'hook',
+        hookId: 'hook-1',
+        eventName: 'PreToolUse',
+        matcher: 'Execute',
+        toolCallId: 'tool-1',
+        command: 'echo hook',
+        timeout: 5,
+        status: 'completed',
+        exitCode: 0,
+        stdout: 'ok',
+        stderr: '',
       },
       {
         type: 'error',
@@ -1110,6 +1139,91 @@ describe('convertNotificationToStreamMessage', () => {
     });
   });
 
+  describe('hook execution', () => {
+    it('converts each started hook command to a HookExecution message', () => {
+      const notification = makeNotification(
+        SessionNotificationType.HOOK_EXECUTION_STARTED,
+        {
+          hookId: 'hook-1',
+          hookEventName: 'PreToolUse',
+          hookMatcher: 'Execute',
+          hookToolCallId: 'tool-1',
+          hookCommands: [
+            { command: 'echo one', timeout: 5 },
+            { command: 'echo two' },
+          ],
+        }
+      );
+      const result = convertNotificationToStreamMessage(
+        notification
+      ) as HookExecution[];
+
+      expect(result).toEqual([
+        {
+          type: 'hook',
+          hookId: 'hook-1',
+          eventName: 'PreToolUse',
+          matcher: 'Execute',
+          toolCallId: 'tool-1',
+          command: 'echo one',
+          timeout: 5,
+          status: 'started',
+        },
+        {
+          type: 'hook',
+          hookId: 'hook-1',
+          eventName: 'PreToolUse',
+          matcher: 'Execute',
+          toolCallId: 'tool-1',
+          command: 'echo two',
+          timeout: undefined,
+          status: 'started',
+        },
+      ]);
+    });
+
+    it('converts each completed hook result to a HookExecution message', () => {
+      const notification = makeNotification(
+        SessionNotificationType.HOOK_EXECUTION_COMPLETED,
+        {
+          hookId: 'hook-1',
+          hookEventName: 'PreToolUse',
+          hookMatcher: 'Execute',
+          hookToolCallId: 'tool-1',
+          hookStatus: 'completed',
+          hookResults: [
+            {
+              command: 'echo one',
+              timeout: 5,
+              exitCode: 0,
+              stdout: 'one\n',
+              stderr: '',
+            },
+          ],
+        }
+      );
+      const result = convertNotificationToStreamMessage(
+        notification
+      ) as HookExecution[];
+
+      expect(result).toEqual([
+        {
+          type: 'hook',
+          hookId: 'hook-1',
+          eventName: 'PreToolUse',
+          matcher: 'Execute',
+          toolCallId: 'tool-1',
+          command: 'echo one',
+          timeout: 5,
+          status: 'completed',
+          exitCode: 0,
+          stdout: 'one\n',
+          stderr: '',
+        },
+      ]);
+    });
+  });
+
   describe('structured_output', () => {
     it('converts successful structured output', () => {
       const notification = makeNotification(
@@ -1288,6 +1402,19 @@ describe('convertNotificationToStreamMessage', () => {
           serverName: 's',
           outcome: McpAuthOutcome.Success,
           message: 'm',
+        },
+        [SessionNotificationType.HOOK_EXECUTION_STARTED]: {
+          hookId: 'hook-1',
+          hookEventName: 'PreToolUse',
+          hookCommands: [{ command: 'echo hook' }],
+        },
+        [SessionNotificationType.HOOK_EXECUTION_COMPLETED]: {
+          hookId: 'hook-1',
+          hookEventName: 'PreToolUse',
+          hookStatus: 'completed',
+          hookResults: [
+            { command: 'echo hook', exitCode: 0, stdout: '', stderr: '' },
+          ],
         },
         [SessionNotificationType.STRUCTURED_OUTPUT]: {
           messageId: 'm',

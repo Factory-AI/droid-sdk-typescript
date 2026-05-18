@@ -54,6 +54,10 @@ function setupInitResponder(
           })
         );
       });
+    } else if (method === DroidServerMethod.CLOSE_SESSION) {
+      queueMicrotask(() => {
+        transport.injectMessage(makeSuccessResponse(id, {}));
+      });
     }
   });
 }
@@ -85,6 +89,10 @@ function setupLoadResponder(
             settings: { modelId: 'test-model', reasoningEffort: 'medium' },
           })
         );
+      });
+    } else if (method === DroidServerMethod.CLOSE_SESSION) {
+      queueMicrotask(() => {
+        transport.injectMessage(makeSuccessResponse(id, {}));
       });
     }
   });
@@ -133,6 +141,10 @@ function setupFullResponder(
         });
       });
     } else if (method === DroidServerMethod.INTERRUPT_SESSION) {
+      queueMicrotask(() => {
+        transport.injectMessage(makeSuccessResponse(id, {}));
+      });
+    } else if (method === DroidServerMethod.CLOSE_SESSION) {
       queueMicrotask(() => {
         transport.injectMessage(makeSuccessResponse(id, {}));
       });
@@ -377,6 +389,10 @@ describe('DroidSession', () => {
               transport.injectMessage(makeSuccessResponse(id, {}));
               sendDefaultStreamSequence(transport);
             });
+          } else if (method === DroidServerMethod.CLOSE_SESSION) {
+            queueMicrotask(() => {
+              transport.injectMessage(makeSuccessResponse(id, {}));
+            });
           }
         });
 
@@ -449,6 +465,10 @@ describe('DroidSession', () => {
               structuredOutput: { name: 'Ada' },
             });
           });
+        } else if (method === DroidServerMethod.CLOSE_SESSION) {
+          queueMicrotask(() => {
+            transport.injectMessage(makeSuccessResponse(id, {}));
+          });
         }
       });
 
@@ -503,6 +523,10 @@ describe('DroidSession', () => {
                 message: '/name must be string',
               },
             });
+          });
+        } else if (method === DroidServerMethod.CLOSE_SESSION) {
+          queueMicrotask(() => {
+            transport.injectMessage(makeSuccessResponse(id, {}));
           });
         }
       });
@@ -591,6 +615,32 @@ describe('DroidSession', () => {
       await session.close();
       await session.close();
       await session.close();
+    });
+
+    it('requests graceful close so file hooks can receive SessionEnd', async () => {
+      const transport = new InMemoryTransport();
+      await transport.connect();
+
+      setupFullResponder(transport, 'sess-close-session-end', {
+        [DroidServerMethod.CLOSE_SESSION]: (id) => {
+          queueMicrotask(() => {
+            transport.injectMessage(makeSuccessResponse(id, {}));
+          });
+        },
+      });
+
+      const session = await createSession({
+        transport,
+      });
+
+      await session.close();
+
+      const closeMessage = transport.sentMessages.find(
+        (message) => message['method'] === DroidServerMethod.CLOSE_SESSION
+      );
+      expect(closeMessage).toBeDefined();
+      expect(closeMessage?.['params']).toEqual({ reason: 'other' });
+      expect(transport.isConnected).toBe(false);
     });
   });
 
@@ -1148,6 +1198,10 @@ describe('DroidSession', () => {
               )
             );
           });
+        } else if (method === DroidServerMethod.CLOSE_SESSION) {
+          queueMicrotask(() => {
+            transport.injectMessage(makeSuccessResponse(id, {}));
+          });
         }
       };
 
@@ -1315,6 +1369,10 @@ describe('DroidSession', () => {
                 { newState: DroidWorkingState.Idle }
               )
             );
+          });
+        } else if (method === DroidServerMethod.CLOSE_SESSION) {
+          queueMicrotask(() => {
+            transport.injectMessage(makeSuccessResponse(id, {}));
           });
         }
       };

@@ -100,6 +100,18 @@ export type {
 } from './session-metadata.js';
 
 export {
+  DroidHookEventSchema,
+  DroidHookExecutionResultSchema,
+  DroidHookOutputSchema,
+  DroidHookSpecificOutputSchema,
+} from './hooks.js';
+export type {
+  DroidHookEvent,
+  DroidHookExecutionResult,
+  DroidHookOutput,
+} from './hooks.js';
+
+export {
   Base64ImageSourceSchema,
   ContentBlockSchema,
   DocumentBlockSchema,
@@ -230,6 +242,10 @@ export {
   ClearMcpAuthResponseSchema,
   ClearMcpAuthResultSchema,
   ClientRequestSchema,
+  CloseSessionRequestParamsSchema,
+  CloseSessionRequestSchema,
+  CloseSessionResponseSchema,
+  CloseSessionResultSchema,
   ContextStatsSchema,
   CompactSessionRequestParamsSchema,
   CompactSessionRequestSchema,
@@ -360,6 +376,10 @@ export type {
   ClearMcpAuthResponse,
   ClearMcpAuthResult,
   ClientRequest,
+  CloseSessionRequest,
+  CloseSessionRequestParams,
+  CloseSessionResponse,
+  CloseSessionResult,
   ContextStats,
   CompactSessionRequest,
   CompactSessionRequestParams,
@@ -485,6 +505,10 @@ export {
   ErrorNotificationSchema,
   ExecuteToolConfirmationDetailsSchema,
   ExitSpecModeConfirmationDetailsSchema,
+  HookCommandSchema,
+  HookExecutionCompletedNotificationSchema,
+  HookExecutionStartedNotificationSchema,
+  HookResultSchema,
   McpAuthCompletedNotificationSchema,
   McpAuthRequiredNotificationSchema,
   McpStatusChangedNotificationSchema,
@@ -544,6 +568,10 @@ export type {
   ErrorNotification,
   ExecuteToolConfirmationDetails,
   ExitSpecModeConfirmationDetails,
+  HookCommand,
+  HookExecutionCompletedNotification,
+  HookExecutionStartedNotification,
+  HookResult,
   McpAuthCompletedNotification,
   McpAuthRequiredNotification,
   McpStatusChangedNotification,

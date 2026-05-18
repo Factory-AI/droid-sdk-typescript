@@ -45,6 +45,10 @@ function setupRunResponder(
           tokenUsageSessionId: sessionId,
         });
       });
+    } else if (method === DroidServerMethod.CLOSE_SESSION) {
+      queueMicrotask(() => {
+        transport.injectMessage(makeSuccessResponse(id, {}));
+      });
     }
   });
 }
@@ -136,6 +140,10 @@ describe('run()', () => {
         queueMicrotask(() => {
           transport.injectMessage(makeErrorResponse(id, -32603, 'send failed'));
         });
+      } else if (method === DroidServerMethod.CLOSE_SESSION) {
+        queueMicrotask(() => {
+          transport.injectMessage(makeSuccessResponse(id, {}));
+        });
       }
     });
 
@@ -182,6 +190,10 @@ describe('run()', () => {
               { newState: DroidWorkingState.Idle }
             )
           );
+        });
+      } else if (method === DroidServerMethod.CLOSE_SESSION) {
+        queueMicrotask(() => {
+          transport.injectMessage(makeSuccessResponse(id, {}));
         });
       }
     });
@@ -245,6 +257,10 @@ describe('run()', () => {
               { newState: DroidWorkingState.Idle }
             )
           );
+        });
+      } else if (method === DroidServerMethod.CLOSE_SESSION) {
+        queueMicrotask(() => {
+          transport.injectMessage(makeSuccessResponse(id, {}));
         });
       }
     });
@@ -336,6 +352,10 @@ describe('run()', () => {
             )
           );
         });
+      } else if (method === DroidServerMethod.CLOSE_SESSION) {
+        queueMicrotask(() => {
+          transport.injectMessage(makeSuccessResponse(id, {}));
+        });
       }
     });
 
@@ -399,6 +419,10 @@ describe('run()', () => {
               { newState: DroidWorkingState.Idle }
             )
           );
+        });
+      } else if (method === DroidServerMethod.CLOSE_SESSION) {
+        queueMicrotask(() => {
+          transport.injectMessage(makeSuccessResponse(id, {}));
         });
       }
     });

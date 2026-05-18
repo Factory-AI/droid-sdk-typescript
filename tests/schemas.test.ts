@@ -134,12 +134,13 @@ import {
 } from '../src/schemas/index.js';
 
 describe('enums', () => {
-  it('DroidServerMethod has all 26 methods', () => {
+  it('DroidServerMethod has all 27 methods', () => {
     const values = Object.values(DroidServerMethod);
-    expect(values).toHaveLength(26);
+    expect(values).toHaveLength(27);
     expect(values).toContain('droid.initialize_session');
     expect(values).toContain('droid.load_session');
     expect(values).toContain('droid.add_user_message');
+    expect(values).toContain('droid.close_session');
     expect(values).toContain('droid.interrupt_session');
     expect(values).toContain('droid.kill_worker_session');
     expect(values).toContain('droid.update_session_settings');
@@ -175,7 +176,7 @@ describe('enums', () => {
     expect(DroidClientMethod.ASK_USER).toBe('droid.ask_user');
   });
 
-  it('SessionNotificationType has 24 types', () => {
+  it('SessionNotificationType has 26 types', () => {
     const values = Object.values(SessionNotificationType);
     const expectedValues = [
       'assistant_text_delta',
@@ -201,6 +202,8 @@ describe('enums', () => {
       'mission_worker_completed',
       'mcp_auth_required',
       'mcp_auth_completed',
+      'hook_execution_started',
+      'hook_execution_completed',
       'structured_output',
     ];
     expect(values).toHaveLength(expectedValues.length);

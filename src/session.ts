@@ -243,6 +243,7 @@ export class DroidSession {
     this._cleanupAbortSignal = null;
 
     try {
+      await this._client.closeSession({ reason: 'other' }).catch(() => {});
       await this._client.close();
     } finally {
       const cleanups = this._cleanupCallbacks.splice(0);

@@ -6,6 +6,7 @@ import {
   SessionNotificationType,
   ToolConfirmationOutcome,
 } from './schemas/enums.js';
+import type { DroidHookEvent } from './schemas/hooks.js';
 import type { McpServerStatusInfo, McpStatusSummary } from './schemas/mcp.js';
 import {
   FactoryDroidMessageRole,
@@ -53,6 +54,7 @@ export const DroidMessageType = {
   MissionWorkerCompleted: 'mission_worker_completed',
   McpAuthRequired: 'mcp_auth_required',
   McpAuthCompleted: 'mcp_auth_completed',
+  Hook: 'hook',
   Error: 'error',
   Result: 'result',
 } as const;
@@ -216,6 +218,20 @@ export interface McpAuthCompleted {
   readonly message: string;
 }
 
+export interface HookExecution {
+  readonly type: 'hook';
+  readonly hookId: string;
+  readonly eventName?: DroidHookEvent;
+  readonly matcher?: string;
+  readonly toolCallId?: string;
+  readonly command?: string;
+  readonly timeout?: number;
+  readonly status: 'started' | 'completed' | 'error';
+  readonly exitCode?: number;
+  readonly stdout?: string;
+  readonly stderr?: string;
+}
+
 export interface StructuredOutputFields {
   readonly structuredOutput: JsonObject | null;
   readonly structuredOutputError: ServerStructuredOutputError | null;
@@ -282,6 +298,7 @@ export type DroidStreamMessage =
   | DroidUserMessage
   | DroidToolCallMessage
   | ToolResult
+  | HookExecution
   | ErrorEvent
   | DroidResultMessage;
 
@@ -306,7 +323,8 @@ export type DroidStreamEvent =
   | MissionWorkerStarted
   | MissionWorkerCompleted
   | McpAuthRequired
-  | McpAuthCompleted;
+  | McpAuthCompleted
+  | HookExecution;
 
 export type InternalDroidMessage =
   | DroidStreamEvent
@@ -532,6 +550,33 @@ export function convertNotificationToStreamMessage(
         message: notification.message,
       };
 
+    case SessionNotificationType.HOOK_EXECUTION_STARTED:
+      return notification.hookCommands.map((hookCommand) => ({
+        type: DroidMessageType.Hook,
+        hookId: notification.hookId,
+        eventName: notification.hookEventName,
+        matcher: notification.hookMatcher,
+        toolCallId: notification.hookToolCallId,
+        command: hookCommand.command,
+        timeout: hookCommand.timeout,
+        status: 'started',
+      }));
+
+    case SessionNotificationType.HOOK_EXECUTION_COMPLETED:
+      return (notification.hookResults ?? []).map((hookResult) => ({
+        type: DroidMessageType.Hook,
+        hookId: notification.hookId,
+        eventName: notification.hookEventName,
+        matcher: notification.hookMatcher,
+        toolCallId: notification.hookToolCallId,
+        command: hookResult.command,
+        timeout: hookResult.timeout,
+        status: notification.hookStatus,
+        exitCode: hookResult.exitCode,
+        stdout: hookResult.stdout,
+        stderr: hookResult.stderr,
+      }));
+
     case SessionNotificationType.STRUCTURED_OUTPUT:
       return {
         type: 'structured_output',
@@ -755,6 +800,7 @@ export function isDefaultStreamMessage(
     message.type === DroidMessageType.User ||
     message.type === DroidMessageType.ToolCall ||
     message.type === DroidMessageType.ToolResult ||
+    message.type === DroidMessageType.Hook ||
     message.type === DroidMessageType.Error ||
     message.type === DroidMessageType.Result
   );

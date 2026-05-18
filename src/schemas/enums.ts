@@ -12,6 +12,7 @@ export enum DroidServerMethod {
   INITIALIZE_SESSION = 'droid.initialize_session',
   LOAD_SESSION = 'droid.load_session',
   ADD_USER_MESSAGE = 'droid.add_user_message',
+  CLOSE_SESSION = 'droid.close_session',
   INTERRUPT_SESSION = 'droid.interrupt_session',
   KILL_WORKER_SESSION = 'droid.kill_worker_session',
   UPDATE_SESSION_SETTINGS = 'droid.update_session_settings',
@@ -69,6 +70,8 @@ export enum SessionNotificationType {
   MISSION_WORKER_COMPLETED = 'mission_worker_completed',
   MCP_AUTH_REQUIRED = 'mcp_auth_required',
   MCP_AUTH_COMPLETED = 'mcp_auth_completed',
+  HOOK_EXECUTION_STARTED = 'hook_execution_started',
+  HOOK_EXECUTION_COMPLETED = 'hook_execution_completed',
   STRUCTURED_OUTPUT = 'structured_output',
 }
 
