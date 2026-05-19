@@ -78,6 +78,7 @@ describe('run()', () => {
       machineId: 'machine-1',
       modelId: 'model-1',
       reasoningEffort: ReasoningEffort.High,
+      messageId: 'run-message-id',
       images: [{ type: 'base64', data: 'image-data', mediaType: 'image/png' }],
       files: [
         {
@@ -106,6 +107,7 @@ describe('run()', () => {
         DroidServerMethod.ADD_USER_MESSAGE
     ) as Record<string, unknown>;
     const addParams = addMsg['params'] as Record<string, unknown>;
+    expect(addParams['messageId']).toBe('run-message-id');
     expect(addParams['text']).toBe('Describe these inputs');
     expect(addParams['images']).toEqual([
       { type: 'base64', data: 'image-data', mediaType: 'image/png' },

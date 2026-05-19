@@ -78,6 +78,7 @@ export interface ResumeSessionOptions extends Pick<
 }
 
 export interface MessageOptions {
+  messageId?: string;
   images?: Base64ImageSource[];
   files?: DocumentSource[];
   outputFormat?: OutputFormat;
@@ -209,6 +210,9 @@ export class DroidSession {
     try {
       await Promise.race([
         this._client.addUserMessage({
+          ...(options?.messageId !== undefined && {
+            messageId: options.messageId,
+          }),
           text: prompt,
           images: options?.images,
           files: options?.files,

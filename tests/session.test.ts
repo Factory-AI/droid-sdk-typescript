@@ -362,6 +362,56 @@ describe('DroidSession', () => {
       await session.close();
     });
 
+    it('passes custom messageId in addUserMessage RPC params', async () => {
+      const transport = new InMemoryTransport();
+      await transport.connect();
+
+      setupFullResponder(transport, 'sess-stream-message-id');
+
+      const session = await createSession({ transport });
+
+      for await (const _msg of session.stream('Hello', {
+        messageId: 'caller-message-id',
+      })) {
+        void _msg;
+      }
+
+      const addMsg = transport.sentMessages.find(
+        (message) =>
+          (message as Record<string, unknown>)['method'] ===
+          DroidServerMethod.ADD_USER_MESSAGE
+      ) as Record<string, unknown>;
+      const addParams = addMsg['params'] as Record<string, unknown>;
+      expect(addParams['messageId']).toBe('caller-message-id');
+      expect(addParams['text']).toBe('Hello');
+
+      await session.close();
+    });
+
+    it('omits messageId from addUserMessage RPC params by default', async () => {
+      const transport = new InMemoryTransport();
+      await transport.connect();
+
+      setupFullResponder(transport, 'sess-stream-default-message-id');
+
+      const session = await createSession({ transport });
+
+      for await (const _msg of session.stream('Hello')) {
+        void _msg;
+      }
+
+      const addMsg = transport.sentMessages.find(
+        (message) =>
+          (message as Record<string, unknown>)['method'] ===
+          DroidServerMethod.ADD_USER_MESSAGE
+      ) as Record<string, unknown>;
+      const addParams = addMsg['params'] as Record<string, unknown>;
+      expect(addParams).not.toHaveProperty('messageId');
+      expect(addParams['text']).toBe('Hello');
+
+      await session.close();
+    });
+
     it('defaults to message-level events and opts into partial events', async () => {
       const createStreamingSession = async (
         sessionId: string
