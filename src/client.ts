@@ -59,6 +59,7 @@ import type {
 } from './schemas/client.js';
 import {
   AddMcpServerResultSchema,
+  AddUserMessageRequestParamsSchema,
   AddUserMessageResultSchema,
   AuthenticateMcpServerResultSchema,
   CancelMcpAuthResultSchema,
@@ -232,7 +233,7 @@ export class DroidClient {
   ): Promise<AddUserMessageResult> {
     return this._sessionRpc(
       DroidServerMethod.ADD_USER_MESSAGE,
-      params,
+      AddUserMessageRequestParamsSchema.parse(params),
       AddUserMessageResultSchema
     );
   }

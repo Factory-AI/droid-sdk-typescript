@@ -412,6 +412,40 @@ describe('DroidSession', () => {
       await session.close();
     });
 
+    it.each([
+      ['empty string', ''],
+      ['whitespace-only string', '   '],
+      ['too-long string', 'x'.repeat(513)],
+      ['non-string value', 123],
+    ])('rejects invalid messageId: %s', async (_label, messageId) => {
+      const transport = new InMemoryTransport();
+      await transport.connect();
+
+      setupFullResponder(transport, 'sess-stream-invalid-message-id');
+
+      const session = await createSession({ transport });
+
+      await expect(
+        (async () => {
+          for await (const _msg of session.stream('Hello', {
+            messageId: messageId as never,
+          })) {
+            void _msg;
+          }
+        })()
+      ).rejects.toThrow();
+
+      expect(
+        transport.sentMessages.some(
+          (message) =>
+            (message as Record<string, unknown>)['method'] ===
+            DroidServerMethod.ADD_USER_MESSAGE
+        )
+      ).toBe(false);
+
+      await session.close();
+    });
+
     it('defaults to message-level events and opts into partial events', async () => {
       const createStreamingSession = async (
         sessionId: string

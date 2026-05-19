@@ -289,10 +289,17 @@ export const OutputFormatSchema = z
 
 export type OutputFormat = z.infer<typeof OutputFormatSchema>;
 
+export const MessageIdSchema = z
+  .string()
+  .max(512, 'messageId must be at most 512 characters')
+  .refine((value) => value.trim().length > 0, {
+    message: 'messageId must be a non-empty string',
+  });
+
 /** Parameters for droid.add_user_message request. */
 export const AddUserMessageRequestParamsSchema = z
   .object({
-    messageId: z.string().optional(),
+    messageId: MessageIdSchema.optional(),
     text: z.string(),
     images: z.array(Base64ImageSourceSchema).optional(),
     files: z.array(DocumentSourceSchema).optional(),
