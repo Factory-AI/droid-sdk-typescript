@@ -564,7 +564,7 @@ export type RewindEvictedFile = z.infer<typeof RewindEvictedFileSchema>;
 /** Parameters for droid.get_rewind_info request. */
 export const GetRewindInfoRequestParamsSchema = z
   .object({
-    messageId: z.string(),
+    messageId: MessageIdSchema,
   })
   .passthrough();
 
@@ -575,7 +575,7 @@ export type GetRewindInfoRequestParams = z.infer<
 /** Parameters for droid.execute_rewind request. */
 export const ExecuteRewindRequestParamsSchema = z
   .object({
-    messageId: z.string(),
+    messageId: MessageIdSchema,
     filesToRestore: z.array(RewindFileSnapshotSchema),
     filesToDelete: z.array(RewindFileCreationSchema),
     forkTitle: z.string(),

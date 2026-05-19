@@ -14,7 +14,7 @@ try {
   for await (const msg of session.stream(
     'Write a long history of computing.'
   )) {
-    if (msg.type !== DroidMessageType.AssistantTextDelta) {
+    if (msg.type !== DroidMessageType.Assistant) {
       continue;
     }
 

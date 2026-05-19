@@ -114,6 +114,25 @@ export class InMemoryTransport implements DroidClientTransport {
   }
 }
 
+export function findSentRequestParams(
+  transport: InMemoryTransport,
+  method: string
+): Record<string, unknown> {
+  const message = transport.sentMessages.find((sentMessage) => {
+    return sentMessage['method'] === method;
+  });
+  if (!message) {
+    throw new Error(`Expected request for method ${method}`);
+  }
+
+  const params = message['params'];
+  if (!params || typeof params !== 'object' || Array.isArray(params)) {
+    throw new Error(`Expected params for method ${method}`);
+  }
+
+  return params as Record<string, unknown>;
+}
+
 export function makeSuccessResponse(
   id: string,
   result: JsonRpcTestMessage = {}

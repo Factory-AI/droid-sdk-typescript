@@ -11,6 +11,7 @@ import {
 } from '../src/schemas/index.js';
 import {
   InMemoryTransport,
+  findSentRequestParams,
   makeErrorResponse,
   makeSessionNotification,
   makeSuccessResponse,
@@ -101,12 +102,10 @@ describe('run()', () => {
     expect(initParams['modelId']).toBe('model-1');
     expect(initParams['reasoningEffort']).toBe(ReasoningEffort.High);
 
-    const addMsg = transport.sentMessages.find(
-      (message) =>
-        (message as Record<string, unknown>)['method'] ===
-        DroidServerMethod.ADD_USER_MESSAGE
-    ) as Record<string, unknown>;
-    const addParams = addMsg['params'] as Record<string, unknown>;
+    const addParams = findSentRequestParams(
+      transport,
+      DroidServerMethod.ADD_USER_MESSAGE
+    );
     expect(addParams['messageId']).toBe('run-message-id');
     expect(addParams['text']).toBe('Describe these inputs');
     expect(addParams['images']).toEqual([

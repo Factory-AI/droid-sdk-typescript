@@ -27,6 +27,7 @@ import {
   InMemoryTransport,
   collectStreamText,
   findLastResult,
+  findSentRequestParams,
   makeErrorResponse,
   makeSessionNotification,
   makeSuccessResponse,
@@ -376,12 +377,10 @@ describe('DroidSession', () => {
         void _msg;
       }
 
-      const addMsg = transport.sentMessages.find(
-        (message) =>
-          (message as Record<string, unknown>)['method'] ===
-          DroidServerMethod.ADD_USER_MESSAGE
-      ) as Record<string, unknown>;
-      const addParams = addMsg['params'] as Record<string, unknown>;
+      const addParams = findSentRequestParams(
+        transport,
+        DroidServerMethod.ADD_USER_MESSAGE
+      );
       expect(addParams['messageId']).toBe('caller-message-id');
       expect(addParams['text']).toBe('Hello');
 
@@ -400,12 +399,10 @@ describe('DroidSession', () => {
         void _msg;
       }
 
-      const addMsg = transport.sentMessages.find(
-        (message) =>
-          (message as Record<string, unknown>)['method'] ===
-          DroidServerMethod.ADD_USER_MESSAGE
-      ) as Record<string, unknown>;
-      const addParams = addMsg['params'] as Record<string, unknown>;
+      const addParams = findSentRequestParams(
+        transport,
+        DroidServerMethod.ADD_USER_MESSAGE
+      );
       expect(addParams).not.toHaveProperty('messageId');
       expect(addParams['text']).toBe('Hello');
 
@@ -428,7 +425,7 @@ describe('DroidSession', () => {
       await expect(
         (async () => {
           for await (const _msg of session.stream('Hello', {
-            messageId: messageId as never,
+            messageId: messageId as string,
           })) {
             void _msg;
           }

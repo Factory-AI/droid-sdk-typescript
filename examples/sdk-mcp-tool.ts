@@ -32,7 +32,7 @@ try {
   for await (const msg of session.stream(
     'Use the favorite_number tool for Ada and tell me the answer.'
   )) {
-    if (msg.type === DroidMessageType.AssistantTextDelta) {
+    if (msg.type === DroidMessageType.Assistant) {
       process.stdout.write(msg.text);
     }
   }
