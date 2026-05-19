@@ -68,6 +68,7 @@ export class MessageBridge {
       sessionId?: string;
       startedAt?: number;
       outputFormat?: OutputFormat;
+      activeMessageId?: string;
     } = {}
   ) {
     this._onDone = onDone;
@@ -75,6 +76,7 @@ export class MessageBridge {
       sessionId: _options.sessionId,
       startedAt: _options.startedAt,
       hasOutputFormat: _options.outputFormat !== undefined,
+      activeMessageId: _options.activeMessageId,
     });
   }
 

@@ -22,7 +22,7 @@ function setupRunResponder(
   transport: InMemoryTransport,
   sessionId: string
 ): void {
-  wireTransportSend(transport, ({ method, id }) => {
+  wireTransportSend(transport, ({ method, id, params }) => {
     if (method === DroidServerMethod.INITIALIZE_SESSION) {
       queueMicrotask(() => {
         transport.injectMessage(
@@ -42,6 +42,7 @@ function setupRunResponder(
         transport.injectMessage(makeSuccessResponse(id, {}));
         sendDefaultStreamSequence(transport, {
           deltas: ['Run ', 'result'],
+          messageId: String(params['messageId']),
           tokenUsageSessionId: sessionId,
         });
       });
@@ -62,6 +63,7 @@ describe('run()', () => {
     const result = await run('Say hello', { transport });
 
     expect(result.text).toBe('Run result');
+    expect(result.messageId).toEqual(expect.any(String));
     expect(result.messages.length).toBeGreaterThan(0);
     expect(result.tokenUsage).not.toBeNull();
     expect(transport.isConnected).toBe(false);
@@ -159,7 +161,7 @@ describe('run()', () => {
     const transport = new InMemoryTransport();
     await transport.connect();
 
-    wireTransportSend(transport, ({ method, id }) => {
+    wireTransportSend(transport, ({ method, id, params }) => {
       if (method === DroidServerMethod.INITIALIZE_SESSION) {
         queueMicrotask(() => {
           transport.injectMessage(
@@ -176,7 +178,10 @@ describe('run()', () => {
           transport.injectMessage(
             makeSessionNotification(
               SessionNotificationType.DROID_WORKING_STATE_CHANGED,
-              { newState: DroidWorkingState.StreamingAssistantMessage }
+              {
+                newState: DroidWorkingState.StreamingAssistantMessage,
+                messageId: params['messageId'],
+              }
             )
           );
           transport.injectMessage(
@@ -189,7 +194,10 @@ describe('run()', () => {
           transport.injectMessage(
             makeSessionNotification(
               SessionNotificationType.DROID_WORKING_STATE_CHANGED,
-              { newState: DroidWorkingState.Idle }
+              {
+                newState: DroidWorkingState.Idle,
+                messageId: params['messageId'],
+              }
             )
           );
         });
@@ -217,7 +225,7 @@ describe('run()', () => {
     const transport = new InMemoryTransport();
     await transport.connect();
 
-    wireTransportSend(transport, ({ method, id }) => {
+    wireTransportSend(transport, ({ method, id, params }) => {
       if (method === DroidServerMethod.INITIALIZE_SESSION) {
         queueMicrotask(() => {
           transport.injectMessage(
@@ -234,7 +242,10 @@ describe('run()', () => {
           transport.injectMessage(
             makeSessionNotification(
               SessionNotificationType.DROID_WORKING_STATE_CHANGED,
-              { newState: DroidWorkingState.StreamingAssistantMessage }
+              {
+                newState: DroidWorkingState.StreamingAssistantMessage,
+                messageId: params['messageId'],
+              }
             )
           );
           transport.injectMessage(
@@ -256,7 +267,10 @@ describe('run()', () => {
           transport.injectMessage(
             makeSessionNotification(
               SessionNotificationType.DROID_WORKING_STATE_CHANGED,
-              { newState: DroidWorkingState.Idle }
+              {
+                newState: DroidWorkingState.Idle,
+                messageId: params['messageId'],
+              }
             )
           );
         });
@@ -304,7 +318,7 @@ describe('run()', () => {
     const transport = new InMemoryTransport();
     await transport.connect();
 
-    wireTransportSend(transport, ({ method, id }) => {
+    wireTransportSend(transport, ({ method, id, params }) => {
       if (method === DroidServerMethod.INITIALIZE_SESSION) {
         queueMicrotask(() => {
           transport.injectMessage(
@@ -321,7 +335,10 @@ describe('run()', () => {
           transport.injectMessage(
             makeSessionNotification(
               SessionNotificationType.DROID_WORKING_STATE_CHANGED,
-              { newState: DroidWorkingState.StreamingAssistantMessage }
+              {
+                newState: DroidWorkingState.StreamingAssistantMessage,
+                messageId: params['messageId'],
+              }
             )
           );
           transport.injectMessage(
@@ -350,7 +367,10 @@ describe('run()', () => {
           transport.injectMessage(
             makeSessionNotification(
               SessionNotificationType.DROID_WORKING_STATE_CHANGED,
-              { newState: DroidWorkingState.Idle }
+              {
+                newState: DroidWorkingState.Idle,
+                messageId: params['messageId'],
+              }
             )
           );
         });
@@ -383,7 +403,7 @@ describe('run()', () => {
     const transport = new InMemoryTransport();
     await transport.connect();
 
-    wireTransportSend(transport, ({ method, id }) => {
+    wireTransportSend(transport, ({ method, id, params }) => {
       if (method === DroidServerMethod.INITIALIZE_SESSION) {
         queueMicrotask(() => {
           transport.injectMessage(
@@ -400,7 +420,10 @@ describe('run()', () => {
           transport.injectMessage(
             makeSessionNotification(
               SessionNotificationType.DROID_WORKING_STATE_CHANGED,
-              { newState: DroidWorkingState.StreamingAssistantMessage }
+              {
+                newState: DroidWorkingState.StreamingAssistantMessage,
+                messageId: params['messageId'],
+              }
             )
           );
           for (const textDelta of ['Hello ', 'beautiful ', 'world!']) {
@@ -418,7 +441,10 @@ describe('run()', () => {
           transport.injectMessage(
             makeSessionNotification(
               SessionNotificationType.DROID_WORKING_STATE_CHANGED,
-              { newState: DroidWorkingState.Idle }
+              {
+                newState: DroidWorkingState.Idle,
+                messageId: params['messageId'],
+              }
             )
           );
         });

@@ -161,6 +161,8 @@ export const DroidWorkingStateChangedNotificationSchema = z
   .object({
     type: z.literal(SessionNotificationType.DROID_WORKING_STATE_CHANGED),
     newState: z.nativeEnum(DroidWorkingState),
+    messageId: z.string().optional(),
+    requestId: z.string().optional(),
   })
   .passthrough();
 

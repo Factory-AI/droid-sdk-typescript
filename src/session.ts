@@ -1,3 +1,5 @@
+import { v4 as uuidv4 } from 'uuid';
+
 import { DroidClient } from './client.js';
 import { ConnectionError } from './errors.js';
 import {
@@ -190,11 +192,13 @@ export class DroidSession {
     throwIfAborted(options?.abortSignal);
 
     const startedAt = Date.now();
+    const activeMessageId = options?.messageId ?? uuidv4();
     const bridge = new MessageBridge(undefined, {
       includePartialMessages: options?.includePartialMessages,
       sessionId: this._sessionId,
       startedAt,
       outputFormat: options?.outputFormat,
+      activeMessageId,
     });
     const unsubscribe = this._client.onNotification(bridge.notificationHandler);
     let resolveAbort: () => void = () => {};
@@ -210,9 +214,7 @@ export class DroidSession {
     try {
       await Promise.race([
         this._client.addUserMessage({
-          ...(options?.messageId !== undefined && {
-            messageId: options.messageId,
-          }),
+          messageId: activeMessageId,
           text: prompt,
           images: options?.images,
           files: options?.files,

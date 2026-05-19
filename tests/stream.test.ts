@@ -752,6 +752,26 @@ describe('convertNotificationToStreamMessage', () => {
       expect(result.state).toBe(DroidWorkingState.ExecutingTool);
     });
 
+    it('preserves message and request correlation fields', () => {
+      const notification = makeNotification(
+        SessionNotificationType.DROID_WORKING_STATE_CHANGED,
+        {
+          newState: DroidWorkingState.Idle,
+          messageId: 'msg-active',
+          requestId: 'req-active',
+        }
+      );
+      const result = convertNotificationToStreamMessage(
+        notification
+      ) as WorkingStateChanged;
+      expect(result).toMatchObject({
+        type: 'working_state_changed',
+        state: DroidWorkingState.Idle,
+        messageId: 'msg-active',
+        requestId: 'req-active',
+      });
+    });
+
     it('handles Idle state', () => {
       const notification = makeNotification(
         SessionNotificationType.DROID_WORKING_STATE_CHANGED,
@@ -1499,6 +1519,66 @@ describe('StreamStateTracker', () => {
       });
       expect(result.additional).toHaveLength(1);
       expect(result.additional[0].type).toBe('result');
+    });
+
+    it('does NOT emit Result for stale uncorrelated idle with active messageId', () => {
+      tracker = new StreamStateTracker({ activeMessageId: 'msg-active' });
+
+      tracker.processMessage({
+        type: 'working_state_changed',
+        state: DroidWorkingState.StreamingAssistantMessage,
+        messageId: 'msg-active',
+      });
+      const result = tracker.processMessage({
+        type: 'working_state_changed',
+        state: DroidWorkingState.Idle,
+      });
+
+      expect(result.additional).toEqual([]);
+    });
+
+    it('does NOT emit Result for another messageId with active messageId', () => {
+      tracker = new StreamStateTracker({ activeMessageId: 'msg-active' });
+
+      tracker.processMessage({
+        type: 'working_state_changed',
+        state: DroidWorkingState.StreamingAssistantMessage,
+        messageId: 'msg-active',
+      });
+      const result = tracker.processMessage({
+        type: 'working_state_changed',
+        state: DroidWorkingState.Idle,
+        messageId: 'msg-stale',
+      });
+
+      expect(result.additional).toEqual([]);
+    });
+
+    it('emits Result only for matching active messageId', () => {
+      tracker = new StreamStateTracker({ activeMessageId: 'msg-active' });
+
+      tracker.processMessage({
+        type: 'working_state_changed',
+        state: DroidWorkingState.StreamingAssistantMessage,
+        messageId: 'msg-active',
+      });
+      const stale = tracker.processMessage({
+        type: 'working_state_changed',
+        state: DroidWorkingState.Idle,
+        messageId: 'msg-stale',
+      });
+      const active = tracker.processMessage({
+        type: 'working_state_changed',
+        state: DroidWorkingState.Idle,
+        messageId: 'msg-active',
+      });
+
+      expect(stale.additional).toEqual([]);
+      expect(active.additional).toHaveLength(1);
+      expect(active.additional[0]).toMatchObject({
+        type: 'result',
+        messageId: 'msg-active',
+      });
     });
 
     it('can emit Result again after reset', () => {

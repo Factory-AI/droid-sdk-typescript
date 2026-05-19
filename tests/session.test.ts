@@ -105,11 +105,14 @@ function setupLoadResponder(
 function setupFullResponder(
   transport: InMemoryTransport,
   sessionId: string,
-  responseMethods?: Record<string, (id: string) => void>
+  responseMethods?: Record<
+    string,
+    (id: string, params: Record<string, unknown>) => void
+  >
 ): void {
-  wireTransportSend(transport, ({ method, id }) => {
+  wireTransportSend(transport, ({ method, id, params }) => {
     if (responseMethods && responseMethods[method]) {
-      responseMethods[method](id);
+      responseMethods[method](id, params);
       return;
     }
 
@@ -137,6 +140,7 @@ function setupFullResponder(
         transport.injectMessage(makeSuccessResponse(id, {}));
         sendDefaultStreamSequence(transport, {
           deltas: ['Hello world'],
+          messageId: String(params['messageId']),
           tokenUsageSessionId: sessionId,
         });
       });
@@ -388,7 +392,7 @@ describe('DroidSession', () => {
       await session.close();
     });
 
-    it('omits messageId from addUserMessage RPC params by default', async () => {
+    it('generates messageId for addUserMessage RPC params by default', async () => {
       const transport = new InMemoryTransport();
       await transport.connect();
 
@@ -406,7 +410,7 @@ describe('DroidSession', () => {
           DroidServerMethod.ADD_USER_MESSAGE
       ) as Record<string, unknown>;
       const addParams = addMsg['params'] as Record<string, unknown>;
-      expect(addParams).not.toHaveProperty('messageId');
+      expect(addParams['messageId']).toEqual(expect.any(String));
       expect(addParams['text']).toBe('Hello');
 
       await session.close();
@@ -453,7 +457,7 @@ describe('DroidSession', () => {
         const transport = new InMemoryTransport();
         await transport.connect();
 
-        wireTransportSend(transport, ({ method, id }) => {
+        wireTransportSend(transport, ({ method, id, params }) => {
           if (method === DroidServerMethod.INITIALIZE_SESSION) {
             queueMicrotask(() => {
               transport.injectMessage(
@@ -471,7 +475,9 @@ describe('DroidSession', () => {
           } else if (method === DroidServerMethod.ADD_USER_MESSAGE) {
             queueMicrotask(() => {
               transport.injectMessage(makeSuccessResponse(id, {}));
-              sendDefaultStreamSequence(transport);
+              sendDefaultStreamSequence(transport, {
+                messageId: String(params['messageId']),
+              });
             });
           } else if (method === DroidServerMethod.CLOSE_SESSION) {
             queueMicrotask(() => {
@@ -527,7 +533,7 @@ describe('DroidSession', () => {
       const transport = new InMemoryTransport();
       await transport.connect();
 
-      wireTransportSend(transport, ({ method, id }) => {
+      wireTransportSend(transport, ({ method, id, params }) => {
         if (method === DroidServerMethod.INITIALIZE_SESSION) {
           queueMicrotask(() => {
             transport.injectMessage(
@@ -544,6 +550,7 @@ describe('DroidSession', () => {
             transport.injectMessage(makeSuccessResponse(id, {}));
             sendDefaultStreamSequence(transport, {
               deltas: [],
+              messageId: String(params['messageId']),
               includeTokenUsage: false,
               structuredOutputMessageId: 'msg-structured',
               structuredOutput: { name: 'Ada' },
@@ -583,7 +590,7 @@ describe('DroidSession', () => {
       const transport = new InMemoryTransport();
       await transport.connect();
 
-      wireTransportSend(transport, ({ method, id }) => {
+      wireTransportSend(transport, ({ method, id, params }) => {
         if (method === DroidServerMethod.INITIALIZE_SESSION) {
           queueMicrotask(() => {
             transport.injectMessage(
@@ -600,6 +607,7 @@ describe('DroidSession', () => {
             transport.injectMessage(makeSuccessResponse(id, {}));
             sendDefaultStreamSequence(transport, {
               deltas: [],
+              messageId: String(params['messageId']),
               includeTokenUsage: false,
               structuredOutputMessageId: 'msg-structured',
               structuredOutputError: {
@@ -1242,6 +1250,7 @@ describe('DroidSession', () => {
         const msg = message as Record<string, unknown>;
         const method = msg['method'] as string;
         const id = msg['id'] as string;
+        const params = msg['params'] as Record<string, unknown>;
 
         if (method === DroidServerMethod.INITIALIZE_SESSION) {
           queueMicrotask(() => {
@@ -1260,7 +1269,10 @@ describe('DroidSession', () => {
             transport.injectMessage(
               makeSessionNotification(
                 SessionNotificationType.DROID_WORKING_STATE_CHANGED,
-                { newState: DroidWorkingState.StreamingAssistantMessage }
+                {
+                  newState: DroidWorkingState.StreamingAssistantMessage,
+                  messageId: params['messageId'],
+                }
               )
             );
 
@@ -1278,7 +1290,10 @@ describe('DroidSession', () => {
             transport.injectMessage(
               makeSessionNotification(
                 SessionNotificationType.DROID_WORKING_STATE_CHANGED,
-                { newState: DroidWorkingState.Idle }
+                {
+                  newState: DroidWorkingState.Idle,
+                  messageId: params['messageId'],
+                }
               )
             );
           });
@@ -1395,6 +1410,7 @@ describe('DroidSession', () => {
         const msg = message as Record<string, unknown>;
         const method = msg['method'] as string;
         const id = msg['id'] as string;
+        const params = msg['params'] as Record<string, unknown>;
 
         if (method === DroidServerMethod.INITIALIZE_SESSION) {
           queueMicrotask(() => {
@@ -1416,7 +1432,10 @@ describe('DroidSession', () => {
             transport.injectMessage(
               makeSessionNotification(
                 SessionNotificationType.DROID_WORKING_STATE_CHANGED,
-                { newState: DroidWorkingState.StreamingAssistantMessage }
+                {
+                  newState: DroidWorkingState.StreamingAssistantMessage,
+                  messageId: params['messageId'],
+                }
               )
             );
 
@@ -1450,7 +1469,10 @@ describe('DroidSession', () => {
             transport.injectMessage(
               makeSessionNotification(
                 SessionNotificationType.DROID_WORKING_STATE_CHANGED,
-                { newState: DroidWorkingState.Idle }
+                {
+                  newState: DroidWorkingState.Idle,
+                  messageId: params['messageId'],
+                }
               )
             );
           });
@@ -1598,7 +1620,7 @@ describe('DroidSession', () => {
       let addUserMessageCount = 0;
 
       setupFullResponder(transport, 'sess-recovery', {
-        [DroidServerMethod.ADD_USER_MESSAGE]: (id) => {
+        [DroidServerMethod.ADD_USER_MESSAGE]: (id, params) => {
           addUserMessageCount++;
           if (addUserMessageCount === 1) {
             queueMicrotask(() => {
@@ -1613,7 +1635,10 @@ describe('DroidSession', () => {
               transport.injectMessage(
                 makeSessionNotification(
                   SessionNotificationType.DROID_WORKING_STATE_CHANGED,
-                  { newState: DroidWorkingState.StreamingAssistantMessage }
+                  {
+                    newState: DroidWorkingState.StreamingAssistantMessage,
+                    messageId: params['messageId'],
+                  }
                 )
               );
 
@@ -1631,7 +1656,10 @@ describe('DroidSession', () => {
               transport.injectMessage(
                 makeSessionNotification(
                   SessionNotificationType.DROID_WORKING_STATE_CHANGED,
-                  { newState: DroidWorkingState.Idle }
+                  {
+                    newState: DroidWorkingState.Idle,
+                    messageId: params['messageId'],
+                  }
                 )
               );
             });

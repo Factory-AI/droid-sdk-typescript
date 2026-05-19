@@ -284,7 +284,7 @@ export function sendDefaultStreamSequence(
   transport.injectMessage(
     makeSessionNotification(
       SessionNotificationType.DROID_WORKING_STATE_CHANGED,
-      { newState: initialState }
+      { newState: initialState, messageId }
     )
   );
 
@@ -337,7 +337,7 @@ export function sendDefaultStreamSequence(
   transport.injectMessage(
     makeSessionNotification(
       SessionNotificationType.DROID_WORKING_STATE_CHANGED,
-      { newState: finalState }
+      { newState: finalState, messageId }
     )
   );
 }

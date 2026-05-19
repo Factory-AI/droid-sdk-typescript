@@ -116,6 +116,7 @@ export interface DroidUserMessage {
 
 export interface ToolResult {
   readonly type: 'tool_result';
+  readonly messageId?: string;
   readonly toolUseId: string;
   readonly toolName: string;
   readonly content: string | JsonValue[];
@@ -133,6 +134,8 @@ export interface ToolProgress {
 export interface WorkingStateChanged {
   readonly type: 'working_state_changed';
   readonly state: DroidWorkingState;
+  readonly messageId?: string;
+  readonly requestId?: string;
 }
 
 export type TokenUsageUpdate = Readonly<
@@ -260,6 +263,7 @@ export type DroidResultSubtype =
 
 interface DroidResultBase {
   readonly type: 'result';
+  readonly messageId?: string;
   readonly sessionId: string;
   readonly durationMs: number;
   readonly numTurns: number;
@@ -388,6 +392,7 @@ export function convertNotificationToStreamMessage(
     case SessionNotificationType.TOOL_RESULT:
       return {
         type: DroidMessageType.ToolResult,
+        messageId: notification.messageId,
         toolUseId: notification.toolUseId,
         toolName: '',
         content: normalizeToolResultContent(notification.content),
@@ -410,6 +415,12 @@ export function convertNotificationToStreamMessage(
       return {
         type: DroidMessageType.WorkingStateChanged,
         state: notification.newState,
+        ...(notification.messageId !== undefined && {
+          messageId: notification.messageId,
+        }),
+        ...(notification.requestId !== undefined && {
+          requestId: notification.requestId,
+        }),
       };
 
     case SessionNotificationType.SESSION_TOKEN_USAGE_CHANGED: {
@@ -620,6 +631,7 @@ export class StreamStateTracker {
       sessionId?: string;
       startedAt?: number;
       hasOutputFormat?: boolean;
+      activeMessageId?: string;
     } = {}
   ) {}
 
@@ -676,6 +688,10 @@ export class StreamStateTracker {
     }
 
     if (message.type === DroidMessageType.WorkingStateChanged) {
+      if (!this.shouldUseWorkingStateForCompletion(message)) {
+        return { message, additional };
+      }
+
       if (message.state !== DroidWorkingState.Idle) {
         this.hasBeenNonIdle = true;
       } else if (this.hasBeenNonIdle) {
@@ -709,6 +725,9 @@ export class StreamStateTracker {
     const result = this.finalAssistantText || this.fullText;
     const base = {
       type: DroidMessageType.Result,
+      ...(this.options.activeMessageId !== undefined && {
+        messageId: this.options.activeMessageId,
+      }),
       sessionId: this.options.sessionId ?? '',
       durationMs: Date.now() - (this.options.startedAt ?? Date.now()),
       numTurns: this.numTurns,
@@ -760,6 +779,15 @@ export class StreamStateTracker {
     if (isDefaultStreamMessage(message)) {
       this.emittedMessages.push(message);
     }
+  }
+
+  private shouldUseWorkingStateForCompletion(
+    message: WorkingStateChanged
+  ): boolean {
+    if (this.options.activeMessageId === undefined) {
+      return true;
+    }
+    return message.messageId === this.options.activeMessageId;
   }
 
   private resetTurnState(): void {
