@@ -333,6 +333,55 @@ describe('resumeSession()', () => {
       expect(transport.isConnected).toBe(false);
     });
   });
+
+  describe('CLI-72: cwd behavior on resume', () => {
+    it('does not send cwd to loadSession when omitted', async () => {
+      const transport = new InMemoryTransport();
+      await transport.connect();
+
+      setupLoadResponder(transport, 'sess-resume-cwd-001');
+
+      const session = await resumeSession('sess-resume-cwd-001', {
+        transport,
+      });
+
+      const loadMsg = transport.sentMessages.find(
+        (m) =>
+          (m as Record<string, unknown>)['method'] ===
+          DroidServerMethod.LOAD_SESSION
+      ) as Record<string, unknown>;
+      const params = loadMsg['params'] as Record<string, unknown>;
+
+      expect(params).not.toHaveProperty('cwd');
+      expect(params['sessionId']).toBe('sess-resume-cwd-001');
+
+      await session.close();
+    });
+
+    it('rejects cwd as an option at the type level', async () => {
+      const transport = new InMemoryTransport();
+      await transport.connect();
+
+      setupLoadResponder(transport, 'sess-resume-cwd-002');
+
+      const session = await resumeSession('sess-resume-cwd-002', {
+        transport,
+        // @ts-expect-error - cwd is not a valid ResumeSessionOptions field
+        cwd: '/tmp/should-not-be-allowed',
+      });
+
+      const loadMsg = transport.sentMessages.find(
+        (m) =>
+          (m as Record<string, unknown>)['method'] ===
+          DroidServerMethod.LOAD_SESSION
+      ) as Record<string, unknown>;
+      const params = loadMsg['params'] as Record<string, unknown>;
+
+      expect(params).not.toHaveProperty('cwd');
+
+      await session.close();
+    });
+  });
 });
 
 describe('DroidSession', () => {

@@ -40,7 +40,7 @@ async function main(): Promise<void> {
     const { newSessionId } = await session.forkSession();
     console.log(`Forked session:   ${newSessionId}\n`);
 
-    fork = await resumeSession(newSessionId, { cwd: process.cwd() });
+    fork = await resumeSession(newSessionId);
 
     const result = await streamText(
       fork,

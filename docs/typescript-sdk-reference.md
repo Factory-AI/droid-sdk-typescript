@@ -77,7 +77,10 @@ function createSession(options?: CreateSessionOptions): Promise<DroidSession>;
 
 ### `resumeSession()`
 
-Reconnects to an existing session by ID.
+Reconnects to an existing session by ID. The resumed session always runs in the
+working directory persisted with the session; `ResumeSessionOptions` does not
+accept `cwd`. To run in a different directory, create a new session or fork the
+existing one.
 
 ```ts
 function resumeSession(
