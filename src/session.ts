@@ -140,6 +140,7 @@ export class DroidSession {
   private _closed = false;
   private _cleanupAbortSignal: (() => void) | null = null;
   private _cleanupCallbacks: Array<() => Promise<void> | void> = [];
+  private readonly _activeBridges = new Set<MessageBridge>();
 
   /** @internal */
   constructor(
@@ -188,12 +189,17 @@ export class DroidSession {
     throwIfAborted(options?.abortSignal);
 
     const startedAt = Date.now();
-    const bridge = new MessageBridge(undefined, {
+    let resolveDone: () => void = () => {};
+    const donePromise = new Promise<void>((resolve) => {
+      resolveDone = resolve;
+    });
+    const bridge = new MessageBridge(resolveDone, {
       includePartialMessages: options?.includePartialMessages,
       sessionId: this._sessionId,
       startedAt,
       outputFormat: options?.outputFormat,
     });
+    this._activeBridges.add(bridge);
     const unsubscribe = this._client.onNotification(bridge.notificationHandler);
     let resolveAbort: () => void = () => {};
     const abortPromise = new Promise<void>((resolve) => {
@@ -213,6 +219,7 @@ export class DroidSession {
           files: options?.files,
           outputFormat: options?.outputFormat,
         }),
+        donePromise,
         abortPromise,
       ]);
       throwIfAborted(options?.abortSignal);
@@ -225,6 +232,7 @@ export class DroidSession {
     } finally {
       cleanupAbortSignal();
       unsubscribe();
+      this._activeBridges.delete(bridge);
     }
   }
 
@@ -240,6 +248,9 @@ export class DroidSession {
     this._closed = true;
     this._cleanupAbortSignal?.();
     this._cleanupAbortSignal = null;
+    for (const bridge of this._activeBridges) {
+      bridge.signalDone();
+    }
 
     try {
       await this._client.closeSession({ reason: 'other' }).catch(() => {});
