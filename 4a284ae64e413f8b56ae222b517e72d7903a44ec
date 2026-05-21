@@ -1,0 +1,21 @@
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.2.2",
+  "base_commit_sha": "4a284ae64e413f8b56ae222b517e72d7903a44ec",
+  "prompts": {
+    "3bb9d2b12c8d057c": {
+      "agent_id": {
+        "tool": "droid",
+        "id": "53b3323f-5652-4e41-9c42-54b8855166a6",
+        "model": "gpt-5.5-fast"
+      },
+      "human_author": null,
+      "messages": [],
+      "total_additions": 0,
+      "total_deletions": 0,
+      "accepted_lines": 4,
+      "overriden_lines": 0
+    }
+  }
+}
