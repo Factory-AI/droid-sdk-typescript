@@ -1,12 +1,3 @@
-/**
- * All protocol enums for the Factory Droid SDK.
- *
- * - packages/common/src/droid/enums.ts
- * - packages/common/src/shared/enums.ts
- * - packages/common/src/llm/enums.ts
- * - packages/common/src/settings/enums.ts
- */
-
 /** Droid server methods (client → server communication). */
 export enum DroidServerMethod {
   INITIALIZE_SESSION = 'droid.initialize_session',
@@ -45,7 +36,6 @@ export enum DroidClientMethod {
   ASK_USER = 'droid.ask_user',
 }
 
-/** Session notification types. */
 export enum SessionNotificationType {
   TOOL_RESULT = 'tool_result',
   TOOL_PROGRESS_UPDATE = 'tool_progress_update',
@@ -104,7 +94,6 @@ export enum ToolConfirmationType {
   McpTool = 'mcp_tool',
 }
 
-/** Droid working state (represents what the agent is currently doing). */
 export enum DroidWorkingState {
   Idle = 'idle',
   StreamingAssistantMessage = 'streaming_assistant_message',
@@ -113,13 +102,11 @@ export enum DroidWorkingState {
   CompactingConversation = 'compacting_conversation',
 }
 
-/** Accuracy of reported context stats. */
 export enum ContextStatsAccuracy {
   Exact = 'exact',
   Estimated = 'estimated',
 }
 
-/** Error types for error notifications. */
 export enum DroidErrorType {
   CONNECTION_ERROR = 'ConnectionError',
   PROTOCOL_ERROR = 'ProtocolError',
@@ -130,7 +117,6 @@ export enum DroidErrorType {
   ERROR = 'Error',
 }
 
-/** MCP server connection status. */
 export enum McpServerStatus {
   Connecting = 'connecting',
   Connected = 'connected',
@@ -139,14 +125,12 @@ export enum McpServerStatus {
   Disabled = 'disabled',
 }
 
-/** MCP server transport type. */
 export enum McpServerType {
   Stdio = 'stdio',
   Http = 'http',
   Sse = 'sse',
 }
 
-/** Overall MCP initialization status. */
 export enum McpStatus {
   NotInitialized = 'not-initialized',
   Initializing = 'initializing',
@@ -155,7 +139,6 @@ export enum McpStatus {
   Failed = 'failed',
 }
 
-/** MCP authentication outcome. */
 export enum McpAuthOutcome {
   Success = 'success',
   Cancelled = 'cancelled',
@@ -260,7 +243,6 @@ export enum AutonomyMode {
   AutoHigh = 'auto-high',
 }
 
-/** Reasoning effort levels for LLMs. */
 export enum ReasoningEffort {
   None = 'none',
   Dynamic = 'dynamic',
@@ -273,7 +255,6 @@ export enum ReasoningEffort {
   Max = 'max',
 }
 
-/** Model provider identifiers. */
 export enum ModelProvider {
   ANTHROPIC = 'anthropic',
   OPENAI = 'openai',
@@ -296,7 +277,6 @@ export enum JsonRpcErrorCode {
   SESSION_DISCONNECTED = -32005,
 }
 
-/** JSON-RPC message type discriminator. */
 export enum JsonRpcMessageType {
   Request = 'request',
   Response = 'response',
@@ -317,7 +297,6 @@ export enum SettingsLevel {
   BuiltIn = 'builtin',
 }
 
-/** Skill file location type. */
 export enum SkillLocation {
   Project = 'project',
   Personal = 'personal',

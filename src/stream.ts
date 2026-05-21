@@ -773,17 +773,6 @@ export class StreamStateTracker {
   }
 }
 
-export function isPartialMessage(message: InternalDroidMessage): boolean {
-  return (
-    message.type === DroidMessageType.AssistantTextDelta ||
-    message.type === DroidMessageType.AssistantTextComplete ||
-    message.type === DroidMessageType.ThinkingTextDelta ||
-    message.type === DroidMessageType.ThinkingTextComplete ||
-    message.type === DroidMessageType.ToolCallDelta ||
-    message.type === DroidMessageType.ToolProgress
-  );
-}
-
 export function isInternalMessage(message: InternalDroidMessage): boolean {
   return (
     message.type === 'structured_output' ||

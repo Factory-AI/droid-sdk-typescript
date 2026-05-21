@@ -8,7 +8,6 @@ import {
 } from './enums.js';
 import { JsonObjectSchema } from './shared.js';
 
-/** Stdio MCP server configuration fields. */
 export const McpStdioServerConfigFieldsSchema = z.object({
   command: z.string().optional(),
   args: z.array(z.string()).optional(),
@@ -18,7 +17,6 @@ export type McpStdioServerConfigFields = z.infer<
   typeof McpStdioServerConfigFieldsSchema
 >;
 
-/** HTTP MCP server configuration fields. */
 export const McpHttpServerConfigFieldsSchema = z.object({
   url: z.string().optional(),
 });
@@ -27,7 +25,6 @@ export type McpHttpServerConfigFields = z.infer<
   typeof McpHttpServerConfigFieldsSchema
 >;
 
-/** SSE MCP server configuration fields. */
 export const McpSseServerConfigFieldsSchema = z.object({
   url: z.string(),
   headers: z.record(z.string()).optional(),
@@ -37,7 +34,6 @@ export type McpSseServerConfigFields = z.infer<
   typeof McpSseServerConfigFieldsSchema
 >;
 
-/** MCP server status information. */
 export const McpServerStatusInfoSchema = z
   .object({
     name: z.string(),
@@ -53,7 +49,6 @@ export const McpServerStatusInfoSchema = z
 
 export type McpServerStatusInfo = z.infer<typeof McpServerStatusInfoSchema>;
 
-/** MCP status summary. */
 export const McpStatusSummarySchema = z
   .object({
     total: z.number(),
@@ -66,7 +61,6 @@ export const McpStatusSummarySchema = z
 
 export type McpStatusSummary = z.infer<typeof McpStatusSummarySchema>;
 
-/** MCP registry server entity. */
 export const McpRegistryServerSchema = z
   .object({
     name: z.string(),
@@ -96,7 +90,6 @@ export const McpToolInputSchemaSchema = z
 
 export type McpToolInputSchema = z.infer<typeof McpToolInputSchemaSchema>;
 
-/** MCP tool information entity. */
 export const McpToolInfoSchema = z
   .object({
     serverName: z.string(),
@@ -110,7 +103,6 @@ export const McpToolInfoSchema = z
 
 export type McpToolInfo = z.infer<typeof McpToolInfoSchema>;
 
-/** Selectable list item for tool confirmation prompts. */
 export const ToolConfirmationListItemSchema = z
   .object({
     label: z.string(),

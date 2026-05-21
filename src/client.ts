@@ -2,10 +2,12 @@ import type { z } from 'zod';
 
 import { ConnectionError, SessionError } from './errors.js';
 import {
+  dispatchNotification,
   ProtocolEngine,
   type AskUserHandler,
   type NotificationCallback,
   type NotificationFilter,
+  type NotificationListener,
   type PermissionHandler,
 } from './protocol.js';
 import type {
@@ -93,7 +95,6 @@ import {
   SESSION_INIT_TIMEOUT,
 } from './schemas/constants.js';
 import { DroidServerMethod, ToolConfirmationOutcome } from './schemas/enums.js';
-import { SessionNotificationParamsSchema } from './schemas/server.js';
 import type {
   AskUserRequestParams,
   AskUserResult,
@@ -105,11 +106,6 @@ import type { DroidClientTransport } from './types.js';
 export type ClientPermissionHandler = PermissionHandler;
 
 export type ClientAskUserHandler = AskUserHandler;
-
-interface ClientNotificationListener {
-  readonly callback: NotificationCallback;
-  readonly filter?: NotificationFilter;
-}
 
 export interface DroidClientOptions {
   /** A connected DroidClientTransport implementation. */
@@ -124,11 +120,7 @@ export class DroidClient {
   private _sessionId: string | null = null;
   private _closed = false;
 
-  /**
-   * Client-level notification listeners.
-   * Each entry is [callback, optional notification filter].
-   */
-  private readonly _notificationListeners: ClientNotificationListener[] = [];
+  private readonly _notificationListeners: NotificationListener[] = [];
 
   /** Client-level permission handler. */
   private _permissionHandler: ClientPermissionHandler | null = null;
@@ -463,7 +455,7 @@ export class DroidClient {
     callback: NotificationCallback,
     filter?: NotificationFilter
   ): () => void {
-    const entry: ClientNotificationListener = { callback, filter };
+    const entry: NotificationListener = { callback, filter };
     this._notificationListeners.push(entry);
 
     let unsubscribed = false;
@@ -508,29 +500,7 @@ export class DroidClient {
   }
 
   private _dispatchNotification(notification: Record<string, unknown>): void {
-    let notificationType: string | undefined;
-    const parsed = SessionNotificationParamsSchema.safeParse(
-      notification['params']
-    );
-    if (parsed.success) {
-      notificationType = parsed.data.notification.type;
-    }
-
-    const listeners = [...this._notificationListeners];
-    for (const listener of listeners) {
-      if (
-        listener.filter?.type != null &&
-        listener.filter.type !== notificationType
-      ) {
-        continue;
-      }
-
-      try {
-        listener.callback(notification);
-      } catch {
-        // Notification listener raised — don't crash the client
-      }
-    }
+    dispatchNotification(notification, [...this._notificationListeners]);
   }
 
   private _dispatchPermissionRequest(

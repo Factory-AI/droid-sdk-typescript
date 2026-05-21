@@ -60,9 +60,38 @@ interface PendingRequest {
   readonly timer: ReturnType<typeof setTimeout>;
 }
 
-interface NotificationListener {
+export interface NotificationListener {
   readonly callback: NotificationCallback;
   readonly filter?: NotificationFilter;
+}
+
+/** Dispatch a notification to matching listeners, swallowing listener errors. */
+export function dispatchNotification(
+  notification: Record<string, unknown>,
+  listeners: Iterable<NotificationListener>
+): void {
+  let notificationType: string | undefined;
+  const parsed = SessionNotificationParamsSchema.safeParse(
+    notification['params']
+  );
+  if (parsed.success) {
+    notificationType = parsed.data.notification.type;
+  }
+
+  for (const listener of listeners) {
+    if (
+      listener.filter?.type != null &&
+      listener.filter.type !== notificationType
+    ) {
+      continue;
+    }
+
+    try {
+      listener.callback(notification);
+    } catch {
+      // Notification listener raised — don't crash the dispatch loop
+    }
+  }
 }
 
 export class ProtocolEngine {
@@ -277,28 +306,7 @@ export class ProtocolEngine {
   }
 
   private _handleNotification(notification: Record<string, unknown>): void {
-    let notificationType: string | undefined;
-    const parsed = SessionNotificationParamsSchema.safeParse(
-      notification['params']
-    );
-    if (parsed.success) {
-      notificationType = parsed.data.notification.type;
-    }
-
-    for (const listener of this._notificationListeners) {
-      if (
-        listener.filter?.type != null &&
-        listener.filter.type !== notificationType
-      ) {
-        continue;
-      }
-
-      try {
-        listener.callback(notification);
-      } catch {
-        // Notification listener raised — don't crash the engine
-      }
-    }
+    dispatchNotification(notification, this._notificationListeners);
   }
 
   private async _handleServerRequest(
