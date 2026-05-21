@@ -1,0 +1,60 @@
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.2.2",
+  "base_commit_sha": "2df41ec420d25d348a44661645c17d1762c9b4b5",
+  "prompts": {
+    "2cae08e90bea9c7b": {
+      "agent_id": {
+        "tool": "droid",
+        "id": "2563af36-b4f9-4401-a6c8-f2f4f3803d5f",
+        "model": "claude-opus-4-7-fast"
+      },
+      "human_author": "User",
+      "messages": [],
+      "total_additions": 0,
+      "total_deletions": 0,
+      "accepted_lines": 226,
+      "overriden_lines": 0
+    },
+    "2e88bdd8c535764a": {
+      "agent_id": {
+        "tool": "droid",
+        "id": "14ca27e3-74ba-4045-9259-129f6821fb10",
+        "model": "claude-opus-4-7-fast"
+      },
+      "human_author": "User",
+      "messages": [],
+      "total_additions": 0,
+      "total_deletions": 0,
+      "accepted_lines": 102,
+      "overriden_lines": 0
+    },
+    "37cca0421f3d43a8": {
+      "agent_id": {
+        "tool": "droid",
+        "id": "047a50e0-cb9c-4176-b101-3d3fbbf16267",
+        "model": "claude-opus-4-7-fast"
+      },
+      "human_author": "User",
+      "messages": [],
+      "total_additions": 0,
+      "total_deletions": 0,
+      "accepted_lines": 140,
+      "overriden_lines": 0
+    },
+    "3bb9d2b12c8d057c": {
+      "agent_id": {
+        "tool": "droid",
+        "id": "53b3323f-5652-4e41-9c42-54b8855166a6",
+        "model": "gpt-5.5-fast"
+      },
+      "human_author": "User",
+      "messages": [],
+      "total_additions": 56,
+      "total_deletions": 0,
+      "accepted_lines": 196,
+      "overriden_lines": 4
+    }
+  }
+}
