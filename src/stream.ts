@@ -243,8 +243,7 @@ export interface StructuredOutputFields {
 }
 
 export interface StructuredOutput
-  extends DroidStreamBase,
-    StructuredOutputFields {
+  extends DroidStreamBase, StructuredOutputFields {
   readonly type: 'structured_output';
   readonly messageId: string;
 }
