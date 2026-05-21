@@ -112,9 +112,7 @@ Use `session.sessionId` to persist the session ID, then resume it later:
 ```ts
 import { resumeSession } from '@factory/droid-sdk';
 
-const session = await resumeSession(savedSessionId, {
-  cwd: '/my/project',
-});
+const session = await resumeSession(savedSessionId);
 for await (const msg of session.stream('Continue where we left off')) {
   // Handle streamed DroidMessage events.
 }
@@ -180,7 +178,7 @@ const session = await createSession({ cwd: '/my/project' });
 console.log(session.sessionId);
 console.log(session.initResult.settings.modelId);
 
-const resumed = await resumeSession(session.sessionId, { cwd: '/my/project' });
+const resumed = await resumeSession(session.sessionId);
 console.log(resumed.initResult.cwd);
 
 await resumed.close();
@@ -271,7 +269,7 @@ for await (const _msg of session.stream(
 }
 
 const { newSessionId } = await session.forkSession();
-const fork = await resumeSession(newSessionId, { cwd: '/my/project' });
+const fork = await resumeSession(newSessionId);
 
 for await (const msg of fork.stream('What phrase did I ask you to remember?')) {
   if (msg.type === DroidMessageType.AssistantTextDelta) {
@@ -458,7 +456,7 @@ Session creation options used by `run()` and `createSession()` include:
 - **`askUserHandler`** — callback for interactive questions
 - **`abortSignal`** — standard `AbortSignal` for cancellation
 
-`resumeSession()` accepts the process, transport, handler, `cwd`, `mcpServers`, and `abortSignal` options needed to reconnect to an existing session, but does not accept new-session-only options such as `modelId` or `interactionMode`.
+`resumeSession()` accepts the process, transport, handler, `mcpServers`, and `abortSignal` options needed to reconnect to an existing session, but does not accept new-session-only options such as `modelId` or `interactionMode`. `cwd` is intentionally not accepted on resume: the persisted session's working directory is always used. To run in a different directory, create a new session or fork the existing one.
 
 Message APIs (`run()` and `session.stream()`) also accept:
 

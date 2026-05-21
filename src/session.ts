@@ -67,7 +67,6 @@ export interface ResumeSessionOptions extends Pick<
   CreateSessionOptions,
   | 'execPath'
   | 'execArgs'
-  | 'cwd'
   | 'env'
   | 'permissionHandler'
   | 'askUserHandler'
@@ -410,7 +409,19 @@ export async function createSession(
   }
 }
 
-/** @throws {SessionNotFoundError} If the session ID does not exist. */
+/**
+ * Resumes an existing Droid session.
+ *
+ * The resumed session always runs in the working directory that was persisted
+ * with the session at creation time. `resumeSession()` intentionally does not
+ * accept a `cwd` option: the persisted session cwd is authoritative. The
+ * underlying subprocess is launched in the host process's `process.cwd()`, but
+ * this does not affect the session's working directory as far as the Droid is
+ * concerned. To run in a different directory, create a new session or fork the
+ * existing one.
+ *
+ * @throws {SessionNotFoundError} If the session ID does not exist.
+ */
 export async function resumeSession(
   sessionId: string,
   options: ResumeSessionOptions = {}

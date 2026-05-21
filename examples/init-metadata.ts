@@ -8,7 +8,7 @@
 import { createSession, resumeSession } from '@factory/droid-sdk';
 
 const session = await createSession({ cwd: process.cwd() });
-const resumed = await resumeSession(session.sessionId, { cwd: process.cwd() });
+const resumed = await resumeSession(session.sessionId);
 
 console.log(`created session: ${session.sessionId}`);
 console.log(`resumed session: ${resumed.sessionId}`);
