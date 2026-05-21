@@ -110,12 +110,14 @@ export interface DroidToolCallMessage extends DroidStreamBase {
 export interface DroidAssistantMessage extends DroidStreamBase {
   readonly type: 'assistant';
   readonly message: FactoryDroidMessage;
+  readonly parentMessageId?: string;
   readonly text: string;
 }
 
 export interface DroidUserMessage extends DroidStreamBase {
   readonly type: 'user';
   readonly message: FactoryDroidMessage;
+  readonly parentMessageId?: string;
 }
 
 export interface ToolResult extends DroidStreamBase {
@@ -458,6 +460,7 @@ export function convertNotificationToStreamMessage(
           type: DroidMessageType.Assistant,
           sessionId,
           message: msg,
+          parentMessageId: notification.parentId ?? msg.parentId,
           text: extractTextFromMessage(msg),
         });
       } else if (msg.role === FactoryDroidMessageRole.User) {
@@ -465,6 +468,7 @@ export function convertNotificationToStreamMessage(
           type: DroidMessageType.User,
           sessionId,
           message: msg,
+          parentMessageId: notification.parentId ?? msg.parentId,
         });
       } else {
         messages.push({

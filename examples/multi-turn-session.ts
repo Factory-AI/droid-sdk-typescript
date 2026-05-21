@@ -12,7 +12,9 @@ async function streamText(
   prompt: string
 ): Promise<string> {
   let text = '';
-  for await (const msg of session.stream(prompt)) {
+  for await (const msg of session.stream(prompt, {
+    includePartialMessages: true,
+  })) {
     if (msg.type === DroidMessageType.AssistantTextDelta) {
       text += msg.text;
     }

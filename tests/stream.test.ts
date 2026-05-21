@@ -932,6 +932,58 @@ describe('convertNotificationToStreamMessage', () => {
       expect(messages[0].type).toBe('assistant');
     });
 
+    it('sets parentMessageId on user messages', () => {
+      const notification = makeNotification(
+        SessionNotificationType.CREATE_MESSAGE,
+        {
+          message: {
+            id: 'user-id-1',
+            role: 'user',
+            parentId: 'message-parent-id',
+            createdAt: 1000,
+            updatedAt: 1000,
+            content: [{ type: 'text', text: 'hello' }],
+          },
+          parentId: 'notification-parent-id',
+          requestId: 'req-1',
+        }
+      );
+
+      const result = convertNotificationToStreamMessage(notification);
+      expect(Array.isArray(result)).toBe(true);
+      const messages = result as DroidMessage[];
+      expect(messages).toHaveLength(1);
+      expect(messages[0]).toMatchObject({
+        type: 'user',
+        parentMessageId: 'notification-parent-id',
+      });
+    });
+
+    it('sets parentMessageId on assistant messages', () => {
+      const notification = makeNotification(
+        SessionNotificationType.CREATE_MESSAGE,
+        {
+          message: {
+            id: 'assistant-id-1',
+            role: 'assistant',
+            parentId: 'user-id-1',
+            createdAt: 1000,
+            updatedAt: 1000,
+            content: [{ type: 'text', text: 'hello' }],
+          },
+        }
+      );
+
+      const result = convertNotificationToStreamMessage(notification);
+      expect(Array.isArray(result)).toBe(true);
+      const messages = result as DroidMessage[];
+      expect(messages).toHaveLength(1);
+      expect(messages[0]).toMatchObject({
+        type: 'assistant',
+        parentMessageId: 'user-id-1',
+      });
+    });
+
     it('handles empty content array', () => {
       const notification = makeNotification(
         SessionNotificationType.CREATE_MESSAGE,
