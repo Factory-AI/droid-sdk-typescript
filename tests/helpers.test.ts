@@ -168,6 +168,31 @@ describe('MessageBridge', () => {
     expect(messages.some((m) => m.type === 'working_state_changed')).toBe(true);
   });
 
+  it('passes configured sessionId to converted messages', async () => {
+    bridge = new MessageBridge(undefined, {
+      includePartialMessages: true,
+      sessionId: 'sess-bridge',
+    });
+    bridge.notificationHandler(
+      makeSessionNotification(
+        SessionNotificationType.DROID_WORKING_STATE_CHANGED,
+        { newState: DroidWorkingState.StreamingAssistantMessage }
+      ) as Record<string, unknown>
+    );
+
+    bridge.signalDone();
+
+    const messages = [];
+    for await (const msg of bridge.messages()) {
+      messages.push(msg);
+    }
+
+    expect(messages[0]).toMatchObject({
+      type: 'working_state_changed',
+      sessionId: 'sess-bridge',
+    });
+  });
+
   it('terminates generator on result message', async () => {
     // Transition to streaming state then back to idle to trigger result
     bridge.notificationHandler(

@@ -12,7 +12,7 @@ import {
   ToolConfirmationOutcome,
 } from '../src/schemas/index.js';
 import {
-  convertNotificationToStreamMessage,
+  convertNotificationToStreamMessage as convertNotificationToStreamMessageRaw,
   DroidMessageType,
   StreamStateTracker,
 } from '../src/stream.js';
@@ -46,6 +46,13 @@ import type {
 
 function makeNotification(type: string, payload: Record<string, unknown>) {
   return { type, ...payload };
+}
+
+function convertNotificationToStreamMessage(
+  raw: unknown,
+  sessionId = 'sess-test'
+) {
+  return convertNotificationToStreamMessageRaw(raw, sessionId);
 }
 
 const expectedDroidMessageTypes = [
@@ -96,6 +103,7 @@ describe('DroidMessage types', () => {
   it('AssistantTextDelta has correct structure', () => {
     const msg: AssistantTextDelta = {
       type: 'assistant_text_delta',
+      sessionId: 's1',
       messageId: 'msg-1',
       blockIndex: 0,
       text: 'Hello',
@@ -109,6 +117,7 @@ describe('DroidMessage types', () => {
   it('ThinkingTextDelta has correct structure', () => {
     const msg: ThinkingTextDelta = {
       type: 'thinking_text_delta',
+      sessionId: 's1',
       messageId: 'msg-2',
       blockIndex: 1,
       text: 'Let me think...',
@@ -120,6 +129,7 @@ describe('DroidMessage types', () => {
   it('ToolUse has correct structure', () => {
     const msg: ToolUse = {
       type: 'tool_use',
+      sessionId: 's1',
       toolName: 'read_file',
       toolInput: { path: '/tmp/test.txt' },
       toolUseId: 'tu-1',
@@ -133,6 +143,7 @@ describe('DroidMessage types', () => {
   it('ToolResult has correct structure', () => {
     const msg: ToolResult = {
       type: 'tool_result',
+      sessionId: 's1',
       toolUseId: 'tu-1',
       toolName: 'read_file',
       content: 'file contents here',
@@ -147,6 +158,7 @@ describe('DroidMessage types', () => {
   it('ToolProgress has correct structure', () => {
     const msg: ToolProgress = {
       type: 'tool_progress',
+      sessionId: 's1',
       toolUseId: 'tu-1',
       toolName: 'execute',
       content: 'Running...',
@@ -160,6 +172,7 @@ describe('DroidMessage types', () => {
   it('WorkingStateChanged has correct structure', () => {
     const msg: WorkingStateChanged = {
       type: 'working_state_changed',
+      sessionId: 's1',
       state: DroidWorkingState.ExecutingTool,
     };
     expect(msg.type).toBe('working_state_changed');
@@ -169,6 +182,7 @@ describe('DroidMessage types', () => {
   it('TokenUsageUpdate has correct structure', () => {
     const msg: TokenUsageUpdate = {
       type: 'token_usage_update',
+      sessionId: 's1',
       inputTokens: 100,
       outputTokens: 50,
       cacheReadTokens: 10,
@@ -186,6 +200,7 @@ describe('DroidMessage types', () => {
   it('CreateMessage has correct structure', () => {
     const msg: CreateMessage = {
       type: 'create_message',
+      sessionId: 's1',
       messageId: 'msg-3',
       role: 'assistant',
       content: [{ type: 'text', text: 'hi' }],
@@ -200,6 +215,7 @@ describe('DroidMessage types', () => {
   it('PermissionResolved has correct structure', () => {
     const msg: PermissionResolved = {
       type: 'permission_resolved',
+      sessionId: 's1',
       requestId: 'req-1',
       toolUseIds: ['tu-1', 'tu-2'],
       selectedOption: ToolConfirmationOutcome.ProceedOnce,
@@ -211,6 +227,7 @@ describe('DroidMessage types', () => {
   it('SettingsUpdated has correct structure', () => {
     const msg: SettingsUpdated = {
       type: 'settings_updated',
+      sessionId: 's1',
       settings: { modelId: 'claude-opus-4' },
     };
     expect(msg.type).toBe('settings_updated');
@@ -220,6 +237,7 @@ describe('DroidMessage types', () => {
   it('SessionTitleUpdated has correct structure', () => {
     const msg: SessionTitleUpdated = {
       type: 'session_title_updated',
+      sessionId: 's1',
       title: 'My Session',
     };
     expect(msg.type).toBe('session_title_updated');
@@ -229,6 +247,7 @@ describe('DroidMessage types', () => {
   it('McpStatusChanged has correct structure', () => {
     const msg: McpStatusChanged = {
       type: 'mcp_status_changed',
+      sessionId: 's1',
       servers: [
         {
           name: 'test-server',
@@ -246,6 +265,7 @@ describe('DroidMessage types', () => {
   it('MissionStateChanged has correct structure', () => {
     const msg: MissionStateChanged = {
       type: 'mission_state_changed',
+      sessionId: 's1',
       state: MissionState.Running,
     };
     expect(msg.type).toBe('mission_state_changed');
@@ -255,6 +275,7 @@ describe('DroidMessage types', () => {
   it('MissionFeaturesChanged has correct structure', () => {
     const msg: MissionFeaturesChanged = {
       type: 'mission_features_changed',
+      sessionId: 's1',
       features: [
         {
           id: 'feat-1',
@@ -274,6 +295,7 @@ describe('DroidMessage types', () => {
   it('MissionProgressEntry has correct structure', () => {
     const msg: MissionProgressEntry = {
       type: 'mission_progress_entry',
+      sessionId: 's1',
       progressLog: [],
     };
     expect(msg.type).toBe('mission_progress_entry');
@@ -283,6 +305,7 @@ describe('DroidMessage types', () => {
   it('MissionHeartbeat has correct structure', () => {
     const msg: MissionHeartbeat = {
       type: 'mission_heartbeat',
+      sessionId: 's1',
       timestamp: '2025-01-01T00:00:00Z',
     };
     expect(msg.type).toBe('mission_heartbeat');
@@ -292,6 +315,7 @@ describe('DroidMessage types', () => {
   it('MissionWorkerStarted has correct structure', () => {
     const msg: MissionWorkerStarted = {
       type: 'mission_worker_started',
+      sessionId: 's1',
       workerSessionId: 'ws-1',
     };
     expect(msg.type).toBe('mission_worker_started');
@@ -301,6 +325,7 @@ describe('DroidMessage types', () => {
   it('MissionWorkerCompleted has correct structure', () => {
     const msg: MissionWorkerCompleted = {
       type: 'mission_worker_completed',
+      sessionId: 's1',
       workerSessionId: 'ws-1',
       exitCode: 0,
     };
@@ -311,6 +336,7 @@ describe('DroidMessage types', () => {
   it('McpAuthRequired has correct structure', () => {
     const msg: McpAuthRequired = {
       type: 'mcp_auth_required',
+      sessionId: 's1',
       serverName: 'my-server',
       authUrl: 'https://auth.example.com',
       message: 'Please authenticate',
@@ -323,6 +349,7 @@ describe('DroidMessage types', () => {
   it('McpAuthCompleted has correct structure', () => {
     const msg: McpAuthCompleted = {
       type: 'mcp_auth_completed',
+      sessionId: 's1',
       serverName: 'my-server',
       outcome: McpAuthOutcome.Success,
       message: 'Authenticated',
@@ -334,6 +361,7 @@ describe('DroidMessage types', () => {
   it('HookExecution has correct structure', () => {
     const msg: HookExecution = {
       type: 'hook',
+      sessionId: 's1',
       hookId: 'hook-1',
       eventName: 'PreToolUse',
       matcher: 'Execute',
@@ -348,6 +376,7 @@ describe('DroidMessage types', () => {
   it('ErrorEvent has correct structure', () => {
     const msg: ErrorEvent = {
       type: 'error',
+      sessionId: 's1',
       message: 'Something went wrong',
       errorType: DroidErrorType.SESSION_ERROR,
       timestamp: '2025-01-01T00:00:00Z',
@@ -360,6 +389,7 @@ describe('DroidMessage types', () => {
   it('DroidResultMessage has correct structure', () => {
     const tokenUsage: TokenUsageUpdate = {
       type: 'token_usage_update',
+      sessionId: 's1',
       inputTokens: 100,
       outputTokens: 50,
       cacheReadTokens: 10,
@@ -390,6 +420,7 @@ describe('DroidMessage types', () => {
     const messages: DroidMessage[] = [
       {
         type: 'assistant',
+        sessionId: 's1',
         message: {
           id: 'a1',
           role: 'assistant',
@@ -401,6 +432,7 @@ describe('DroidMessage types', () => {
       },
       {
         type: 'user',
+        sessionId: 's1',
         message: {
           id: 'u1',
           role: 'user',
@@ -411,6 +443,7 @@ describe('DroidMessage types', () => {
       },
       {
         type: 'tool_call',
+        sessionId: 's1',
         toolUse: {
           type: 'tool_use',
           id: 'tu-1',
@@ -420,28 +453,33 @@ describe('DroidMessage types', () => {
       },
       {
         type: 'assistant_text_delta',
+        sessionId: 's1',
         messageId: 'm1',
         blockIndex: 0,
         text: 'hi',
       },
       {
         type: 'assistant_text_complete',
+        sessionId: 's1',
         messageId: 'm1',
         blockIndex: 0,
       },
       {
         type: 'thinking_text_delta',
+        sessionId: 's1',
         messageId: 'm1',
         blockIndex: 0,
         text: 'hmm',
       },
       {
         type: 'thinking_text_complete',
+        sessionId: 's1',
         messageId: 'm1',
         blockIndex: 0,
       },
       {
         type: 'tool_call_delta',
+        sessionId: 's1',
         toolUse: {
           type: 'tool_use',
           id: 'tu-1',
@@ -451,6 +489,7 @@ describe('DroidMessage types', () => {
       },
       {
         type: 'tool_result',
+        sessionId: 's1',
         toolUseId: 'tu1',
         toolName: 'x',
         content: '',
@@ -458,14 +497,20 @@ describe('DroidMessage types', () => {
       },
       {
         type: 'tool_progress',
+        sessionId: 's1',
         toolUseId: 'tu1',
         toolName: 'x',
         content: '...',
         update: { type: 'status' },
       },
-      { type: 'working_state_changed', state: DroidWorkingState.Idle },
+      {
+        type: 'working_state_changed',
+        sessionId: 's1',
+        state: DroidWorkingState.Idle,
+      },
       {
         type: 'token_usage_update',
+        sessionId: 's1',
         inputTokens: 0,
         outputTokens: 0,
         cacheReadTokens: 0,
@@ -474,25 +519,41 @@ describe('DroidMessage types', () => {
       },
       {
         type: 'permission_resolved',
+        sessionId: 's1',
         requestId: 'r1',
         toolUseIds: [],
         selectedOption: ToolConfirmationOutcome.Cancel,
       },
-      { type: 'settings_updated', settings: {} },
-      { type: 'session_title_updated', title: 't' },
+      { type: 'settings_updated', sessionId: 's1', settings: {} },
+      { type: 'session_title_updated', sessionId: 's1', title: 't' },
       {
         type: 'mcp_status_changed',
+        sessionId: 's1',
         servers: [],
         summary: { total: 0, connected: 0, connecting: 0, failed: 0 },
       },
-      { type: 'mission_state_changed', state: MissionState.Running },
-      { type: 'mission_features_changed', features: [] },
-      { type: 'mission_progress_entry', progressLog: [] },
-      { type: 'mission_heartbeat', timestamp: 't' },
-      { type: 'mission_worker_started', workerSessionId: 'ws1' },
-      { type: 'mission_worker_completed', workerSessionId: 'ws1', exitCode: 0 },
+      {
+        type: 'mission_state_changed',
+        sessionId: 's1',
+        state: MissionState.Running,
+      },
+      { type: 'mission_features_changed', sessionId: 's1', features: [] },
+      { type: 'mission_progress_entry', sessionId: 's1', progressLog: [] },
+      { type: 'mission_heartbeat', sessionId: 's1', timestamp: 't' },
+      {
+        type: 'mission_worker_started',
+        sessionId: 's1',
+        workerSessionId: 'ws1',
+      },
+      {
+        type: 'mission_worker_completed',
+        sessionId: 's1',
+        workerSessionId: 'ws1',
+        exitCode: 0,
+      },
       {
         type: 'mcp_auth_required',
+        sessionId: 's1',
         serverName: 's',
         authUrl: 'u',
         message: 'm',
@@ -500,12 +561,14 @@ describe('DroidMessage types', () => {
       },
       {
         type: 'mcp_auth_completed',
+        sessionId: 's1',
         serverName: 's',
         outcome: McpAuthOutcome.Success,
         message: 'm',
       },
       {
         type: 'hook',
+        sessionId: 's1',
         hookId: 'hook-1',
         eventName: 'PreToolUse',
         matcher: 'Execute',
@@ -519,6 +582,7 @@ describe('DroidMessage types', () => {
       },
       {
         type: 'error',
+        sessionId: 's1',
         message: 'err',
         errorType: DroidErrorType.ERROR,
         timestamp: 't',
@@ -1161,6 +1225,7 @@ describe('convertNotificationToStreamMessage', () => {
       expect(result).toEqual([
         {
           type: 'hook',
+          sessionId: 'sess-test',
           hookId: 'hook-1',
           eventName: 'PreToolUse',
           matcher: 'Execute',
@@ -1171,6 +1236,7 @@ describe('convertNotificationToStreamMessage', () => {
         },
         {
           type: 'hook',
+          sessionId: 'sess-test',
           hookId: 'hook-1',
           eventName: 'PreToolUse',
           matcher: 'Execute',
@@ -1209,6 +1275,7 @@ describe('convertNotificationToStreamMessage', () => {
       expect(result).toEqual([
         {
           type: 'hook',
+          sessionId: 'sess-test',
           hookId: 'hook-1',
           eventName: 'PreToolUse',
           matcher: 'Execute',
@@ -1240,6 +1307,7 @@ describe('convertNotificationToStreamMessage', () => {
 
       expect(result).toEqual({
         type: 'structured_output',
+        sessionId: 'sess-test',
         messageId: 'msg-structured',
         structuredOutput: { name: 'Ada' },
         structuredOutputError: null,
@@ -1264,6 +1332,7 @@ describe('convertNotificationToStreamMessage', () => {
 
       expect(result).toEqual({
         type: 'structured_output',
+        sessionId: 'sess-test',
         messageId: 'msg-structured',
         structuredOutput: null,
         structuredOutputError: {
@@ -1299,8 +1368,9 @@ describe('convertNotificationToStreamMessage', () => {
       );
     });
 
-    it('every notification type returns a non-null result (with valid payloads)', () => {
+    it('every notification type returns a non-null result with sessionId', () => {
       const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+      const sessionId = 'sess-all-notifications';
 
       const payloads: Record<string, Record<string, unknown>> = {
         [SessionNotificationType.ASSISTANT_TEXT_DELTA]: {
@@ -1427,11 +1497,23 @@ describe('convertNotificationToStreamMessage', () => {
         const payload = payloads[notifType];
         expect(payload, `Missing test payload for ${notifType}`).toBeDefined();
         const notification = makeNotification(notifType, payload);
-        const result = convertNotificationToStreamMessage(notification);
+        const result = convertNotificationToStreamMessage(
+          notification,
+          sessionId
+        );
         expect(
           result,
           `Converter returned null for ${notifType}`
         ).not.toBeNull();
+        const messages = Array.isArray(result) ? result : [result!];
+        expect(messages.length, `No messages for ${notifType}`).toBeGreaterThan(
+          0
+        );
+        for (const message of messages) {
+          expect(message.sessionId, `Missing sessionId for ${notifType}`).toBe(
+            sessionId
+          );
+        }
       }
 
       expect(warnSpy).not.toHaveBeenCalled();
@@ -1451,12 +1533,14 @@ describe('StreamStateTracker', () => {
     it('emits Result on non-idle → idle transition', () => {
       const r1 = tracker.processMessage({
         type: 'working_state_changed',
+        sessionId: 's1',
         state: DroidWorkingState.StreamingAssistantMessage,
       });
       expect(r1.additional).toEqual([]);
 
       const r2 = tracker.processMessage({
         type: 'working_state_changed',
+        sessionId: 's1',
         state: DroidWorkingState.Idle,
       });
       expect(r2.additional).toHaveLength(1);
@@ -1467,6 +1551,7 @@ describe('StreamStateTracker', () => {
     it('does NOT emit Result for initial idle', () => {
       const result = tracker.processMessage({
         type: 'working_state_changed',
+        sessionId: 's1',
         state: DroidWorkingState.Idle,
       });
       expect(result.additional).toEqual([]);
@@ -1475,10 +1560,12 @@ describe('StreamStateTracker', () => {
     it('does NOT emit Result for non-idle → non-idle transitions', () => {
       tracker.processMessage({
         type: 'working_state_changed',
+        sessionId: 's1',
         state: DroidWorkingState.StreamingAssistantMessage,
       });
       const result = tracker.processMessage({
         type: 'working_state_changed',
+        sessionId: 's1',
         state: DroidWorkingState.ExecutingTool,
       });
       expect(result.additional).toEqual([]);
@@ -1487,14 +1574,17 @@ describe('StreamStateTracker', () => {
     it('emits Result after multiple non-idle states', () => {
       tracker.processMessage({
         type: 'working_state_changed',
+        sessionId: 's1',
         state: DroidWorkingState.StreamingAssistantMessage,
       });
       tracker.processMessage({
         type: 'working_state_changed',
+        sessionId: 's1',
         state: DroidWorkingState.ExecutingTool,
       });
       const result = tracker.processMessage({
         type: 'working_state_changed',
+        sessionId: 's1',
         state: DroidWorkingState.Idle,
       });
       expect(result.additional).toHaveLength(1);
@@ -1504,10 +1594,12 @@ describe('StreamStateTracker', () => {
     it('can emit Result again after reset', () => {
       tracker.processMessage({
         type: 'working_state_changed',
+        sessionId: 's1',
         state: DroidWorkingState.StreamingAssistantMessage,
       });
       tracker.processMessage({
         type: 'working_state_changed',
+        sessionId: 's1',
         state: DroidWorkingState.Idle,
       });
 
@@ -1515,16 +1607,19 @@ describe('StreamStateTracker', () => {
 
       const r1 = tracker.processMessage({
         type: 'working_state_changed',
+        sessionId: 's1',
         state: DroidWorkingState.Idle,
       });
       expect(r1.additional).toEqual([]);
 
       tracker.processMessage({
         type: 'working_state_changed',
+        sessionId: 's1',
         state: DroidWorkingState.ExecutingTool,
       });
       const r2 = tracker.processMessage({
         type: 'working_state_changed',
+        sessionId: 's1',
         state: DroidWorkingState.Idle,
       });
       expect(r2.additional).toHaveLength(1);
@@ -1536,10 +1631,12 @@ describe('StreamStateTracker', () => {
     it('attaches structured output to Result', () => {
       tracker.processMessage({
         type: 'working_state_changed',
+        sessionId: 's1',
         state: DroidWorkingState.StreamingAssistantMessage,
       });
       tracker.processMessage({
         type: 'structured_output',
+        sessionId: 's1',
         messageId: 'msg-structured',
         structuredOutput: { name: 'Ada' },
         structuredOutputError: null,
@@ -1547,6 +1644,7 @@ describe('StreamStateTracker', () => {
 
       const result = tracker.processMessage({
         type: 'working_state_changed',
+        sessionId: 's1',
         state: DroidWorkingState.Idle,
       });
 
@@ -1562,10 +1660,12 @@ describe('StreamStateTracker', () => {
     it('attaches structured output errors to Result', () => {
       tracker.processMessage({
         type: 'working_state_changed',
+        sessionId: 's1',
         state: DroidWorkingState.StreamingAssistantMessage,
       });
       tracker.processMessage({
         type: 'structured_output',
+        sessionId: 's1',
         messageId: 'msg-structured',
         structuredOutput: null,
         structuredOutputError: {
@@ -1576,6 +1676,7 @@ describe('StreamStateTracker', () => {
 
       const result = tracker.processMessage({
         type: 'working_state_changed',
+        sessionId: 's1',
         state: DroidWorkingState.Idle,
       });
 
@@ -1594,25 +1695,30 @@ describe('StreamStateTracker', () => {
     it('does not carry structured output across turns', () => {
       tracker.processMessage({
         type: 'working_state_changed',
+        sessionId: 's1',
         state: DroidWorkingState.StreamingAssistantMessage,
       });
       tracker.processMessage({
         type: 'structured_output',
+        sessionId: 's1',
         messageId: 'msg-structured',
         structuredOutput: { name: 'Ada' },
         structuredOutputError: null,
       });
       tracker.processMessage({
         type: 'working_state_changed',
+        sessionId: 's1',
         state: DroidWorkingState.Idle,
       });
 
       tracker.processMessage({
         type: 'working_state_changed',
+        sessionId: 's1',
         state: DroidWorkingState.StreamingAssistantMessage,
       });
       const result = tracker.processMessage({
         type: 'working_state_changed',
+        sessionId: 's1',
         state: DroidWorkingState.Idle,
       });
 
@@ -1630,6 +1736,7 @@ describe('StreamStateTracker', () => {
     it('carries last-seen TokenUsageUpdate in Result', () => {
       const tokenUsage: TokenUsageUpdate = {
         type: 'token_usage_update',
+        sessionId: 's1',
         inputTokens: 100,
         outputTokens: 50,
         cacheReadTokens: 10,
@@ -1639,11 +1746,13 @@ describe('StreamStateTracker', () => {
 
       tracker.processMessage({
         type: 'working_state_changed',
+        sessionId: 's1',
         state: DroidWorkingState.StreamingAssistantMessage,
       });
       tracker.processMessage(tokenUsage);
       const result = tracker.processMessage({
         type: 'working_state_changed',
+        sessionId: 's1',
         state: DroidWorkingState.Idle,
       });
 
@@ -1661,10 +1770,12 @@ describe('StreamStateTracker', () => {
     it('uses the LAST token usage update when multiple are received', () => {
       tracker.processMessage({
         type: 'working_state_changed',
+        sessionId: 's1',
         state: DroidWorkingState.StreamingAssistantMessage,
       });
       tracker.processMessage({
         type: 'token_usage_update',
+        sessionId: 's1',
         inputTokens: 50,
         outputTokens: 25,
         cacheReadTokens: 5,
@@ -1673,6 +1784,7 @@ describe('StreamStateTracker', () => {
       });
       tracker.processMessage({
         type: 'token_usage_update',
+        sessionId: 's1',
         inputTokens: 200,
         outputTokens: 100,
         cacheReadTokens: 20,
@@ -1682,6 +1794,7 @@ describe('StreamStateTracker', () => {
 
       const result = tracker.processMessage({
         type: 'working_state_changed',
+        sessionId: 's1',
         state: DroidWorkingState.Idle,
       });
 
@@ -1693,10 +1806,12 @@ describe('StreamStateTracker', () => {
     it('returns null tokenUsage when no TokenUsageUpdate was received', () => {
       tracker.processMessage({
         type: 'working_state_changed',
+        sessionId: 's1',
         state: DroidWorkingState.StreamingAssistantMessage,
       });
       const result = tracker.processMessage({
         type: 'working_state_changed',
+        sessionId: 's1',
         state: DroidWorkingState.Idle,
       });
 
@@ -1707,10 +1822,12 @@ describe('StreamStateTracker', () => {
     it('token usage is reset after reset()', () => {
       tracker.processMessage({
         type: 'working_state_changed',
+        sessionId: 's1',
         state: DroidWorkingState.StreamingAssistantMessage,
       });
       tracker.processMessage({
         type: 'token_usage_update',
+        sessionId: 's1',
         inputTokens: 100,
         outputTokens: 50,
         cacheReadTokens: 10,
@@ -1719,6 +1836,7 @@ describe('StreamStateTracker', () => {
       });
       tracker.processMessage({
         type: 'working_state_changed',
+        sessionId: 's1',
         state: DroidWorkingState.Idle,
       });
 
@@ -1726,10 +1844,12 @@ describe('StreamStateTracker', () => {
 
       tracker.processMessage({
         type: 'working_state_changed',
+        sessionId: 's1',
         state: DroidWorkingState.ExecutingTool,
       });
       const result = tracker.processMessage({
         type: 'working_state_changed',
+        sessionId: 's1',
         state: DroidWorkingState.Idle,
       });
 
@@ -1742,12 +1862,14 @@ describe('StreamStateTracker', () => {
     it('enriches tool_result with toolName from prior tool_use', () => {
       tracker.processMessage({
         type: 'tool_use',
+        sessionId: 's1',
         toolName: 'read_file',
         toolInput: { path: '/tmp/test' },
         toolUseId: 'tu-1',
       });
       const { message } = tracker.processMessage({
         type: 'tool_result',
+        sessionId: 's1',
         toolUseId: 'tu-1',
         toolName: '',
         content: 'file contents',
@@ -1760,18 +1882,21 @@ describe('StreamStateTracker', () => {
     it('enriches tool_results from multiple tool_use mappings', () => {
       tracker.processMessage({
         type: 'tool_use',
+        sessionId: 's1',
         toolName: 'read_file',
         toolInput: {},
         toolUseId: 'tu-1',
       });
       tracker.processMessage({
         type: 'tool_use',
+        sessionId: 's1',
         toolName: 'write_file',
         toolInput: {},
         toolUseId: 'tu-2',
       });
       const r1 = tracker.processMessage({
         type: 'tool_result',
+        sessionId: 's1',
         toolUseId: 'tu-1',
         toolName: '',
         content: '',
@@ -1779,6 +1904,7 @@ describe('StreamStateTracker', () => {
       });
       const r2 = tracker.processMessage({
         type: 'tool_result',
+        sessionId: 's1',
         toolUseId: 'tu-2',
         toolName: '',
         content: '',
@@ -1791,6 +1917,7 @@ describe('StreamStateTracker', () => {
     it('returns empty string toolName for unknown toolUseId', () => {
       const { message } = tracker.processMessage({
         type: 'tool_result',
+        sessionId: 's1',
         toolUseId: 'unknown-id',
         toolName: '',
         content: '',
@@ -1804,6 +1931,7 @@ describe('StreamStateTracker', () => {
     it('returns empty additional array for non-state-change messages', () => {
       const textDelta: DroidMessage = {
         type: 'assistant_text_delta',
+        sessionId: 's1',
         messageId: 'm1',
         blockIndex: 0,
         text: 'hello',
@@ -1815,6 +1943,7 @@ describe('StreamStateTracker', () => {
     it('returns empty additional array for tool_use messages', () => {
       const result = tracker.processMessage({
         type: 'tool_use',
+        sessionId: 's1',
         toolName: 'read_file',
         toolInput: {},
         toolUseId: 'tu-1',
@@ -1825,6 +1954,7 @@ describe('StreamStateTracker', () => {
     it('returns empty additional array for error messages', () => {
       const result = tracker.processMessage({
         type: 'error',
+        sessionId: 's1',
         message: 'err',
         errorType: DroidErrorType.ERROR,
         timestamp: 't',
@@ -1840,17 +1970,20 @@ describe('StreamStateTracker', () => {
 
       tracker1.processMessage({
         type: 'working_state_changed',
+        sessionId: 's1',
         state: DroidWorkingState.StreamingAssistantMessage,
       });
 
       const r2 = tracker2.processMessage({
         type: 'working_state_changed',
+        sessionId: 's1',
         state: DroidWorkingState.Idle,
       });
       expect(r2.additional).toEqual([]);
 
       const r1 = tracker1.processMessage({
         type: 'working_state_changed',
+        sessionId: 's1',
         state: DroidWorkingState.Idle,
       });
       expect(r1.additional).toHaveLength(1);
@@ -1860,10 +1993,12 @@ describe('StreamStateTracker', () => {
     it('simulates multi-turn session with reset between turns', () => {
       tracker.processMessage({
         type: 'working_state_changed',
+        sessionId: 's1',
         state: DroidWorkingState.StreamingAssistantMessage,
       });
       tracker.processMessage({
         type: 'token_usage_update',
+        sessionId: 's1',
         inputTokens: 50,
         outputTokens: 25,
         cacheReadTokens: 0,
@@ -1872,6 +2007,7 @@ describe('StreamStateTracker', () => {
       });
       const turn1Result = tracker.processMessage({
         type: 'working_state_changed',
+        sessionId: 's1',
         state: DroidWorkingState.Idle,
       });
       expect(turn1Result.additional).toHaveLength(1);
@@ -1884,10 +2020,12 @@ describe('StreamStateTracker', () => {
 
       tracker.processMessage({
         type: 'working_state_changed',
+        sessionId: 's1',
         state: DroidWorkingState.ExecutingTool,
       });
       tracker.processMessage({
         type: 'token_usage_update',
+        sessionId: 's1',
         inputTokens: 200,
         outputTokens: 100,
         cacheReadTokens: 10,
@@ -1896,6 +2034,7 @@ describe('StreamStateTracker', () => {
       });
       const turn2Result = tracker.processMessage({
         type: 'working_state_changed',
+        sessionId: 's1',
         state: DroidWorkingState.Idle,
       });
       expect(turn2Result.additional).toHaveLength(1);
@@ -1910,16 +2049,19 @@ describe('StreamStateTracker', () => {
     it('handles rapid idle→non-idle→idle transitions', () => {
       tracker.processMessage({
         type: 'working_state_changed',
+        sessionId: 's1',
         state: DroidWorkingState.Idle,
       });
 
       tracker.processMessage({
         type: 'working_state_changed',
+        sessionId: 's1',
         state: DroidWorkingState.StreamingAssistantMessage,
       });
 
       const result = tracker.processMessage({
         type: 'working_state_changed',
+        sessionId: 's1',
         state: DroidWorkingState.Idle,
       });
       expect(result.additional).toHaveLength(1);
@@ -1929,10 +2071,12 @@ describe('StreamStateTracker', () => {
     it('handles WaitingForToolConfirmation as non-idle', () => {
       tracker.processMessage({
         type: 'working_state_changed',
+        sessionId: 's1',
         state: DroidWorkingState.WaitingForToolConfirmation,
       });
       const result = tracker.processMessage({
         type: 'working_state_changed',
+        sessionId: 's1',
         state: DroidWorkingState.Idle,
       });
       expect(result.additional).toHaveLength(1);
@@ -1942,10 +2086,12 @@ describe('StreamStateTracker', () => {
     it('handles CompactingConversation as non-idle', () => {
       tracker.processMessage({
         type: 'working_state_changed',
+        sessionId: 's1',
         state: DroidWorkingState.CompactingConversation,
       });
       const result = tracker.processMessage({
         type: 'working_state_changed',
+        sessionId: 's1',
         state: DroidWorkingState.Idle,
       });
       expect(result.additional).toHaveLength(1);
@@ -1955,17 +2101,20 @@ describe('StreamStateTracker', () => {
     it('multiple idle transitions after non-idle only emit first Result (no duplicate)', () => {
       tracker.processMessage({
         type: 'working_state_changed',
+        sessionId: 's1',
         state: DroidWorkingState.StreamingAssistantMessage,
       });
 
       const r1 = tracker.processMessage({
         type: 'working_state_changed',
+        sessionId: 's1',
         state: DroidWorkingState.Idle,
       });
       expect(r1.additional).toHaveLength(1);
 
       const r2 = tracker.processMessage({
         type: 'working_state_changed',
+        sessionId: 's1',
         state: DroidWorkingState.Idle,
       });
       expect(r2.additional).toHaveLength(0);

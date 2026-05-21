@@ -84,7 +84,10 @@ export class MessageBridge {
     const inner = extractInnerNotification(notification);
     if (!inner) return;
 
-    const converted = convertNotificationToStreamMessage(inner);
+    const converted = convertNotificationToStreamMessage(
+      inner,
+      this._options.sessionId ?? ''
+    );
     if (converted === null) return;
 
     const messages = Array.isArray(converted) ? converted : [converted];

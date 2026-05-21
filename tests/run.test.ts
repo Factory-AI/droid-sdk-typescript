@@ -290,6 +290,7 @@ describe('run()', () => {
     expect(result.structuredOutput).toEqual({ name: 'Ada' });
     expect(result.messages).toContainEqual({
       type: 'assistant',
+      sessionId: 'sess-run-structured-output',
       text: JSON.stringify({ name: 'Ada' }),
       message: expect.objectContaining({
         id: 'msg-structured',

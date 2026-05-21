@@ -59,62 +59,66 @@ export const DroidMessageType = {
   Result: 'result',
 } as const;
 
-export interface AssistantTextDelta {
+export interface DroidStreamBase {
+  readonly sessionId: string;
+}
+
+export interface AssistantTextDelta extends DroidStreamBase {
   readonly type: 'assistant_text_delta';
   readonly messageId: string;
   readonly blockIndex: number;
   readonly text: string;
 }
 
-export interface AssistantTextComplete {
+export interface AssistantTextComplete extends DroidStreamBase {
   readonly type: 'assistant_text_complete';
   readonly messageId: string;
   readonly blockIndex: number;
 }
 
-export interface ThinkingTextDelta {
+export interface ThinkingTextDelta extends DroidStreamBase {
   readonly type: 'thinking_text_delta';
   readonly messageId: string;
   readonly blockIndex: number;
   readonly text: string;
 }
 
-export interface ThinkingTextComplete {
+export interface ThinkingTextComplete extends DroidStreamBase {
   readonly type: 'thinking_text_complete';
   readonly messageId: string;
   readonly blockIndex: number;
   readonly durationMs?: number;
 }
 
-export interface ToolCallDelta {
+export interface ToolCallDelta extends DroidStreamBase {
   readonly type: 'tool_call_delta';
   readonly toolUse: ToolUseBlock;
 }
 
-export interface ToolUse {
+export interface ToolUse extends DroidStreamBase {
   readonly type: 'tool_use';
   readonly toolName: string;
   readonly toolInput: JsonObject;
   readonly toolUseId: string;
 }
 
-export interface DroidToolCallMessage {
+export interface DroidToolCallMessage extends DroidStreamBase {
   readonly type: 'tool_call';
   readonly toolUse: ToolUseBlock;
 }
 
-export interface DroidAssistantMessage {
+export interface DroidAssistantMessage extends DroidStreamBase {
   readonly type: 'assistant';
   readonly message: FactoryDroidMessage;
   readonly text: string;
 }
 
-export interface DroidUserMessage {
+export interface DroidUserMessage extends DroidStreamBase {
   readonly type: 'user';
   readonly message: FactoryDroidMessage;
 }
 
-export interface ToolResult {
+export interface ToolResult extends DroidStreamBase {
   readonly type: 'tool_result';
   readonly toolUseId: string;
   readonly toolName: string;
@@ -122,7 +126,7 @@ export interface ToolResult {
   readonly isError: boolean;
 }
 
-export interface ToolProgress {
+export interface ToolProgress extends DroidStreamBase {
   readonly type: 'tool_progress';
   readonly toolUseId: string;
   readonly toolName: string;
@@ -130,7 +134,7 @@ export interface ToolProgress {
   readonly update: ToolProgressUpdate;
 }
 
-export interface WorkingStateChanged {
+export interface WorkingStateChanged extends DroidStreamBase {
   readonly type: 'working_state_changed';
   readonly state: DroidWorkingState;
 }
@@ -138,10 +142,11 @@ export interface WorkingStateChanged {
 export type TokenUsageUpdate = Readonly<
   {
     type: 'token_usage_update';
-  } & TokenUsage
+  } & DroidStreamBase &
+    TokenUsage
 >;
 
-export interface CreateMessage {
+export interface CreateMessage extends DroidStreamBase {
   readonly type: 'create_message';
   readonly messageId: CreateMessageNotification['message']['id'];
   readonly role: CreateMessageNotification['message']['role'];
@@ -149,61 +154,61 @@ export interface CreateMessage {
   readonly parentId?: CreateMessageNotification['parentId'];
 }
 
-export interface PermissionResolved {
+export interface PermissionResolved extends DroidStreamBase {
   readonly type: 'permission_resolved';
   readonly requestId: string;
   readonly toolUseIds: string[];
   readonly selectedOption: ToolConfirmationOutcome;
 }
 
-export interface SettingsUpdated {
+export interface SettingsUpdated extends DroidStreamBase {
   readonly type: 'settings_updated';
   readonly settings: SettingsUpdatedPayload;
 }
 
-export interface SessionTitleUpdated {
+export interface SessionTitleUpdated extends DroidStreamBase {
   readonly type: 'session_title_updated';
   readonly title: string;
 }
 
-export interface McpStatusChanged {
+export interface McpStatusChanged extends DroidStreamBase {
   readonly type: 'mcp_status_changed';
   readonly servers: McpServerStatusInfo[];
   readonly summary: McpStatusSummary;
 }
 
-export interface MissionStateChanged {
+export interface MissionStateChanged extends DroidStreamBase {
   readonly type: 'mission_state_changed';
   readonly state: MissionState;
 }
 
-export interface MissionFeaturesChanged {
+export interface MissionFeaturesChanged extends DroidStreamBase {
   readonly type: 'mission_features_changed';
   readonly features: MissionFeature[];
 }
 
-export interface MissionProgressEntry {
+export interface MissionProgressEntry extends DroidStreamBase {
   readonly type: 'mission_progress_entry';
   readonly progressLog: ProgressLogEntry[];
 }
 
-export interface MissionHeartbeat {
+export interface MissionHeartbeat extends DroidStreamBase {
   readonly type: 'mission_heartbeat';
   readonly timestamp: string;
 }
 
-export interface MissionWorkerStarted {
+export interface MissionWorkerStarted extends DroidStreamBase {
   readonly type: 'mission_worker_started';
   readonly workerSessionId: string;
 }
 
-export interface MissionWorkerCompleted {
+export interface MissionWorkerCompleted extends DroidStreamBase {
   readonly type: 'mission_worker_completed';
   readonly workerSessionId: string;
   readonly exitCode: number;
 }
 
-export interface McpAuthRequired {
+export interface McpAuthRequired extends DroidStreamBase {
   readonly type: 'mcp_auth_required';
   readonly serverName: string;
   readonly authUrl: string;
@@ -211,14 +216,14 @@ export interface McpAuthRequired {
   readonly state: string;
 }
 
-export interface McpAuthCompleted {
+export interface McpAuthCompleted extends DroidStreamBase {
   readonly type: 'mcp_auth_completed';
   readonly serverName: string;
   readonly outcome: McpAuthOutcome;
   readonly message: string;
 }
 
-export interface HookExecution {
+export interface HookExecution extends DroidStreamBase {
   readonly type: 'hook';
   readonly hookId: string;
   readonly eventName?: DroidHookEvent;
@@ -237,12 +242,14 @@ export interface StructuredOutputFields {
   readonly structuredOutputError: ServerStructuredOutputError | null;
 }
 
-export interface StructuredOutput extends StructuredOutputFields {
+export interface StructuredOutput
+  extends DroidStreamBase,
+    StructuredOutputFields {
   readonly type: 'structured_output';
   readonly messageId: string;
 }
 
-export interface ErrorEvent {
+export interface ErrorEvent extends DroidStreamBase {
   readonly type: 'error';
   readonly message: string;
   readonly errorType: ErrorNotification['errorType'];
@@ -258,9 +265,8 @@ export type DroidResultSubtype =
   | 'error_during_execution'
   | 'error_structured_output';
 
-interface DroidResultBase {
+interface DroidResultBase extends DroidStreamBase {
   readonly type: 'result';
-  readonly sessionId: string;
   readonly durationMs: number;
   readonly numTurns: number;
   readonly result: string;
@@ -338,7 +344,8 @@ export type DroidMessageType =
   (typeof DroidMessageType)[keyof typeof DroidMessageType];
 
 export function convertNotificationToStreamMessage(
-  raw: unknown
+  raw: unknown,
+  sessionId: string
 ): InternalDroidMessage | InternalDroidMessage[] | null {
   const parsed = SessionNotificationPayloadSchema.safeParse(raw);
   if (!parsed.success) {
@@ -351,6 +358,7 @@ export function convertNotificationToStreamMessage(
     case SessionNotificationType.ASSISTANT_TEXT_DELTA:
       return {
         type: DroidMessageType.AssistantTextDelta,
+        sessionId,
         messageId: notification.messageId,
         blockIndex: notification.blockIndex,
         text: notification.textDelta,
@@ -359,6 +367,7 @@ export function convertNotificationToStreamMessage(
     case SessionNotificationType.ASSISTANT_TEXT_COMPLETE:
       return {
         type: DroidMessageType.AssistantTextComplete,
+        sessionId,
         messageId: notification.messageId,
         blockIndex: notification.blockIndex,
       };
@@ -366,6 +375,7 @@ export function convertNotificationToStreamMessage(
     case SessionNotificationType.THINKING_TEXT_DELTA:
       return {
         type: DroidMessageType.ThinkingTextDelta,
+        sessionId,
         messageId: notification.messageId,
         blockIndex: notification.blockIndex,
         text: notification.textDelta,
@@ -374,6 +384,7 @@ export function convertNotificationToStreamMessage(
     case SessionNotificationType.THINKING_TEXT_COMPLETE:
       return {
         type: DroidMessageType.ThinkingTextComplete,
+        sessionId,
         messageId: notification.messageId,
         blockIndex: notification.blockIndex,
         durationMs: notification.durationMs,
@@ -382,12 +393,14 @@ export function convertNotificationToStreamMessage(
     case SessionNotificationType.TOOL_CALL:
       return {
         type: DroidMessageType.ToolCallDelta,
+        sessionId,
         toolUse: notification.toolUse,
       };
 
     case SessionNotificationType.TOOL_RESULT:
       return {
         type: DroidMessageType.ToolResult,
+        sessionId,
         toolUseId: notification.toolUseId,
         toolName: '',
         content: normalizeToolResultContent(notification.content),
@@ -399,6 +412,7 @@ export function convertNotificationToStreamMessage(
       const text = update?.text ?? update?.status ?? update?.details ?? '';
       return {
         type: DroidMessageType.ToolProgress,
+        sessionId,
         toolUseId: notification.toolUseId,
         toolName: notification.toolName,
         content: text,
@@ -409,6 +423,7 @@ export function convertNotificationToStreamMessage(
     case SessionNotificationType.DROID_WORKING_STATE_CHANGED:
       return {
         type: DroidMessageType.WorkingStateChanged,
+        sessionId,
         state: notification.newState,
       };
 
@@ -416,6 +431,7 @@ export function convertNotificationToStreamMessage(
       const tu: TokenUsage = notification.tokenUsage;
       return {
         type: DroidMessageType.TokenUsageUpdate,
+        sessionId,
         inputTokens: tu.inputTokens,
         outputTokens: tu.outputTokens,
         cacheReadTokens: tu.cacheReadTokens,
@@ -432,6 +448,7 @@ export function convertNotificationToStreamMessage(
         if (block.type === 'tool_use') {
           messages.push({
             type: DroidMessageType.ToolCall,
+            sessionId,
             toolUse: block,
           });
         }
@@ -440,17 +457,20 @@ export function convertNotificationToStreamMessage(
       if (msg.role === FactoryDroidMessageRole.Assistant) {
         messages.push({
           type: DroidMessageType.Assistant,
+          sessionId,
           message: msg,
           text: extractTextFromMessage(msg),
         });
       } else if (msg.role === FactoryDroidMessageRole.User) {
         messages.push({
           type: DroidMessageType.User,
+          sessionId,
           message: msg,
         });
       } else {
         messages.push({
           type: 'create_message',
+          sessionId,
           messageId: msg.id,
           role: msg.role,
           content: msg.content,
@@ -464,6 +484,7 @@ export function convertNotificationToStreamMessage(
     case SessionNotificationType.ERROR:
       return {
         type: DroidMessageType.Error,
+        sessionId,
         message: notification.message,
         errorType: notification.errorType,
         timestamp: notification.timestamp,
@@ -472,6 +493,7 @@ export function convertNotificationToStreamMessage(
     case SessionNotificationType.PERMISSION_RESOLVED:
       return {
         type: DroidMessageType.PermissionResolved,
+        sessionId,
         requestId: notification.requestId,
         toolUseIds: notification.toolUseIds,
         selectedOption: notification.selectedOption,
@@ -480,18 +502,21 @@ export function convertNotificationToStreamMessage(
     case SessionNotificationType.SETTINGS_UPDATED:
       return {
         type: DroidMessageType.SettingsUpdated,
+        sessionId,
         settings: notification.settings,
       };
 
     case SessionNotificationType.SESSION_TITLE_UPDATED:
       return {
         type: DroidMessageType.SessionTitleUpdated,
+        sessionId,
         title: notification.title,
       };
 
     case SessionNotificationType.MCP_STATUS_CHANGED:
       return {
         type: DroidMessageType.McpStatusChanged,
+        sessionId,
         servers: notification.servers,
         summary: notification.summary,
       };
@@ -499,36 +524,42 @@ export function convertNotificationToStreamMessage(
     case SessionNotificationType.MISSION_STATE_CHANGED:
       return {
         type: DroidMessageType.MissionStateChanged,
+        sessionId,
         state: notification.state,
       };
 
     case SessionNotificationType.MISSION_FEATURES_CHANGED:
       return {
         type: DroidMessageType.MissionFeaturesChanged,
+        sessionId,
         features: notification.features,
       };
 
     case SessionNotificationType.MISSION_PROGRESS_ENTRY:
       return {
         type: DroidMessageType.MissionProgressEntry,
+        sessionId,
         progressLog: notification.progressLog,
       };
 
     case SessionNotificationType.MISSION_HEARTBEAT:
       return {
         type: DroidMessageType.MissionHeartbeat,
+        sessionId,
         timestamp: notification.timestamp,
       };
 
     case SessionNotificationType.MISSION_WORKER_STARTED:
       return {
         type: DroidMessageType.MissionWorkerStarted,
+        sessionId,
         workerSessionId: notification.workerSessionId,
       };
 
     case SessionNotificationType.MISSION_WORKER_COMPLETED:
       return {
         type: DroidMessageType.MissionWorkerCompleted,
+        sessionId,
         workerSessionId: notification.workerSessionId,
         exitCode: notification.exitCode,
       };
@@ -536,6 +567,7 @@ export function convertNotificationToStreamMessage(
     case SessionNotificationType.MCP_AUTH_REQUIRED:
       return {
         type: DroidMessageType.McpAuthRequired,
+        sessionId,
         serverName: notification.serverName,
         authUrl: notification.authUrl,
         message: notification.message,
@@ -545,6 +577,7 @@ export function convertNotificationToStreamMessage(
     case SessionNotificationType.MCP_AUTH_COMPLETED:
       return {
         type: DroidMessageType.McpAuthCompleted,
+        sessionId,
         serverName: notification.serverName,
         outcome: notification.outcome,
         message: notification.message,
@@ -553,6 +586,7 @@ export function convertNotificationToStreamMessage(
     case SessionNotificationType.HOOK_EXECUTION_STARTED:
       return notification.hookCommands.map((hookCommand) => ({
         type: DroidMessageType.Hook,
+        sessionId,
         hookId: notification.hookId,
         eventName: notification.hookEventName,
         matcher: notification.hookMatcher,
@@ -565,6 +599,7 @@ export function convertNotificationToStreamMessage(
     case SessionNotificationType.HOOK_EXECUTION_COMPLETED:
       return (notification.hookResults ?? []).map((hookResult) => ({
         type: DroidMessageType.Hook,
+        sessionId,
         hookId: notification.hookId,
         eventName: notification.hookEventName,
         matcher: notification.hookMatcher,
@@ -580,6 +615,7 @@ export function convertNotificationToStreamMessage(
     case SessionNotificationType.STRUCTURED_OUTPUT:
       return {
         type: 'structured_output',
+        sessionId,
         messageId: notification.messageId,
         structuredOutput: notification.structuredOutput,
         structuredOutputError: notification.structuredOutputError,

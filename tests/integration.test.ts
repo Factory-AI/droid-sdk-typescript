@@ -1808,7 +1808,8 @@ describe('Settings update notification flow (VAL-CROSS-007)', () => {
         | undefined;
       if (inner) {
         const converted = convertNotificationToStreamMessage(
-          inner as { type: string; [key: string]: unknown }
+          inner as { type: string; [key: string]: unknown },
+          session.sessionId
         );
         if (
           converted &&
