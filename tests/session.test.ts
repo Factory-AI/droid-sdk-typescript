@@ -73,6 +73,27 @@ async function expectStreamToThrow(
   }).rejects.toThrow(ConnectionError);
 }
 
+async function expectToResolveWithin<T>(
+  promise: Promise<T>,
+  timeoutMs: number
+): Promise<T> {
+  let timeout: ReturnType<typeof setTimeout> | undefined;
+  try {
+    return await Promise.race([
+      promise,
+      new Promise<never>((_, reject) => {
+        timeout = setTimeout(() => {
+          reject(new Error(`Promise did not resolve within ${timeoutMs}ms`));
+        }, timeoutMs);
+      }),
+    ]);
+  } finally {
+    if (timeout !== undefined) {
+      clearTimeout(timeout);
+    }
+  }
+}
+
 /**
  * Set up transport to auto-respond to loadSession.
  */
@@ -690,6 +711,168 @@ describe('DroidSession', () => {
       expect(closeMessage).toBeDefined();
       expect(closeMessage?.['params']).toEqual({ reason: 'other' });
       expect(transport.isConnected).toBe(false);
+    });
+
+    it('unblocks an active stream with no completion notification when closed', async () => {
+      const transport = new InMemoryTransport();
+      await transport.connect();
+
+      let resolveAddSent: () => void = () => {};
+      const addSent = new Promise<void>((resolve) => {
+        resolveAddSent = resolve;
+      });
+
+      wireTransportSend(transport, ({ method, id }) => {
+        if (method === DroidServerMethod.INITIALIZE_SESSION) {
+          queueMicrotask(() => {
+            transport.injectMessage(
+              makeSuccessResponse(id, {
+                sessionId: 'sess-close-active-stream',
+                session: {},
+                settings: {
+                  modelId: 'test-model',
+                  reasoningEffort: 'medium',
+                },
+              })
+            );
+          });
+        } else if (method === DroidServerMethod.ADD_USER_MESSAGE) {
+          resolveAddSent();
+          queueMicrotask(() => {
+            transport.injectMessage(makeSuccessResponse(id, {}));
+          });
+        } else if (method === DroidServerMethod.CLOSE_SESSION) {
+          queueMicrotask(() => {
+            transport.injectMessage(makeSuccessResponse(id, {}));
+          });
+        }
+      });
+
+      const session = await createSession({ transport });
+      const messages: DroidMessage[] = [];
+      const streamPromise = (async () => {
+        for await (const msg of session.stream('wait forever')) {
+          messages.push(msg);
+        }
+      })();
+
+      await addSent;
+
+      const closePromise = session.close();
+
+      await expectToResolveWithin(streamPromise, 100);
+      await closePromise;
+      expect(messages).toEqual([]);
+    });
+
+    it('unblocks an active stream even when addUserMessage has no response', async () => {
+      const transport = new InMemoryTransport();
+      await transport.connect();
+
+      let resolveAddSent: () => void = () => {};
+      const addSent = new Promise<void>((resolve) => {
+        resolveAddSent = resolve;
+      });
+
+      wireTransportSend(transport, ({ method, id }) => {
+        if (method === DroidServerMethod.INITIALIZE_SESSION) {
+          queueMicrotask(() => {
+            transport.injectMessage(
+              makeSuccessResponse(id, {
+                sessionId: 'sess-close-pending-add',
+                session: {},
+                settings: {
+                  modelId: 'test-model',
+                  reasoningEffort: 'medium',
+                },
+              })
+            );
+          });
+        } else if (method === DroidServerMethod.ADD_USER_MESSAGE) {
+          resolveAddSent();
+        } else if (method === DroidServerMethod.CLOSE_SESSION) {
+          queueMicrotask(() => {
+            transport.injectMessage(makeSuccessResponse(id, {}));
+          });
+        }
+      });
+
+      const session = await createSession({ transport });
+      const streamPromise = (async () => {
+        const collected: DroidMessage[] = [];
+        for await (const msg of session.stream('pending add')) {
+          collected.push(msg);
+        }
+        return collected;
+      })();
+
+      await addSent;
+
+      const closePromise = session.close();
+      const messages = await expectToResolveWithin(streamPromise, 100);
+      await closePromise;
+
+      expect(messages).toEqual([]);
+    });
+
+    it('unblocks all active streams when closed', async () => {
+      const transport = new InMemoryTransport();
+      await transport.connect();
+
+      let addSentCount = 0;
+      let resolveBothAddSent: () => void = () => {};
+      const bothAddSent = new Promise<void>((resolve) => {
+        resolveBothAddSent = resolve;
+      });
+
+      wireTransportSend(transport, ({ method, id }) => {
+        if (method === DroidServerMethod.INITIALIZE_SESSION) {
+          queueMicrotask(() => {
+            transport.injectMessage(
+              makeSuccessResponse(id, {
+                sessionId: 'sess-close-all-active-streams',
+                session: {},
+                settings: {
+                  modelId: 'test-model',
+                  reasoningEffort: 'medium',
+                },
+              })
+            );
+          });
+        } else if (method === DroidServerMethod.ADD_USER_MESSAGE) {
+          addSentCount += 1;
+          if (addSentCount === 2) {
+            resolveBothAddSent();
+          }
+        } else if (method === DroidServerMethod.CLOSE_SESSION) {
+          queueMicrotask(() => {
+            transport.injectMessage(makeSuccessResponse(id, {}));
+          });
+        }
+      });
+
+      const session = await createSession({ transport });
+      const collect = async (prompt: string): Promise<DroidMessage[]> => {
+        const messages: DroidMessage[] = [];
+        for await (const msg of session.stream(prompt)) {
+          messages.push(msg);
+        }
+        return messages;
+      };
+      const firstStream = collect('first pending add');
+      const secondStream = collect('second pending add');
+
+      await bothAddSent;
+
+      const closePromise = session.close();
+      const [firstMessages, secondMessages] = await expectToResolveWithin(
+        Promise.all([firstStream, secondStream]),
+        100
+      );
+      await closePromise;
+
+      expect(firstMessages).toEqual([]);
+      expect(secondMessages).toEqual([]);
     });
   });
 
