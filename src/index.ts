@@ -103,3 +103,21 @@ export type {
 } from './session.js';
 
 export { listSessions } from './session-discovery.js';
+
+// Daemon mode
+export {
+  connectDaemon,
+  DaemonConnection,
+  resolveWebSocketUrl,
+} from './daemon/index.js';
+export { DaemonSession } from './daemon/index.js';
+export { WebSocketTransport } from './daemon/index.js';
+export { MachineType } from './daemon/index.js';
+export type {
+  ConnectDaemonOptions,
+  SDKMachineConfig,
+  DaemonSessionOptions,
+  DaemonResumeOptions,
+  SendOptions,
+  WebSocketTransportOptions,
+} from './daemon/index.js';
