@@ -41,7 +41,7 @@ try {
     if (msg.type === DroidMessageType.AssistantTextDelta) {
       process.stdout.write(msg.text);
     }
-    if (msg.type === DroidMessageType.TurnComplete) {
+    if (msg.type === DroidMessageType.Result) {
       console.log('\nDone!');
     }
   }
@@ -409,30 +409,35 @@ if (msg.type === DroidMessageType.AssistantTextDelta) {
 }
 ```
 
-| Type                       | Description                             |
-| -------------------------- | --------------------------------------- |
-| `assistant_text_delta`     | Streaming text token from the assistant |
-| `thinking_text_delta`      | Streaming reasoning/thinking token      |
-| `tool_use`                 | Tool invocation by the assistant        |
-| `tool_result`              | Result from a tool execution            |
-| `tool_progress`            | Progress update during tool execution   |
-| `working_state_changed`    | Agent working state transition          |
-| `token_usage_update`       | Updated token usage counters            |
-| `create_message`           | Full assistant message created          |
-| `turn_complete`            | Sentinel: agent turn finished           |
-| `session_title_updated`    | Session title changed                   |
-| `mcp_status_changed`       | MCP server status changed               |
-| `mission_state_changed`    | Mission state changed                   |
-| `mission_features_changed` | Mission features changed                |
-| `mission_progress_entry`   | Mission progress log changed            |
-| `mission_heartbeat`        | Mission heartbeat                       |
-| `mission_worker_started`   | Mission worker started                  |
-| `mission_worker_completed` | Mission worker completed                |
-| `mcp_auth_required`        | MCP authentication required             |
-| `mcp_auth_completed`       | MCP authentication completed            |
-| `permission_resolved`      | Tool permission request resolved        |
-| `settings_updated`         | Session settings changed                |
-| `error`                    | Error event from the process            |
+| Type                       | Description                                     |
+| -------------------------- | ----------------------------------------------- |
+| `assistant`                | Complete assistant message                      |
+| `user`                     | Complete user message                           |
+| `assistant_text_delta`     | Streaming text token from the assistant         |
+| `assistant_text_complete`  | End of an assistant text block                  |
+| `thinking_text_delta`      | Streaming reasoning/thinking token              |
+| `thinking_text_complete`   | End of a thinking block                         |
+| `tool_call`                | Tool invocation by the assistant                |
+| `tool_call_delta`          | Streaming tool call input                       |
+| `tool_result`              | Result from a tool execution                    |
+| `tool_progress`            | Progress update during tool execution           |
+| `hook`                     | File hook execution event (started or finished) |
+| `working_state_changed`    | Agent working state transition                  |
+| `token_usage_update`       | Updated token usage counters                    |
+| `result`                   | End-of-turn sentinel with aggregated metadata   |
+| `session_title_updated`    | Session title changed                           |
+| `settings_updated`         | Session settings changed                        |
+| `permission_resolved`      | Tool permission request resolved                |
+| `mcp_status_changed`       | MCP server status changed                       |
+| `mcp_auth_required`        | MCP authentication required                     |
+| `mcp_auth_completed`       | MCP authentication completed                    |
+| `error`                    | Error event from the process                    |
+| `mission_state_changed`    | Mission state changed                           |
+| `mission_features_changed` | Mission features changed                        |
+| `mission_progress_entry`   | Mission progress log changed                    |
+| `mission_heartbeat`        | Mission heartbeat                               |
+| `mission_worker_started`   | Mission worker started                          |
+| `mission_worker_completed` | Mission worker completed                        |
 
 ### Options
 
