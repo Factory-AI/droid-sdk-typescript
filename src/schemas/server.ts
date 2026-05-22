@@ -27,19 +27,14 @@ import {
 } from './messages.js';
 import { MissionFeatureSchema, ProgressLogEntrySchema } from './mission.js';
 import {
+  createResponseSchema,
   JsonObjectSchema,
   JsonRpcNotificationSchema,
   JsonRpcRequestSchema,
-  JsonRpcResponseFailureSchema,
-  JsonRpcResponseSuccessSchema,
   JsonValueSchema,
   ToolSelectionOverridesSchema,
 } from './shared.js';
 
-/**
- * Tool use block — re-exports ToolUseBlockSchema from messages.ts
- * since the shape is identical (type, id, input, name, thoughtSignature).
- */
 export const ToolUseBlockSchema = MessageToolUseBlockSchema;
 
 export type ToolUseBlock = z.infer<typeof ToolUseBlockSchema>;
@@ -50,7 +45,6 @@ export const ToolUseSchema = ToolUseBlockSchema;
 /** @deprecated Use ToolUseBlock for the message block shape. */
 export type ToolUse = ToolUseBlock;
 
-/** Error detail object within an ErrorNotification. */
 export const ErrorDetailSchema = z
   .object({
     name: z.string(),
@@ -60,7 +54,6 @@ export const ErrorDetailSchema = z
 
 export type ErrorDetail = z.infer<typeof ErrorDetailSchema>;
 
-/** Streaming update from subagent tool calls. */
 export const ToolProgressUpdateSchema = z
   .object({
     type: z.enum(['tool_call', 'tool_result', 'error', 'status', 'message']),
@@ -78,7 +71,6 @@ export const ToolProgressUpdateSchema = z
 
 export type ToolProgressUpdate = z.infer<typeof ToolProgressUpdateSchema>;
 
-/** Settings payload within SettingsUpdatedNotification. */
 export const SettingsUpdatedPayloadSchema = z
   .object({
     autonomyMode: z.nativeEnum(AutonomyMode).optional(),
@@ -99,7 +91,6 @@ export type SettingsUpdatedPayload = z.infer<
   typeof SettingsUpdatedPayloadSchema
 >;
 
-/** Tool result notification. */
 export const ToolResultNotificationSchema = z
   .object({
     type: z.literal(SessionNotificationType.TOOL_RESULT),
@@ -115,7 +106,6 @@ export type ToolResultNotification = z.infer<
   typeof ToolResultNotificationSchema
 >;
 
-/** Tool progress update notification. */
 export const ToolProgressUpdateNotificationSchema = z
   .object({
     type: z.literal(SessionNotificationType.TOOL_PROGRESS_UPDATE),
@@ -129,7 +119,6 @@ export type ToolProgressUpdateNotification = z.infer<
   typeof ToolProgressUpdateNotificationSchema
 >;
 
-/** Create message notification. */
 export const CreateMessageNotificationSchema = z
   .object({
     type: z.literal(SessionNotificationType.CREATE_MESSAGE),
@@ -143,7 +132,6 @@ export type CreateMessageNotification = z.infer<
   typeof CreateMessageNotificationSchema
 >;
 
-/** Error notification. */
 export const ErrorNotificationSchema = z
   .object({
     type: z.literal(SessionNotificationType.ERROR),
@@ -156,7 +144,6 @@ export const ErrorNotificationSchema = z
 
 export type ErrorNotification = z.infer<typeof ErrorNotificationSchema>;
 
-/** Droid working state changed notification. */
 export const DroidWorkingStateChangedNotificationSchema = z
   .object({
     type: z.literal(SessionNotificationType.DROID_WORKING_STATE_CHANGED),
@@ -168,7 +155,6 @@ export type DroidWorkingStateChangedNotification = z.infer<
   typeof DroidWorkingStateChangedNotificationSchema
 >;
 
-/** Permission resolved notification. */
 export const PermissionResolvedNotificationSchema = z
   .object({
     type: z.literal(SessionNotificationType.PERMISSION_RESOLVED),
@@ -182,7 +168,6 @@ export type PermissionResolvedNotification = z.infer<
   typeof PermissionResolvedNotificationSchema
 >;
 
-/** Settings updated notification. */
 export const SettingsUpdatedNotificationSchema = z
   .object({
     type: z.literal(SessionNotificationType.SETTINGS_UPDATED),
@@ -194,7 +179,6 @@ export type SettingsUpdatedNotification = z.infer<
   typeof SettingsUpdatedNotificationSchema
 >;
 
-/** Session title updated notification. */
 export const SessionTitleUpdatedNotificationSchema = z
   .object({
     type: z.literal(SessionNotificationType.SESSION_TITLE_UPDATED),
@@ -206,7 +190,6 @@ export type SessionTitleUpdatedNotification = z.infer<
   typeof SessionTitleUpdatedNotificationSchema
 >;
 
-/** MCP status changed notification. */
 export const McpStatusChangedNotificationSchema = z
   .object({
     type: z.literal(SessionNotificationType.MCP_STATUS_CHANGED),
@@ -246,7 +229,6 @@ export type AssistantTextCompleteNotification = z.infer<
   typeof AssistantTextCompleteNotificationSchema
 >;
 
-/** Thinking text delta notification (streaming thinking token). */
 export const ThinkingTextDeltaNotificationSchema = z
   .object({
     type: z.literal(SessionNotificationType.THINKING_TEXT_DELTA),
@@ -260,7 +242,6 @@ export type ThinkingTextDeltaNotification = z.infer<
   typeof ThinkingTextDeltaNotificationSchema
 >;
 
-/** Thinking text complete notification (streaming thinking block finished). */
 export const ThinkingTextCompleteNotificationSchema = z
   .object({
     type: z.literal(SessionNotificationType.THINKING_TEXT_COMPLETE),
@@ -274,7 +255,6 @@ export type ThinkingTextCompleteNotification = z.infer<
   typeof ThinkingTextCompleteNotificationSchema
 >;
 
-/** Tool call partial notification. */
 export const ToolCallNotificationSchema = z
   .object({
     type: z.literal(SessionNotificationType.TOOL_CALL),
@@ -284,7 +264,6 @@ export const ToolCallNotificationSchema = z
 
 export type ToolCallNotification = z.infer<typeof ToolCallNotificationSchema>;
 
-/** Session token usage changed notification. */
 export const SessionTokenUsageChangedNotificationSchema = z
   .object({
     type: z.literal(SessionNotificationType.SESSION_TOKEN_USAGE_CHANGED),
@@ -297,7 +276,6 @@ export type SessionTokenUsageChangedNotification = z.infer<
   typeof SessionTokenUsageChangedNotificationSchema
 >;
 
-/** Mission state changed notification. */
 export const MissionStateChangedNotificationSchema = z
   .object({
     type: z.literal(SessionNotificationType.MISSION_STATE_CHANGED),
@@ -309,7 +287,6 @@ export type MissionStateChangedNotification = z.infer<
   typeof MissionStateChangedNotificationSchema
 >;
 
-/** Mission features changed notification. */
 export const MissionFeaturesChangedNotificationSchema = z
   .object({
     type: z.literal(SessionNotificationType.MISSION_FEATURES_CHANGED),
@@ -321,7 +298,6 @@ export type MissionFeaturesChangedNotification = z.infer<
   typeof MissionFeaturesChangedNotificationSchema
 >;
 
-/** Mission progress entry notification. */
 export const MissionProgressEntryNotificationSchema = z
   .object({
     type: z.literal(SessionNotificationType.MISSION_PROGRESS_ENTRY),
@@ -333,7 +309,6 @@ export type MissionProgressEntryNotification = z.infer<
   typeof MissionProgressEntryNotificationSchema
 >;
 
-/** Mission heartbeat notification. */
 export const MissionHeartbeatNotificationSchema = z
   .object({
     type: z.literal(SessionNotificationType.MISSION_HEARTBEAT),
@@ -345,7 +320,6 @@ export type MissionHeartbeatNotification = z.infer<
   typeof MissionHeartbeatNotificationSchema
 >;
 
-/** Mission worker started notification. */
 export const MissionWorkerStartedNotificationSchema = z
   .object({
     type: z.literal(SessionNotificationType.MISSION_WORKER_STARTED),
@@ -357,7 +331,6 @@ export type MissionWorkerStartedNotification = z.infer<
   typeof MissionWorkerStartedNotificationSchema
 >;
 
-/** Mission worker completed notification. */
 export const MissionWorkerCompletedNotificationSchema = z
   .object({
     type: z.literal(SessionNotificationType.MISSION_WORKER_COMPLETED),
@@ -370,7 +343,6 @@ export type MissionWorkerCompletedNotification = z.infer<
   typeof MissionWorkerCompletedNotificationSchema
 >;
 
-/** MCP authentication required notification. */
 export const McpAuthRequiredNotificationSchema = z
   .object({
     type: z.literal(SessionNotificationType.MCP_AUTH_REQUIRED),
@@ -385,7 +357,6 @@ export type McpAuthRequiredNotification = z.infer<
   typeof McpAuthRequiredNotificationSchema
 >;
 
-/** MCP authentication completed notification. */
 export const McpAuthCompletedNotificationSchema = z
   .object({
     type: z.literal(SessionNotificationType.MCP_AUTH_COMPLETED),
@@ -399,7 +370,6 @@ export type McpAuthCompletedNotification = z.infer<
   typeof McpAuthCompletedNotificationSchema
 >;
 
-/** Hook command metadata included in hook execution notifications. */
 export const HookCommandSchema = z
   .object({
     command: z.string(),
@@ -409,7 +379,6 @@ export const HookCommandSchema = z
 
 export type HookCommand = z.infer<typeof HookCommandSchema>;
 
-/** Hook execution result included in hook completion notifications. */
 export const HookResultSchema = z
   .object({
     exitCode: z.number(),
@@ -422,7 +391,6 @@ export const HookResultSchema = z
 
 export type HookResult = z.infer<typeof HookResultSchema>;
 
-/** Hook execution started notification. */
 export const HookExecutionStartedNotificationSchema = z
   .object({
     type: z.literal(SessionNotificationType.HOOK_EXECUTION_STARTED),
@@ -440,7 +408,6 @@ export type HookExecutionStartedNotification = z.infer<
   typeof HookExecutionStartedNotificationSchema
 >;
 
-/** Hook execution completed notification. */
 export const HookExecutionCompletedNotificationSchema = z
   .object({
     type: z.literal(SessionNotificationType.HOOK_EXECUTION_COMPLETED),
@@ -781,13 +748,9 @@ export type RequestPermissionResult = z.infer<
 >;
 
 /** Response to droid.request_permission. */
-export const RequestPermissionResponseSchema = z.union([
-  JsonRpcResponseSuccessSchema.extend({
-    result: RequestPermissionResultSchema,
-  }),
-  JsonRpcResponseFailureSchema,
-]);
-
+export const RequestPermissionResponseSchema = createResponseSchema(
+  RequestPermissionResultSchema
+);
 export type RequestPermissionResponse = z.infer<
   typeof RequestPermissionResponseSchema
 >;
@@ -834,11 +797,7 @@ export const AskUserResultSchema = z
 export type AskUserResult = z.infer<typeof AskUserResultSchema>;
 
 /** Response to droid.ask_user. */
-export const AskUserResponseSchema = z.union([
-  JsonRpcResponseSuccessSchema.extend({ result: AskUserResultSchema }),
-  JsonRpcResponseFailureSchema,
-]);
-
+export const AskUserResponseSchema = createResponseSchema(AskUserResultSchema);
 export type AskUserResponse = z.infer<typeof AskUserResponseSchema>;
 
 /** Union over all server → client methods. */

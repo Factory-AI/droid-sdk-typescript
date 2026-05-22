@@ -48,7 +48,6 @@ import type {
 } from './schemas/client.js';
 import { DroidInteractionMode } from './schemas/enums.js';
 import type { Base64ImageSource, DocumentSource } from './schemas/messages.js';
-import { DroidMessageType } from './stream.js';
 import type {
   DroidResultMessage,
   DroidStreamEvent,
@@ -98,38 +97,6 @@ function throwIfAborted(signal: AbortSignal | undefined): void {
   if (signal?.aborted) {
     throw getAbortError(signal);
   }
-}
-
-export function aggregateMessages(
-  sessionId: string,
-  messages: DroidStreamEvent[],
-  startedAt: number,
-  _options?: MessageOptions
-): DroidResult {
-  const result = messages.find(
-    (message): message is DroidResultMessage =>
-      message.type === DroidMessageType.Result
-  );
-  if (result) {
-    return result;
-  }
-
-  return {
-    type: DroidMessageType.Result,
-    subtype: 'error_during_execution',
-    sessionId,
-    durationMs: Date.now() - startedAt,
-    isError: true,
-    numTurns: 0,
-    result: '',
-    tokenUsage: null,
-    errors: ['Stream completed without a result message'],
-    messages,
-    text: '',
-    turnCount: 0,
-    success: false,
-    error: null,
-  };
 }
 
 /** Create instances via {@link createSession} or {@link resumeSession}. */

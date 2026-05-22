@@ -172,3 +172,11 @@ export const JsonRpcMessageSchema = z.discriminatedUnion('type', [
 ]);
 
 export type JsonRpcMessage = z.infer<typeof JsonRpcMessageSchema>;
+
+/** Creates a JSON-RPC response schema (success | failure) for a given result schema. */
+export function createResponseSchema<T extends z.ZodTypeAny>(resultSchema: T) {
+  return z.union([
+    JsonRpcResponseSuccessSchema.extend({ result: resultSchema }),
+    JsonRpcResponseFailureSchema,
+  ]);
+}

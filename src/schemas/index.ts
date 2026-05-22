@@ -47,6 +47,7 @@ export {
   BaseRequestSchema,
   BaseResponseFailureSchema,
   BaseResponseSuccessSchema,
+  createResponseSchema,
   EmptyResultSchema,
   JsonArraySchema,
   JsonRpcEnvelopeSchema,

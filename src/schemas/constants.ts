@@ -2,8 +2,9 @@
 export const JSONRPC_VERSION = '2.0' as const;
 
 /**
- * Legacy Factory API version for backward compatibility.
- * @deprecated Use FACTORY_PROTOCOL_VERSION for runtime compatibility instead.
+ * Frozen Factory API version embedded in every JSON-RPC envelope.
+ * This value is required by the wire protocol and must not be changed.
+ * For version negotiation, use FACTORY_PROTOCOL_VERSION instead.
  */
 export const LEGACY_FACTORY_API_VERSION = '1.0.0' as const;
 

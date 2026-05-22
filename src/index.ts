@@ -7,11 +7,12 @@ export * from './errors.js';
 export * from './types.js';
 export { ProcessTransport } from './transport.js';
 
-export { ProtocolEngine } from './protocol.js';
+export { dispatchNotification, ProtocolEngine } from './protocol.js';
 export type {
   AskUserHandler,
   NotificationCallback,
   NotificationFilter,
+  NotificationListener,
   PermissionHandler,
 } from './protocol.js';
 
