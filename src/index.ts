@@ -109,6 +109,8 @@ export {
   connectDaemon,
   DaemonConnection,
   resolveWebSocketUrl,
+  ensureLocalDaemon,
+  resolveLocalAuthToken,
 } from './daemon/index.js';
 export { DaemonSession } from './daemon/index.js';
 export { WebSocketTransport } from './daemon/index.js';

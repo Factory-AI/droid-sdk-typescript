@@ -3,6 +3,7 @@ export {
   DaemonConnection,
   resolveWebSocketUrl,
 } from './connection.js';
+export { ensureLocalDaemon, resolveLocalAuthToken } from './local.js';
 export { DaemonSession } from './session.js';
 export { WebSocketTransport } from './transport.js';
 export {

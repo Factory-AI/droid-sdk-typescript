@@ -29,4 +29,12 @@ describe('daemon public API exports', () => {
     expect(sdk.MachineType.Computer).toBe('computer');
     expect(sdk.MachineType.Local).toBe('local');
   });
+
+  it('exports ensureLocalDaemon function', () => {
+    expect(typeof sdk.ensureLocalDaemon).toBe('function');
+  });
+
+  it('exports resolveLocalAuthToken function', () => {
+    expect(typeof sdk.resolveLocalAuthToken).toBe('function');
+  });
 });

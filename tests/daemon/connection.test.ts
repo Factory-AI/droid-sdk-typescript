@@ -1,8 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
 import { resolveWebSocketUrl, MachineType } from '../../src/daemon/index.js';
-import type { ConnectDaemonOptions } from '../../src/daemon/index.js';
-import { ConnectionError } from '../../src/errors.js';
 
 describe('resolveWebSocketUrl', () => {
   it('uses url option directly when provided', () => {
@@ -68,15 +66,28 @@ describe('resolveWebSocketUrl', () => {
     expect(url).toBe('wss://override.host');
   });
 
-  it('throws when neither url nor machine is provided', () => {
-    expect(() => resolveWebSocketUrl({})).toThrow(ConnectionError);
-    expect(() => resolveWebSocketUrl({})).toThrow(
-      /Either machine or url must be provided/
-    );
+  it('defaults to local daemon URL when no machine or url is provided', () => {
+    const url = resolveWebSocketUrl({});
+    expect(url).toBe('ws://127.0.0.1:37643');
   });
 
-  it('throws for empty options', () => {
-    const options: ConnectDaemonOptions = {};
-    expect(() => resolveWebSocketUrl(options)).toThrow(ConnectionError);
+  it('resolves MachineType.Local to localhost', () => {
+    const url = resolveWebSocketUrl({
+      machine: { type: MachineType.Local },
+    });
+    expect(url).toBe('ws://127.0.0.1:37643');
+  });
+
+  it('uses _localPort for local daemon when provided', () => {
+    const url = resolveWebSocketUrl({ _localPort: 55555 });
+    expect(url).toBe('ws://127.0.0.1:55555');
+  });
+
+  it('uses custom daemonPort for local machine', () => {
+    const url = resolveWebSocketUrl({
+      machine: { type: MachineType.Local },
+      daemonPort: 41723,
+    });
+    expect(url).toBe('ws://127.0.0.1:41723');
   });
 });

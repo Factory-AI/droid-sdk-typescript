@@ -19,11 +19,12 @@ export enum MachineType {
 }
 
 export type SDKMachineConfig =
+  | { type: MachineType.Local }
   | { type: MachineType.Ephemeral; sandboxId: string; workspaceId: string }
   | { type: MachineType.Computer; computerId: string };
 
 export interface ConnectDaemonOptions {
-  /** Machine to connect to. Required for MVP (local daemon spawn deferred). */
+  /** Machine to connect to. Defaults to local daemon if omitted. */
   machine?: SDKMachineConfig;
 
   /** Direct WebSocket URL. Overrides machine-based URL resolution. */
