@@ -97,6 +97,7 @@ export function dispatchNotification(
 export class ProtocolEngine {
   private readonly _transport: DroidClientTransport;
   private readonly _defaultTimeout: number;
+  private readonly _methodPrefix: string | null;
 
   private readonly _pendingRequests = new Map<string, PendingRequest>();
   private readonly _notificationListeners = new Set<NotificationListener>();
@@ -108,9 +109,17 @@ export class ProtocolEngine {
   constructor(options: {
     transport: DroidClientTransport;
     defaultTimeout?: number;
+    /**
+     * Replace the default `droid.` method prefix on the wire.
+     * When set to e.g. `'daemon'`, outgoing `droid.initialize_session`
+     * becomes `daemon.initialize_session`, and incoming `daemon.*`
+     * methods are translated back to `droid.*` before internal dispatch.
+     */
+    methodPrefix?: string;
   }) {
     this._transport = options.transport;
     this._defaultTimeout = options.defaultTimeout ?? DEFAULT_REQUEST_TIMEOUT;
+    this._methodPrefix = options.methodPrefix ?? null;
 
     this._transport.onMessage((message: Record<string, unknown>) => {
       this._handleMessage(message);
@@ -138,13 +147,15 @@ export class ProtocolEngine {
     const effectiveTimeout = timeout ?? this._defaultTimeout;
     const requestId = uuidv4();
 
+    const wireMethod = this._toWireMethod(method);
+
     const envelope = {
       jsonrpc: JSONRPC_VERSION,
       factoryApiVersion: LEGACY_FACTORY_API_VERSION,
       factoryProtocolVersion: FACTORY_PROTOCOL_VERSION,
       type: JsonRpcMessageType.Request,
       id: requestId,
-      method,
+      method: wireMethod,
       params,
     };
 
@@ -248,7 +259,10 @@ export class ProtocolEngine {
   }
 
   private _handleMessage(raw: Record<string, unknown>): void {
-    const parsed = JsonRpcMessageSchema.safeParse(raw);
+    // Remap incoming method before Zod parsing so schemas with
+    // z.literal('droid.*') still match daemon.* wire methods.
+    const remapped = this._remapIncomingMethod(raw);
+    const parsed = JsonRpcMessageSchema.safeParse(remapped);
 
     if (!parsed.success) {
       // Malformed message — silently ignore
@@ -458,5 +472,36 @@ export class ProtocolEngine {
       clearTimeout(req.timer);
       req.reject(error);
     }
+  }
+
+  /**
+   * Remap an outgoing method from `droid.*` to the configured wire prefix.
+   * e.g. `droid.initialize_session` -> `daemon.initialize_session`
+   */
+  private _toWireMethod(method: string): string {
+    if (!this._methodPrefix) return method;
+    if (method.startsWith('droid.')) {
+      return `${this._methodPrefix}.${method.slice('droid.'.length)}`;
+    }
+    return method;
+  }
+
+  /**
+   * Remap incoming message method from the wire prefix back to `droid.*`
+   * so Zod schemas with `z.literal('droid.*')` can parse correctly.
+   */
+  private _remapIncomingMethod(
+    raw: Record<string, unknown>
+  ): Record<string, unknown> {
+    if (!this._methodPrefix) return raw;
+
+    const prefix = `${this._methodPrefix}.`;
+    if (typeof raw['method'] === 'string' && raw['method'].startsWith(prefix)) {
+      return {
+        ...raw,
+        method: `droid.${raw['method'].slice(prefix.length)}`,
+      };
+    }
+    return raw;
   }
 }

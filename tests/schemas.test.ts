@@ -358,8 +358,8 @@ describe('constants', () => {
     expect(LEGACY_FACTORY_API_VERSION).toBe('1.0.0');
   });
 
-  it('FACTORY_PROTOCOL_VERSION is 1.3.0', () => {
-    expect(FACTORY_PROTOCOL_VERSION).toBe('1.3.0');
+  it('FACTORY_PROTOCOL_VERSION is 1.51.0', () => {
+    expect(FACTORY_PROTOCOL_VERSION).toBe('1.51.0');
   });
 
   it('FACTORY_CLIENT_HEADER is X-Factory-Client', () => {

@@ -14,6 +14,8 @@ import type {
   ErrorCallback,
   MessageCallback,
 } from '../types.js';
+import { isRecord } from '../utils.js';
+import { ensureLocalDaemon, resolveLocalAuthToken } from './local.js';
 import { DaemonSession } from './session.js';
 import { WebSocketTransport } from './transport.js';
 import {
@@ -34,19 +36,24 @@ const DAEMON_AUTHENTICATE_METHOD = 'daemon.authenticate';
 const DAEMON_AUTHENTICATE_TIMEOUT = 30_000;
 const SDK_CALLER = 'droid-sdk';
 
-export function resolveWebSocketUrl(options: ConnectDaemonOptions): string {
+interface ResolvedConnectOptions extends ConnectDaemonOptions {
+  _localPort?: number;
+}
+
+export function resolveWebSocketUrl(
+  options: ConnectDaemonOptions & { _localPort?: number }
+): string {
   if (options.url) {
     return options.url;
   }
 
-  if (!options.machine) {
-    throw new ConnectionError(
-      'Either machine or url must be provided to connectDaemon(). ' +
-        'Local daemon spawn is not yet supported.'
-    );
-  }
-
   const machine = options.machine;
+
+  if (!machine || machine.type === MachineType.Local) {
+    const port =
+      options._localPort ?? options.daemonPort ?? DEFAULT_DAEMON_PORT;
+    return `ws://127.0.0.1:${port}`;
+  }
 
   if (machine.type === MachineType.Ephemeral) {
     const port = options.daemonPort ?? DEFAULT_DAEMON_PORT;
@@ -69,38 +76,44 @@ function getWebSocketConfig(
   if (machine?.type === MachineType.Computer) {
     return { ...DEFAULT_WS_CONFIG, ...COMPUTER_WS_CONFIG };
   }
+  if (!machine || machine.type === MachineType.Local) {
+    return { ...DEFAULT_WS_CONFIG, connectionTimeoutMs: 10_000 };
+  }
   return { ...DEFAULT_WS_CONFIG };
+}
+
+interface MultiplexedView {
+  messageCallback: MessageCallback | null;
+  errorCallback: ErrorCallback | null;
+  pendingRequestIds: Set<string>;
+  sessionId: string | null;
 }
 
 /**
  * Multiplexes a single WebSocketTransport across multiple DroidClient
  * instances. Each client gets its own "view" of the transport:
- * - Messages are broadcast to all registered views
+ * - Responses are routed to the view that sent the matching request
+ * - Notifications are routed by `params.sessionId` to the matching view
  * - Errors are broadcast to all registered views
- * - send() writes to the shared transport
+ * - send() writes to the shared transport and tracks request IDs
  * - close() is a no-op (only DaemonConnection closes the real transport)
  */
 class SharedTransportMultiplexer {
-  private readonly _messageCallbacks = new Set<MessageCallback>();
-  private readonly _errorCallbacks = new Set<ErrorCallback>();
+  private readonly _views = new Set<MultiplexedView>();
 
   constructor(private readonly _inner: WebSocketTransport) {
     this._inner.onMessage((message) => {
-      for (const cb of this._messageCallbacks) {
-        try {
-          cb(message);
-        } catch {
-          // Don't let one handler crash others
-        }
-      }
+      this._routeMessage(message);
     });
 
     this._inner.onError((error) => {
-      for (const cb of this._errorCallbacks) {
-        try {
-          cb(error);
-        } catch {
-          // Don't let one handler crash others
+      for (const view of this._views) {
+        if (view.errorCallback) {
+          try {
+            view.errorCallback(error);
+          } catch {
+            // Don't let one handler crash others
+          }
         }
       }
     });
@@ -108,41 +121,37 @@ class SharedTransportMultiplexer {
 
   createView(): DroidClientTransport {
     const inner = this._inner;
-    let messageCallback: MessageCallback | null = null;
-    let errorCallback: ErrorCallback | null = null;
+    const viewState: MultiplexedView = {
+      messageCallback: null,
+      errorCallback: null,
+      pendingRequestIds: new Set(),
+      sessionId: null,
+    };
+    this._views.add(viewState);
 
     const view: DroidClientTransport = {
       send: (message: Record<string, unknown>) => {
+        // Track request IDs for response routing
+        if (message['type'] === 'request' && typeof message['id'] === 'string') {
+          viewState.pendingRequestIds.add(message['id']);
+        }
+        // Track sessionId from init/load responses
         inner.send(message);
       },
 
       onMessage: (callback: MessageCallback) => {
-        // Remove previous callback for this view
-        if (messageCallback) {
-          this._messageCallbacks.delete(messageCallback);
-        }
-        messageCallback = callback;
-        this._messageCallbacks.add(callback);
+        viewState.messageCallback = callback;
       },
 
       onError: (callback: ErrorCallback) => {
-        if (errorCallback) {
-          this._errorCallbacks.delete(errorCallback);
-        }
-        errorCallback = callback;
-        this._errorCallbacks.add(callback);
+        viewState.errorCallback = callback;
       },
 
       close: async () => {
-        // Remove this view's callbacks but don't close the real transport
-        if (messageCallback) {
-          this._messageCallbacks.delete(messageCallback);
-          messageCallback = null;
-        }
-        if (errorCallback) {
-          this._errorCallbacks.delete(errorCallback);
-          errorCallback = null;
-        }
+        viewState.messageCallback = null;
+        viewState.errorCallback = null;
+        viewState.pendingRequestIds.clear();
+        this._views.delete(viewState);
       },
 
       get isConnected(): boolean {
@@ -151,6 +160,105 @@ class SharedTransportMultiplexer {
     };
 
     return view;
+  }
+
+  private _routeMessage(message: Record<string, unknown>): void {
+    const messageType = message['type'];
+    const messageId = message['id'];
+
+    // Responses: route to the view that sent the matching request
+    if (messageType === 'response' && typeof messageId === 'string') {
+      for (const view of this._views) {
+        if (view.pendingRequestIds.has(messageId)) {
+          view.pendingRequestIds.delete(messageId);
+
+          // Learn sessionId from init/load response results
+          const result = message['result'];
+          if (isRecord(result) && typeof result['sessionId'] === 'string') {
+            view.sessionId = result['sessionId'];
+          }
+
+          if (view.messageCallback) {
+            try {
+              view.messageCallback(message);
+            } catch {
+              // Don't crash the router
+            }
+          }
+          return;
+        }
+      }
+      // No matching view — drop silently
+      return;
+    }
+
+    // Notifications: route by params.sessionId
+    if (messageType === 'notification') {
+      const params = message['params'];
+      const sessionId =
+        isRecord(params) && typeof params['sessionId'] === 'string'
+          ? params['sessionId']
+          : null;
+
+      if (sessionId) {
+        for (const view of this._views) {
+          if (view.sessionId === sessionId && view.messageCallback) {
+            try {
+              view.messageCallback(message);
+            } catch {
+              // Don't crash the router
+            }
+            return;
+          }
+        }
+      }
+
+      // No sessionId or no matching view — broadcast to all
+      for (const view of this._views) {
+        if (view.messageCallback) {
+          try {
+            view.messageCallback(message);
+          } catch {
+            // Don't crash the router
+          }
+        }
+      }
+      return;
+    }
+
+    // Server requests (daemon.request_permission, daemon.ask_user):
+    // route by params.sessionId
+    if (messageType === 'request') {
+      const params = message['params'];
+      const sessionId =
+        isRecord(params) && typeof params['sessionId'] === 'string'
+          ? params['sessionId']
+          : null;
+
+      if (sessionId) {
+        for (const view of this._views) {
+          if (view.sessionId === sessionId && view.messageCallback) {
+            try {
+              view.messageCallback(message);
+            } catch {
+              // Don't crash the router
+            }
+            return;
+          }
+        }
+      }
+
+      // Broadcast if no matching session (shouldn't happen in practice)
+      for (const view of this._views) {
+        if (view.messageCallback) {
+          try {
+            view.messageCallback(message);
+          } catch {
+            // Don't crash the router
+          }
+        }
+      }
+    }
   }
 }
 
@@ -225,12 +333,14 @@ async function authenticate(
 export class DaemonConnection {
   private readonly _transport: WebSocketTransport;
   private readonly _multiplexer: SharedTransportMultiplexer;
+  private readonly _authToken: string;
   private _closed = false;
 
   /** @internal */
-  constructor(transport: WebSocketTransport) {
+  constructor(transport: WebSocketTransport, authToken: string) {
     this._transport = transport;
     this._multiplexer = new SharedTransportMultiplexer(transport);
+    this._authToken = authToken;
   }
 
   async createSession(
@@ -239,7 +349,7 @@ export class DaemonConnection {
     this._ensureNotClosed();
 
     const view = this._multiplexer.createView();
-    const client = new DroidClient({ transport: view });
+    const client = new DroidClient({ transport: view, methodPrefix: 'daemon' });
     setupClientHandlers(client, {
       permissionHandler: options.permissionHandler,
       askUserHandler: options.askUserHandler,
@@ -255,6 +365,11 @@ export class DaemonConnection {
         ...options,
         mcpServers: sdkMcpServers.mcpServers,
       });
+
+      // Daemon requires `token` in init params for session auth.
+      // Spread token into initParams — the wire protocol accepts it even
+      // though the exec-mode TypeScript type doesn't define it.
+      Object.assign(initParams, { token: this._authToken });
 
       const initResult = await client.initializeSession(initParams);
       const session = new DaemonSession(client, initResult.sessionId);
@@ -273,7 +388,7 @@ export class DaemonConnection {
     this._ensureNotClosed();
 
     const view = this._multiplexer.createView();
-    const client = new DroidClient({ transport: view });
+    const client = new DroidClient({ transport: view, methodPrefix: 'daemon' });
     setupClientHandlers(client, {
       permissionHandler: options.permissionHandler,
       askUserHandler: options.askUserHandler,
@@ -285,10 +400,12 @@ export class DaemonConnection {
 
     try {
       sdkMcpServers = await startSdkMcpServers(options.mcpServers);
+      // Daemon requires `token` in load params for session auth
       const loadParams: LoadSessionRequestParams = {
         sessionId,
         mcpServers: sdkMcpServers.mcpServers,
       };
+      Object.assign(loadParams, { token: this._authToken });
       await client.loadSession(loadParams);
       const session = new DaemonSession(client, sessionId);
       return session;
@@ -303,9 +420,11 @@ export class DaemonConnection {
     this._ensureNotClosed();
 
     const view = this._multiplexer.createView();
-    const client = new DroidClient({ transport: view });
+    const client = new DroidClient({ transport: view, methodPrefix: 'daemon' });
     try {
-      await client.loadSession({ sessionId });
+      const loadParams: LoadSessionRequestParams = { sessionId };
+      Object.assign(loadParams, { token: this._authToken });
+      await client.loadSession(loadParams);
       await client.interruptSession();
     } finally {
       await client.close();
@@ -332,21 +451,56 @@ export class DaemonConnection {
 export async function connectDaemon(
   options: ConnectDaemonOptions = {}
 ): Promise<DaemonConnection> {
-  const url = resolveWebSocketUrl(options);
-  const wsConfig = getWebSocketConfig(options.machine);
+  const isLocal =
+    !options.url &&
+    (!options.machine || options.machine.type === MachineType.Local);
+
+  // For local connections, spawn/discover the daemon and resolve auth token
+  let resolvedOptions: ResolvedConnectOptions = options;
+  if (isLocal) {
+    const { port } = await ensureLocalDaemon();
+    resolvedOptions = { ...options, _localPort: port };
+
+    // Auto-resolve auth: FACTORY_API_KEY env var > stored credentials
+    if (!options.apiKey && !options.token) {
+      const envApiKey = process.env.FACTORY_API_KEY?.trim();
+      if (envApiKey) {
+        resolvedOptions = { ...resolvedOptions, apiKey: envApiKey };
+      } else {
+        const token = await resolveLocalAuthToken();
+        if (!token) {
+          throw new ConnectionError(
+            'No stored credentials found. Run `droid auth login` first, ' +
+              'or set the FACTORY_API_KEY environment variable.'
+          );
+        }
+        resolvedOptions = { ...resolvedOptions, token };
+      }
+    }
+  }
+
+  const url = resolveWebSocketUrl(resolvedOptions);
+  const wsConfig = getWebSocketConfig(resolvedOptions.machine);
 
   const transport = new WebSocketTransport(wsConfig);
 
+  // Resolve the auth token string used for session-level auth params
+  const authToken =
+    resolvedOptions.apiKey ?? resolvedOptions.token ?? '';
+
   try {
     // Connect with optional retry budget
-    if (options.maxRetries !== undefined && options.maxRetries > 0) {
+    if (
+      resolvedOptions.maxRetries !== undefined &&
+      resolvedOptions.maxRetries > 0
+    ) {
       let lastError: Error | undefined;
 
-      for (let attempt = 0; attempt <= options.maxRetries; attempt++) {
+      for (let attempt = 0; attempt <= resolvedOptions.maxRetries; attempt++) {
         try {
           await transport.connect(url);
-          await authenticate(transport, options);
-          return new DaemonConnection(transport);
+          await authenticate(transport, resolvedOptions);
+          return new DaemonConnection(transport, authToken);
         } catch (error) {
           lastError = error instanceof Error ? error : new Error(String(error));
           try {
@@ -354,7 +508,7 @@ export async function connectDaemon(
           } catch {
             // Best-effort cleanup between retries
           }
-          if (attempt < options.maxRetries) {
+          if (attempt < resolvedOptions.maxRetries) {
             await new Promise<void>((resolve) => setTimeout(resolve, 2_000));
           }
         }
@@ -365,8 +519,8 @@ export async function connectDaemon(
 
     // Single attempt
     await transport.connect(url);
-    await authenticate(transport, options);
-    return new DaemonConnection(transport);
+    await authenticate(transport, resolvedOptions);
+    return new DaemonConnection(transport, authToken);
   } catch (error) {
     try {
       await transport.close();

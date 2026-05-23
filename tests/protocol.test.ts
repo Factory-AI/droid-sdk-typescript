@@ -869,4 +869,112 @@ describe('ProtocolEngine', () => {
       expect(response['factoryProtocolVersion']).toBe(FACTORY_PROTOCOL_VERSION);
     });
   });
+
+  describe('methodPrefix remapping', () => {
+    let daemonTransport: InMemoryTransport;
+    let daemonEngine: ProtocolEngine;
+
+    beforeEach(async () => {
+      daemonTransport = new InMemoryTransport();
+      await daemonTransport.connect();
+      daemonEngine = new ProtocolEngine({
+        transport: daemonTransport,
+        methodPrefix: 'daemon',
+      });
+    });
+
+    afterEach(async () => {
+      await daemonEngine.close();
+    });
+
+    it('remaps droid.* to daemon.* on outgoing requests', async () => {
+      const promise = daemonEngine.sendRequest(
+        'droid.initialize_session',
+        { cwd: '.' }
+      );
+
+      const sent = daemonTransport.sentMessages[0] as Record<string, unknown>;
+      expect(sent['method']).toBe('daemon.initialize_session');
+
+      const id = sent['id'] as string;
+      daemonTransport.injectMessage(makeSuccessResponse(id, { sessionId: 'x' }));
+      await promise;
+    });
+
+    it('remaps daemon.* to droid.* on incoming notifications', async () => {
+      const received: Record<string, unknown>[] = [];
+      daemonEngine.onNotification((n) => received.push(n));
+
+      daemonTransport.injectMessage({
+        jsonrpc: JSONRPC_VERSION,
+        factoryApiVersion: LEGACY_FACTORY_API_VERSION,
+        factoryProtocolVersion: FACTORY_PROTOCOL_VERSION,
+        type: 'notification',
+        method: 'daemon.session_notification',
+        params: {
+          sessionId: 'test-session',
+          notification: {
+            type: 'droid_working_state_changed',
+            newState: 'idle',
+          },
+        },
+      });
+
+      expect(received).toHaveLength(1);
+      expect(received[0]!['method']).toBe('droid.session_notification');
+    });
+
+    it('remaps daemon.* to droid.* on incoming server requests', async () => {
+      const handler = vi.fn().mockReturnValue({
+        selectedOption: ToolConfirmationOutcome.ProceedOnce,
+      });
+      daemonEngine.setPermissionHandler(handler);
+
+      daemonTransport.injectMessage({
+        jsonrpc: JSONRPC_VERSION,
+        factoryApiVersion: LEGACY_FACTORY_API_VERSION,
+        factoryProtocolVersion: FACTORY_PROTOCOL_VERSION,
+        type: 'request',
+        id: 'perm-1',
+        method: 'daemon.request_permission',
+        params: {
+          toolUses: [
+            {
+              toolUse: {
+                type: 'tool_use',
+                id: 'tu1',
+                name: 'Execute',
+                input: { command: 'ls' },
+              },
+              confirmationType: 'exec',
+              details: {
+                type: 'exec',
+                fullCommand: 'ls',
+                command: 'ls',
+              },
+            },
+          ],
+          options: [
+            { label: 'Allow', value: 'proceed_once' },
+            { label: 'Deny', value: 'cancel' },
+          ],
+        },
+      });
+
+      await vi.waitFor(() => {
+        expect(handler).toHaveBeenCalledOnce();
+      });
+    });
+
+    it('does not remap methods without droid. prefix', async () => {
+      const promise = daemonEngine.sendRequest('custom.method', { x: 1 });
+
+      const sent = daemonTransport.sentMessages[0] as Record<string, unknown>;
+      expect(sent['method']).toBe('custom.method');
+
+      const id = sent['id'] as string;
+      daemonTransport.injectMessage(makeSuccessResponse(id, {}));
+      await promise;
+    });
+  });
 });
