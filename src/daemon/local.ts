@@ -22,9 +22,16 @@ const ENCRYPTION_KEY_LENGTH = 32;
 const IV_LENGTH = 16;
 const AUTH_TAG_LENGTH = 16;
 
+const DEFAULT_PROD_PORT = 37643;
+const DEFAULT_DEV_PORT = 41723;
+const DAEMON_PORT_FILE = 'daemon.port';
+const DEFAULT_HOST = '127.0.0.1';
+
 type DaemonStartupResult = 'ready' | 'timeout' | 'exited';
 
 let spawnedDaemonProcess: ChildProcess | null = null;
+let daemonTarget: { host: string; port: number } | null = null;
+let daemonEnsureInflight: Promise<{ port: number }> | null = null;
 
 function getFactoryHome(): string {
   return process.env.FACTORY_HOME_OVERRIDE || os.homedir();
@@ -38,6 +45,11 @@ function getFactoryDirName(): string {
 
 function getFactoryDir(): string {
   return path.join(getFactoryHome(), getFactoryDirName());
+}
+
+function getDefaultDaemonPort(): number {
+  const env = process.env.FACTORY_ENV?.toLowerCase();
+  return env === 'production' ? DEFAULT_PROD_PORT : DEFAULT_DEV_PORT;
 }
 
 function resolveExecPath(): string {
@@ -57,7 +69,7 @@ async function allocatePort(): Promise<number> {
   return new Promise((resolve, reject) => {
     const server = net.createServer();
     server.once('error', reject);
-    server.listen(0, '127.0.0.1', () => {
+    server.listen(0, DEFAULT_HOST, () => {
       const address = server.address();
       if (!address || typeof address === 'string') {
         server.close();
@@ -75,7 +87,7 @@ async function allocatePort(): Promise<number> {
 
 async function isDaemonReachable(port: number): Promise<boolean> {
   return new Promise((resolve) => {
-    const socket = net.createConnection({ host: '127.0.0.1', port });
+    const socket = net.createConnection({ host: DEFAULT_HOST, port });
     const cleanup = () => {
       socket.removeAllListeners();
       socket.destroy();
@@ -137,73 +149,87 @@ async function waitForDaemonReady(
   });
 }
 
-/**
- * Spawn a local `droid daemon` process on an available port and wait for it
- * to become reachable.
- *
- * Returns `{ port }` on success. The daemon runs detached so it outlives the
- * SDK process.
- */
-export async function ensureLocalDaemon(): Promise<{ port: number }> {
-  const execPath = resolveExecPath();
-
-  for (let attempt = 1; attempt <= MAX_STARTUP_ATTEMPTS; attempt++) {
-    const port = await allocatePort();
-
-    if (await isDaemonReachable(port)) {
-      return { port };
+function readPortFile(): number | null {
+  try {
+    const portPath = path.join(getFactoryDir(), DAEMON_PORT_FILE);
+    const content = fs.readFileSync(portPath, 'utf-8').trim();
+    const port = parseInt(content, 10);
+    if (Number.isFinite(port) && port > 0 && port < 65536) {
+      return port;
     }
+    return null;
+  } catch {
+    return null;
+  }
+}
 
-    const args = ['daemon', '--host', '127.0.0.1', '--port', String(port)];
+function writePortFile(port: number): void {
+  try {
+    const factoryDir = getFactoryDir();
+    fs.mkdirSync(factoryDir, { recursive: true });
+    fs.writeFileSync(path.join(factoryDir, DAEMON_PORT_FILE), String(port), {
+      mode: 0o600,
+    });
+  } catch {
+    // Non-fatal
+  }
+}
 
-    let stderrFd: number | undefined;
+function cacheTarget(port: number): { port: number } {
+  daemonTarget = { host: DEFAULT_HOST, port };
+  return { port };
+}
+
+function clearSpawnedDaemonProcess(child: ChildProcess): void {
+  if (spawnedDaemonProcess === child) {
+    spawnedDaemonProcess = null;
+  }
+}
+
+async function spawnDaemon(
+  execPath: string,
+  port: number
+): Promise<DaemonStartupResult> {
+  const args = ['daemon', '--host', DEFAULT_HOST, '--port', String(port)];
+
+  let stderrFd: number | undefined;
+  try {
+    const logsDir = path.join(getFactoryDir(), 'logs');
+    fs.mkdirSync(logsDir, { recursive: true });
+    stderrFd = fs.openSync(path.join(logsDir, 'daemon-stderr.log'), 'a');
+  } catch {
+    // Non-fatal
+  }
+
+  const child = spawn(execPath, args, {
+    detached: false,
+    stdio: ['ignore', 'ignore', stderrFd ?? 'ignore'],
+    cwd: os.homedir(),
+    env: { ...process.env },
+  });
+
+  if (stderrFd !== undefined) {
     try {
-      const logsDir = path.join(getFactoryDir(), 'logs');
-      fs.mkdirSync(logsDir, { recursive: true });
-      stderrFd = fs.openSync(path.join(logsDir, 'daemon-stderr.log'), 'a');
+      fs.closeSync(stderrFd);
     } catch {
-      // Non-fatal
+      // Ignore
     }
+  }
 
-    const child = spawn(execPath, args, {
-      detached: false,
-      stdio: ['ignore', 'ignore', stderrFd ?? 'ignore'],
-      cwd: os.homedir(),
-      env: { ...process.env },
-    });
+  spawnedDaemonProcess = child;
 
-    if (stderrFd !== undefined) {
-      try {
-        fs.closeSync(stderrFd);
-      } catch {
-        // Ignore
-      }
-    }
+  child.once('exit', () => {
+    clearSpawnedDaemonProcess(child);
+  });
 
-    spawnedDaemonProcess = child;
+  child.on('error', () => {
+    clearSpawnedDaemonProcess(child);
+  });
 
-    child.once('exit', () => {
-      if (spawnedDaemonProcess === child) {
-        spawnedDaemonProcess = null;
-      }
-    });
+  const result = await waitForDaemonReady(child, port);
 
-    child.on('error', () => {
-      if (spawnedDaemonProcess === child) {
-        spawnedDaemonProcess = null;
-      }
-    });
-
-    const result = await waitForDaemonReady(child, port);
-
-    if (result === 'ready') {
-      return { port };
-    }
-
-    // Clean up failed attempt
-    if (spawnedDaemonProcess === child) {
-      spawnedDaemonProcess = null;
-    }
+  if (result !== 'ready') {
+    clearSpawnedDaemonProcess(child);
     if (result === 'timeout') {
       try {
         child.kill('SIGTERM');
@@ -213,10 +239,93 @@ export async function ensureLocalDaemon(): Promise<{ port: number }> {
     }
   }
 
+  return result;
+}
+
+/**
+ * Core implementation — called at most once per inflight window.
+ *
+ * Discovery order:
+ * 1. Well-known port (37643 prod / 41723 dev)
+ * 2. Port file (~/.factory[-dev]/daemon.port)
+ * 3. Spawn new daemon (prefer well-known port, fallback to random)
+ */
+async function _ensureLocalDaemon(): Promise<{ port: number }> {
+  const execPath = resolveExecPath();
+
+  // 1. Probe well-known port
+  const wellKnownPort = getDefaultDaemonPort();
+  if (await isDaemonReachable(wellKnownPort)) {
+    return cacheTarget(wellKnownPort);
+  }
+
+  // 2. Probe port file
+  const portFilePort = readPortFile();
+  if (portFilePort !== null && portFilePort !== wellKnownPort) {
+    if (await isDaemonReachable(portFilePort)) {
+      return cacheTarget(portFilePort);
+    }
+  }
+
+  // 3. Spawn — first attempt on the well-known port
+  const firstResult = await spawnDaemon(execPath, wellKnownPort);
+  if (firstResult === 'ready') {
+    writePortFile(wellKnownPort);
+    return cacheTarget(wellKnownPort);
+  }
+
+  // Retry on random ports
+  for (let attempt = 2; attempt <= MAX_STARTUP_ATTEMPTS; attempt++) {
+    const port = await allocatePort();
+    const result = await spawnDaemon(execPath, port);
+    if (result === 'ready') {
+      writePortFile(port);
+      return cacheTarget(port);
+    }
+  }
+
   throw new ConnectionError(
     `Failed to start local droid daemon after ${MAX_STARTUP_ATTEMPTS} attempts. ` +
       'Ensure the `droid` CLI is installed and `droid auth login` has been run.'
   );
+}
+
+/**
+ * Ensure a local `droid daemon` process is running and reachable.
+ *
+ * Discovery order:
+ * 1. Cached target from a previous call in this process
+ * 2. Well-known port (37643 prod / 41723 dev)
+ * 3. Port file (`~/.factory[-dev]/daemon.port`)
+ * 4. Spawn new daemon (prefer well-known port, fallback to random)
+ *
+ * Concurrent calls are deduplicated — all callers join the same
+ * spawn attempt.
+ */
+export async function ensureLocalDaemon(): Promise<{ port: number }> {
+  // Fast path: cached target still reachable
+  if (daemonTarget) {
+    if (await isDaemonReachable(daemonTarget.port)) {
+      return { port: daemonTarget.port };
+    }
+    daemonTarget = null;
+  }
+
+  // Deduplicate concurrent calls
+  if (!daemonEnsureInflight) {
+    daemonEnsureInflight = _ensureLocalDaemon().finally(() => {
+      daemonEnsureInflight = null;
+    });
+  }
+
+  return daemonEnsureInflight;
+}
+
+/** Resets module-level state between tests. Not intended for production use. */
+export function _resetDaemonStateForTesting(): void {
+  daemonEnsureInflight = null;
+  daemonTarget = null;
+  spawnedDaemonProcess = null;
 }
 
 const WORKOS_API_BASE_URL = 'https://api.workos.com/user_management';

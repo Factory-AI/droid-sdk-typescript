@@ -5,12 +5,17 @@ export {
   DaemonConnection,
   resolveWebSocketUrl,
 } from './connection.js';
-export { ensureLocalDaemon, resolveLocalAuthToken } from './local.js';
+export {
+  ensureLocalDaemon,
+  resolveLocalAuthToken,
+  _resetDaemonStateForTesting,
+} from './local.js';
 export { DaemonSession } from './session.js';
 export { WebSocketTransport } from './transport.js';
 export {
   MachineType,
   DEFAULT_DAEMON_PORT,
+  DEFAULT_DEV_DAEMON_PORT,
   DEFAULT_RELAY_BASE_URL,
 } from './types.js';
 export type {
