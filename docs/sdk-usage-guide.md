@@ -57,7 +57,7 @@ console.log((result.structuredOutput as { number: number }).number);
 Create a session once, then call `stream()` multiple times. Context is preserved across turns.
 
 ```ts
-import { createSession } from '@factory/droid-sdk';
+import { createSession, DroidMessageType } from '@factory/droid-sdk';
 
 const session = await createSession({ cwd: process.cwd() });
 
@@ -66,7 +66,7 @@ for await (const msg of session.stream('Remember the word "mango".')) {
 }
 
 for await (const msg of session.stream('What word did I say?')) {
-  if (msg.type === 'assistant') console.log(msg.text);
+  if (msg.type === DroidMessageType.Assistant) console.log(msg.text);
 }
 
 await session.close();
@@ -77,12 +77,12 @@ await session.close();
 Reconnect to a previously created session by its ID.
 
 ```ts
-import { resumeSession } from '@factory/droid-sdk';
+import { resumeSession, DroidMessageType } from '@factory/droid-sdk';
 
 const session = await resumeSession('existing-session-id');
 
 for await (const msg of session.stream('Continue where we left off.')) {
-  if (msg.type === 'assistant') console.log(msg.text);
+  if (msg.type === DroidMessageType.Assistant) console.log(msg.text);
 }
 
 await session.close();
@@ -144,12 +144,12 @@ await session.close();
 Use `session.interrupt()` to stop the current turn server-side, or pass an `AbortSignal` to cancel from the client.
 
 ```ts
-import { createSession } from '@factory/droid-sdk';
+import { createSession, DroidMessageType } from '@factory/droid-sdk';
 
 // Interrupt after receiving some output
 const session = await createSession({ cwd: process.cwd() });
 for await (const msg of session.stream('Write a long essay.')) {
-  if (msg.type === 'assistant') {
+  if (msg.type === DroidMessageType.Assistant) {
     await session.interrupt();
   }
 }
@@ -179,6 +179,7 @@ Define custom tools that Droid can call during a session. Tools are served via a
 import {
   createSession,
   createSdkMcpServer,
+  DroidMessageType,
   tool,
   ToolConfirmationOutcome,
 } from '@factory/droid-sdk';
@@ -205,7 +206,7 @@ const session = await createSession({
 });
 
 for await (const msg of session.stream('Look up Alice.')) {
-  if (msg.type === 'assistant') console.log(msg.text);
+  if (msg.type === DroidMessageType.Assistant) console.log(msg.text);
 }
 
 await session.close();
@@ -306,7 +307,7 @@ Send images or documents alongside your prompt. Images must be base64-encoded.
 
 ```ts
 import { readFileSync } from 'node:fs';
-import { createSession } from '@factory/droid-sdk';
+import { createSession, DroidMessageType } from '@factory/droid-sdk';
 
 const session = await createSession({ cwd: process.cwd() });
 
@@ -319,7 +320,7 @@ for await (const msg of session.stream('Describe this image.', {
     },
   ],
 })) {
-  if (msg.type === 'assistant') console.log(msg.text);
+  if (msg.type === DroidMessageType.Assistant) console.log(msg.text);
 }
 
 await session.close();
@@ -330,7 +331,7 @@ await session.close();
 Create a copy of the current session with all context preserved. Useful for branching a conversation.
 
 ```ts
-import { createSession, resumeSession } from '@factory/droid-sdk';
+import { createSession, DroidMessageType, resumeSession } from '@factory/droid-sdk';
 
 const session = await createSession({ cwd: process.cwd() });
 for await (const msg of session.stream('Remember: the password is "banana".')) {
@@ -340,7 +341,7 @@ const { newSessionId } = await session.forkSession();
 const fork = await resumeSession(newSessionId);
 
 for await (const msg of fork.stream('What is the password?')) {
-  if (msg.type === 'assistant') console.log(msg.text);
+  if (msg.type === DroidMessageType.Assistant) console.log(msg.text);
 }
 
 await fork.close();
@@ -463,7 +464,7 @@ await session.close();
 Programmatically answer questions that Droid asks the user during execution.
 
 ```ts
-import { createSession } from '@factory/droid-sdk';
+import { createSession, DroidMessageType } from '@factory/droid-sdk';
 
 const session = await createSession({
   cwd: process.cwd(),
@@ -480,7 +481,7 @@ const session = await createSession({
 });
 
 for await (const msg of session.stream('Help me set up this project.')) {
-  if (msg.type === 'assistant') console.log(msg.text);
+  if (msg.type === DroidMessageType.Assistant) console.log(msg.text);
 }
 
 await session.close();
