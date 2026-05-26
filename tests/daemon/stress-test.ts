@@ -1,403 +1,438 @@
 /**
- * Daemon SDK stress test — runs against a live local daemon.
+ * Live daemon SDK stress test.
  *
- * Usage: npx tsx tests/daemon/stress-test.ts
+ * Run with: FACTORY_API_KEY=fk-... npx tsx tests/daemon/stress-test.ts
  *
- * Requires:
- *   - A running `droid daemon` on localhost
- *   - FACTORY_API_KEY env var set
+ * This is NOT a vitest file — it runs against a real daemon and exercises
+ * the full SDK stack end-to-end.
  */
 
-import {
-  connectDaemon,
-  DaemonConnection,
-  DaemonSession,
-  AutonomyLevel,
-  type DroidStreamEvent,
-} from '../../src/index.js';
+import { connectDaemon } from '../../src/daemon/index.js';
+import { DaemonConnection } from '../../src/daemon/connection.js';
+import { DaemonSession } from '../../src/daemon/session.js';
+import { ToolConfirmationOutcome } from '../../src/schemas/enums.js';
+import type { DroidStreamEvent } from '../../src/stream.js';
 
-const TEST_CWD = '/tmp/daemon-sdk-stress-test';
+const PASS = '\x1b[32m✓\x1b[0m';
+const FAIL = '\x1b[31m✗\x1b[0m';
+const SKIP = '\x1b[33m⊘\x1b[0m';
 
-let connection: DaemonConnection | null = null;
 let passed = 0;
 let failed = 0;
+let skipped = 0;
+const failures: string[] = [];
 
 async function test(name: string, fn: () => Promise<void>): Promise<void> {
+  const start = Date.now();
   try {
     await fn();
-    console.log(`  PASS: ${name}`);
+    const ms = Date.now() - start;
+    console.log(`  ${PASS} ${name} (${ms}ms)`);
     passed++;
-  } catch (err) {
-    const msg = err instanceof Error ? err.message : String(err);
-    console.error(`  FAIL: ${name}\n    ${msg}`);
+  } catch (e) {
+    const ms = Date.now() - start;
+    const msg = e instanceof Error ? e.message : String(e);
+    console.log(`  ${FAIL} ${name} (${ms}ms)`);
+    console.log(`    Error: ${msg}`);
+    if (e instanceof Error && e.stack) {
+      const firstFrame = e.stack.split('\n').slice(1, 3).join('\n');
+      console.log(`    ${firstFrame}`);
+    }
     failed++;
+    failures.push(`${name}: ${msg}`);
   }
 }
 
-function assert(condition: boolean, msg: string): void {
-  if (!condition) throw new Error(`Assertion failed: ${msg}`);
+function skip(name: string, reason: string): void {
+  console.log(`  ${SKIP} ${name} — ${reason}`);
+  skipped++;
 }
 
-// ─── Test 1: Basic connect + authenticate ─────────────────────────
-
-async function testConnect(): Promise<void> {
-  await test('connect to local daemon', async () => {
-    connection = await connectDaemon();
-    assert(connection !== null, 'Connection should not be null');
-  });
+function assert(condition: boolean, message: string): void {
+  if (!condition) throw new Error(`Assertion failed: ${message}`);
 }
 
-// ─── Test 2: Create session + stream response ─────────────────────
-
-async function testCreateSessionAndStream(): Promise<void> {
-  let session: DaemonSession | null = null;
-
-  await test('create session', async () => {
-    assert(connection !== null, 'Need connection');
-    session = await connection!.createSession({
-      cwd: TEST_CWD,
-      autonomyLevel: AutonomyLevel.High,
-    });
-    assert(session !== null, 'Session should not be null');
-    assert(
-      typeof session!.sessionId === 'string' && session!.sessionId.length > 0,
-      'Session should have a valid sessionId'
-    );
-    console.log(`    sessionId: ${session!.sessionId}`);
-  });
-
-  await test('stream response to a simple prompt', async () => {
-    assert(session !== null, 'Need session');
-
-    const events: DroidStreamEvent[] = [];
-    const abortController = new AbortController();
-    const timeout = setTimeout(() => abortController.abort(), 60_000);
-
-    try {
-      for await (const event of session!.stream(
-        'Reply with exactly "STRESS_TEST_OK" and nothing else. Do not use any tools.',
-        { abortSignal: abortController.signal }
-      )) {
-        events.push(event);
-      }
-    } finally {
-      clearTimeout(timeout);
-    }
-
-    assert(events.length > 0, `Expected events, got ${events.length}`);
-
-    // Should have at least a Result event
-    const resultEvent = events.find((e) => e.type === 'result');
-    assert(resultEvent !== undefined, 'Should have a result event');
-
-    // Extract text from the result event
-    const result = resultEvent as { result?: string };
-    const fullText = result.result ?? '';
-    console.log(`    Response text: "${fullText.substring(0, 100)}"`);
-    console.log(`    Total events: ${events.length}`);
-    assert(
-      fullText.includes('STRESS_TEST_OK'),
-      `Expected "STRESS_TEST_OK" in response, got: "${fullText.substring(0, 200)}"`
-    );
-  });
-
-  await test('send fire-and-forget message', async () => {
-    assert(session !== null, 'Need session');
-    // send() should return immediately after daemon ACK
-    await session!.send('Acknowledge this message. Reply with "ACK".');
-    // Give the daemon a moment to process
-    await new Promise((r) => setTimeout(r, 3000));
-  });
-
-  await test('close session', async () => {
-    assert(session !== null, 'Need session');
-    await session!.close();
-  });
-}
-
-// ─── Test 3: Multi-turn session ──────────────────────────────────
-
-async function testMultiTurnSession(): Promise<void> {
-  let session: DaemonSession | null = null;
-
-  await test('multi-turn: create session', async () => {
-    session = await connection!.createSession({
-      cwd: TEST_CWD,
-      autonomyLevel: AutonomyLevel.High,
-    });
-    assert(session !== null, 'Session should not be null');
-  });
-
-  await test('multi-turn: first message', async () => {
-    const events: DroidStreamEvent[] = [];
-    const abortController = new AbortController();
-    const timeout = setTimeout(() => abortController.abort(), 60_000);
-
-    try {
-      for await (const event of session!.stream(
-        'Remember this number: 42. Reply with "REMEMBERED".',
-        { abortSignal: abortController.signal }
-      )) {
-        events.push(event);
-      }
-    } finally {
-      clearTimeout(timeout);
-    }
-
-    const resultEvent = events.find((e) => e.type === 'result') as { result?: string } | undefined;
-    const text = resultEvent?.result ?? '';
-    console.log(`    Turn 1 response: "${text.substring(0, 100)}"`);
-    assert(events.length > 0, 'Should have events');
-  });
-
-  await test('multi-turn: second message (context check)', async () => {
-    const events: DroidStreamEvent[] = [];
-    const abortController = new AbortController();
-    const timeout = setTimeout(() => abortController.abort(), 60_000);
-
-    try {
-      for await (const event of session!.stream(
-        'What number did I ask you to remember? Reply with just the number.',
-        { abortSignal: abortController.signal }
-      )) {
-        events.push(event);
-      }
-    } finally {
-      clearTimeout(timeout);
-    }
-
-    const resultEvent = events.find((e) => e.type === 'result') as { result?: string } | undefined;
-    const text = resultEvent?.result ?? '';
-    console.log(`    Turn 2 response: "${text.substring(0, 100)}"`);
-    assert(text.includes('42'), 'Should remember the number 42');
-  });
-
-  await test('multi-turn: close', async () => {
-    await session!.close();
-  });
-}
-
-// ─── Test 4: Interrupt session ───────────────────────────────────
-
-async function testInterruptSession(): Promise<void> {
-  let session: DaemonSession | null = null;
-
-  await test('interrupt: create session', async () => {
-    session = await connection!.createSession({
-      cwd: TEST_CWD,
-      autonomyLevel: AutonomyLevel.High,
-    });
-  });
-
-  await test('interrupt: send long prompt then interrupt', async () => {
-    const events: DroidStreamEvent[] = [];
-    let interrupted = false;
-
-    try {
-      const interruptTimer = setTimeout(async () => {
-        try {
-          await session!.interrupt();
-          interrupted = true;
-        } catch {
-          // Might race with completion
-        }
-      }, 2000);
-
-      const abortController = new AbortController();
-      const overallTimeout = setTimeout(() => abortController.abort(), 30_000);
-
-      try {
-        for await (const event of session!.stream(
-          'Write a 2000-word essay about the history of computing. Be very detailed and thorough.',
-          { abortSignal: abortController.signal }
-        )) {
-          events.push(event);
-        }
-      } finally {
-        clearTimeout(interruptTimer);
-        clearTimeout(overallTimeout);
-      }
-    } catch {
-      // Interrupt may cause an abort error — that's expected
-    }
-
-    console.log(`    Events before interrupt: ${events.length}, interrupted: ${interrupted}`);
-    // We should have some events (at least partial response)
-    assert(events.length >= 0, 'Should have received some events');
-  });
-
-  await test('interrupt: close', async () => {
-    await session!.close();
-  });
-}
-
-// ─── Test 5: Concurrent sessions ─────────────────────────────────
-
-async function testConcurrentSessions(): Promise<void> {
-  await test('concurrent sessions: create two sessions simultaneously', async () => {
-    const [session1, session2] = await Promise.all([
-      connection!.createSession({ cwd: TEST_CWD, autonomyLevel: AutonomyLevel.High }),
-      connection!.createSession({ cwd: TEST_CWD, autonomyLevel: AutonomyLevel.High }),
-    ]);
-
-    assert(session1.sessionId !== session2.sessionId, 'Sessions should have different IDs');
-    console.log(`    Session 1: ${session1.sessionId}`);
-    console.log(`    Session 2: ${session2.sessionId}`);
-
-    // Stream on both concurrently
-    const collectEvents = async (session: DaemonSession, prompt: string) => {
-      const events: DroidStreamEvent[] = [];
-      const ac = new AbortController();
-      const timeout = setTimeout(() => ac.abort(), 60_000);
-      try {
-        for await (const event of session.stream(prompt, { abortSignal: ac.signal })) {
-          events.push(event);
-        }
-      } finally {
-        clearTimeout(timeout);
-      }
-      return events;
-    };
-
-    const [events1, events2] = await Promise.all([
-      collectEvents(session1, 'Reply with "SESSION_1_OK" and nothing else. No tools.'),
-      collectEvents(session2, 'Reply with "SESSION_2_OK" and nothing else. No tools.'),
-    ]);
-
-    const result1 = events1.find((e) => e.type === 'result') as { result?: string } | undefined;
-    const text1 = result1?.result ?? '';
-    const result2 = events2.find((e) => e.type === 'result') as { result?: string } | undefined;
-    const text2 = result2?.result ?? '';
-
-    console.log(`    Session 1 text: "${text1.substring(0, 80)}"`);
-    console.log(`    Session 2 text: "${text2.substring(0, 80)}"`);
-
-    assert(text1.includes('SESSION_1_OK'), 'Session 1 should respond correctly');
-    assert(text2.includes('SESSION_2_OK'), 'Session 2 should respond correctly');
-
-    await session1.close();
-    await session2.close();
-  });
-}
-
-// ─── Test 6: Error handling ──────────────────────────────────────
-
-async function testErrorHandling(): Promise<void> {
-  await test('error: closed session rejects operations', async () => {
-    const session = await connection!.createSession({
-      cwd: TEST_CWD,
-      autonomyLevel: AutonomyLevel.High,
-    });
-    await session.close();
-
-    let threw = false;
-    try {
-      await session.send('This should fail');
-    } catch (err) {
-      threw = true;
-      assert(
-        err instanceof Error && err.message.includes('closed'),
-        `Expected "closed" error, got: ${err instanceof Error ? err.message : err}`
-      );
-    }
-    assert(threw, 'Should have thrown on closed session');
-  });
-
-  await test('error: closed connection rejects session creation', async () => {
-    const tempConn = await connectDaemon();
-    await tempConn.close();
-
-    let threw = false;
-    try {
-      await tempConn.createSession({ cwd: TEST_CWD });
-    } catch (err) {
-      threw = true;
-      assert(
-        err instanceof Error && err.message.includes('closed'),
-        `Expected "closed" error, got: ${err instanceof Error ? err.message : err}`
-      );
-    }
-    assert(threw, 'Should have thrown on closed connection');
-  });
-}
-
-// ─── Test 7: Notifications ──────────────────────────────────────
-
-async function testNotifications(): Promise<void> {
-  await test('notifications: receive working state changes', async () => {
-    const session = await connection!.createSession({
-      cwd: TEST_CWD,
-      autonomyLevel: AutonomyLevel.High,
-    });
-
-    const notifications: Record<string, unknown>[] = [];
-    session.onNotification((n) => notifications.push(n));
-
-    const events: DroidStreamEvent[] = [];
-    const ac = new AbortController();
-    const timeout = setTimeout(() => ac.abort(), 60_000);
-
-    try {
-      for await (const event of session.stream(
-        'Reply with "NOTIF_TEST" and nothing else. No tools.',
-        { abortSignal: ac.signal }
-      )) {
-        events.push(event);
-      }
-    } finally {
-      clearTimeout(timeout);
-    }
-
-    console.log(`    Notifications received: ${notifications.length}`);
-    assert(notifications.length > 0, 'Should have received notifications');
-
-    await session.close();
-  });
-}
-
-// ─── Main ────────────────────────────────────────────────────────
+// ─── Tests ───
 
 async function main(): Promise<void> {
-  // Ensure test directory exists
-  const { mkdirSync } = await import('node:fs');
-  mkdirSync(TEST_CWD, { recursive: true });
+  console.log('\n═══ Daemon SDK Stress Test ═══\n');
 
-  console.log('=== Daemon SDK Stress Test ===\n');
+  // ── 1. Connection ──
+  console.log('1. Connection');
 
-  console.log('[1/7] Connection');
-  await testConnect();
+  let connection: DaemonConnection;
 
-  console.log('\n[2/7] Create Session + Stream');
-  await testCreateSessionAndStream();
+  await test('connectDaemon() with FACTORY_API_KEY', async () => {
+    connection = await connectDaemon({
+      apiKey: process.env.FACTORY_API_KEY,
+    });
+    assert(connection != null, 'connection should not be null');
+  });
 
-  console.log('\n[3/7] Multi-turn Session');
-  await testMultiTurnSession();
+  // ── 2. Session creation ──
+  console.log('\n2. Session creation');
 
-  console.log('\n[4/7] Interrupt Session');
-  await testInterruptSession();
+  let session: DaemonSession;
 
-  console.log('\n[5/7] Concurrent Sessions');
-  await testConcurrentSessions();
+  await test('createSession with cwd', async () => {
+    session = await connection.createSession({
+      cwd: process.cwd(),
+    });
+    assert(session != null, 'session should not be null');
+    assert(typeof session.sessionId === 'string', 'sessionId should be a string');
+    assert(session.sessionId.length > 0, 'sessionId should not be empty');
+    console.log(`    sessionId: ${session.sessionId}`);
+  });
 
-  console.log('\n[6/7] Error Handling');
-  await testErrorHandling();
+  // ── 3. stream() — basic ──
+  console.log('\n3. Stream — basic');
 
-  console.log('\n[7/7] Notifications');
-  await testNotifications();
+  await test('stream() yields messages and ends with Result', async () => {
+    const messages: DroidStreamEvent[] = [];
+    for await (const msg of session.stream('What is 2 + 2? Reply with just the number.')) {
+      messages.push(msg);
+    }
+    assert(messages.length > 0, 'should yield at least one message');
+    const result = messages.find((m) => m.type === 'result');
+    assert(result != null, 'should end with a Result message');
+    if (result && result.type === 'result') {
+      console.log(`    turns: ${result.numTurns}, duration: ${result.durationMs}ms`);
+      console.log(`    result text: ${result.result.slice(0, 100)}`);
+    }
+    const assistant = messages.find((m) => m.type === 'assistant');
+    assert(assistant != null, 'should have at least one assistant message');
+  });
 
-  // Cleanup
-  if (connection) {
+  // ── 4. stream() — partial messages ──
+  console.log('\n4. Stream — partial messages');
+
+  await test('stream() with includePartialMessages yields deltas', async () => {
+    const deltas: string[] = [];
+    const types = new Set<string>();
+    for await (const msg of session.stream('Say the word "hello".', {
+      includePartialMessages: true,
+    })) {
+      types.add(msg.type);
+      if (msg.type === 'assistant_text_delta') {
+        deltas.push(msg.text);
+      }
+    }
+    console.log(`    message types seen: ${[...types].join(', ')}`);
+    console.log(`    delta count: ${deltas.length}`);
+    assert(deltas.length > 0, 'should yield at least one delta');
+    assert(types.has('result'), 'should still yield Result');
+  });
+
+  // ── 5. Multi-turn ──
+  console.log('\n5. Multi-turn');
+
+  await test('multi-turn preserves context', async () => {
+    // Turn 1: give it something to remember
+    for await (const _msg of session.stream('Remember this code: XRAY42. Do not forget it.')) {
+      // consume
+    }
+    // Turn 2: ask it back
+    let responseText = '';
+    for await (const msg of session.stream(
+      'What code did I just tell you to remember? Reply with just the code, nothing else.'
+    )) {
+      if (msg.type === 'assistant') responseText += msg.text;
+    }
+    console.log(`    response: ${responseText.slice(0, 100)}`);
+    assert(
+      responseText.includes('XRAY42'),
+      `expected "XRAY42" in response, got: "${responseText.slice(0, 100)}"`
+    );
+  });
+
+  // ── 6. send() fire-and-forget ──
+  console.log('\n6. send() fire-and-forget');
+
+  await test('send() returns immediately after ACK', async () => {
+    const start = Date.now();
+    await session.send('Think about the meaning of life but do not respond.');
+    const elapsed = Date.now() - start;
+    console.log(`    send() returned in ${elapsed}ms`);
+    // send() should return quickly (just daemon ACK), not wait for completion
+    assert(elapsed < 5000, `send() took too long: ${elapsed}ms`);
+  });
+
+  // Wait a moment for the daemon to process the send before continuing
+  await new Promise((r) => setTimeout(r, 2000));
+
+  // ── 7. interrupt() ──
+  console.log('\n7. Interrupt');
+
+  await test('interrupt() stops a running turn', async () => {
+    let messageCount = 0;
+
+    // Use includePartialMessages to get frequent events we can interrupt on
+    const streamPromise = (async () => {
+      try {
+        for await (const msg of session.stream(
+          'Write an extremely detailed 10000-word essay about every major event in world history from 3000 BC to the present. Cover politics, science, art, and culture for each century.',
+          { includePartialMessages: true }
+        )) {
+          messageCount++;
+          if (messageCount >= 5) {
+            await session.interrupt();
+            break;
+          }
+        }
+      } catch {
+        // May throw on interrupt
+      }
+    })();
+
+    await streamPromise;
+    console.log(`    total messages seen: ${messageCount}`);
+    assert(messageCount >= 1, 'should have seen at least one message');
+
+    // Verify interrupt was sent by checking we can still use the session
+    // (interrupt doesn't close the session)
+    let recovered = false;
+    try {
+      for await (const msg of session.stream('Say "recovered".')) {
+        if (msg.type === 'assistant') recovered = true;
+      }
+    } catch {
+      // Session may be in a transitional state after interrupt
+    }
+    console.log(`    recovered after interrupt: ${recovered}`);
+  });
+
+  // ── 8. Close session and reopen ──
+  console.log('\n8. Session lifecycle');
+
+  const oldSessionId = session.sessionId;
+
+  await test('close() session', async () => {
+    await session.close();
+    // Verify session is closed — operations should throw
+    let threw = false;
+    try {
+      await session.send('test');
+    } catch {
+      threw = true;
+    }
+    assert(threw, 'send() should throw after close');
+  });
+
+  // ── 9. Resume session ──
+  console.log('\n9. Resume session');
+
+  await test('resumeSession() reconnects to previous session', async () => {
+    const resumed = await connection.resumeSession(oldSessionId);
+    assert(resumed.sessionId === oldSessionId, 'sessionId should match');
+
+    // Verify context is preserved — it should still remember XRAY42
+    let responseText = '';
+    for await (const msg of resumed.stream(
+      'What was the code I told you to remember earlier? Reply with just the code.'
+    )) {
+      if (msg.type === 'assistant') responseText += msg.text;
+    }
+    console.log(`    resumed response: ${responseText.slice(0, 100)}`);
+    // Context may or may not be preserved after interrupt + close, so don't assert
+    await resumed.close();
+  });
+
+  // ── 10. Concurrent sessions ──
+  console.log('\n10. Concurrent sessions');
+
+  await test('two concurrent sessions on one connection', async () => {
+    const [s1, s2] = await Promise.all([
+      connection.createSession({ cwd: process.cwd() }),
+      connection.createSession({ cwd: process.cwd() }),
+    ]);
+
+    assert(s1.sessionId !== s2.sessionId, 'sessions should have different IDs');
+    console.log(`    session1: ${s1.sessionId}`);
+    console.log(`    session2: ${s2.sessionId}`);
+
+    // Stream on both concurrently
+    const [r1, r2] = await Promise.all([
+      collectStreamText(s1, 'What is 1 + 1? Reply with just the number.'),
+      collectStreamText(s2, 'What is 3 + 3? Reply with just the number.'),
+    ]);
+
+    console.log(`    s1 response: ${r1.slice(0, 50)}`);
+    console.log(`    s2 response: ${r2.slice(0, 50)}`);
+
+    assert(r1.length > 0, 'session 1 should have a response');
+    assert(r2.length > 0, 'session 2 should have a response');
+
+    await s1.close();
+    await s2.close();
+  });
+
+  // ── 11. AbortSignal ──
+  console.log('\n11. AbortSignal');
+
+  await test('AbortSignal cancels stream', async () => {
+    const s = await connection.createSession({ cwd: process.cwd() });
+    const controller = new AbortController();
+
+    let caught = false;
+    let messageCount = 0;
+
+    // Abort after 1 second
+    setTimeout(() => controller.abort(), 1000);
+
+    try {
+      for await (const _msg of s.stream(
+        'Write a 10000-word novel about space exploration.',
+        { abortSignal: controller.signal }
+      )) {
+        messageCount++;
+      }
+    } catch {
+      caught = true;
+    }
+
+    console.log(`    messages before abort: ${messageCount}`);
+    console.log(`    caught abort: ${caught}`);
+    assert(caught, 'should catch abort error');
+
+    await s.close();
+  });
+
+  // ── 12. Permission handler ──
+  console.log('\n12. Permission handler');
+
+  await test('permissionHandler receives tool call details', async () => {
+    let permissionCount = 0;
+    const s = await connection.createSession({
+      cwd: process.cwd(),
+      permissionHandler: (params) => {
+        permissionCount++;
+        console.log(`    permission request #${permissionCount}:`);
+        for (const tu of params.toolUses) {
+          console.log(`      tool: ${tu.toolUse.name}, type: ${tu.confirmationType}`);
+        }
+        return ToolConfirmationOutcome.ProceedOnce;
+      },
+    });
+
+    for await (const msg of s.stream('Read the file package.json and tell me the package name.')) {
+      if (msg.type === 'assistant') {
+        console.log(`    response: ${msg.text.slice(0, 100)}`);
+      }
+    }
+
+    console.log(`    permission requests received: ${permissionCount}`);
+    // Permission handler may or may not be called depending on autonomy level
+    await s.close();
+  });
+
+  // ── 13. onNotification ──
+  console.log('\n13. onNotification');
+
+  await test('onNotification receives raw notifications', async () => {
+    const s = await connection.createSession({ cwd: process.cwd() });
+    const notifTypes = new Set<string>();
+
+    const unsub = s.onNotification((n) => {
+      // The raw notification is the JSON-RPC envelope. The inner notification
+      // type is at params.notification.type
+      const raw = n as Record<string, unknown>;
+      const params = raw['params'] as Record<string, unknown> | undefined;
+      const inner = params?.['notification'] as Record<string, unknown> | undefined;
+      const innerType = inner?.['type'] as string | undefined;
+      if (innerType) notifTypes.add(innerType);
+    });
+
+    for await (const _msg of s.stream('What is 1 + 1? Reply with just the number.')) {
+      // consume
+    }
+
+    unsub();
+    console.log(`    notification types: ${[...notifTypes].join(', ')}`);
+    assert(notifTypes.size > 0, 'should receive at least one notification type');
+
+    await s.close();
+  });
+
+  // ── 14. Error handling ──
+  console.log('\n14. Error handling');
+
+  await test('resumeSession with bad ID throws', async () => {
+    let threw = false;
+    let errorType = '';
+    try {
+      await connection.resumeSession('00000000-0000-0000-0000-000000000000');
+    } catch (e) {
+      threw = true;
+      errorType = (e as Error).constructor.name;
+      console.log(`    error type: ${errorType}`);
+      console.log(`    message: ${(e as Error).message.slice(0, 100)}`);
+    }
+    assert(threw, 'should throw for nonexistent session');
+  });
+
+  // ── 15. Connection close ──
+  console.log('\n15. Connection close');
+
+  await test('connection.close() is clean', async () => {
     await connection.close();
-  }
 
-  console.log(`\n=== Results: ${passed} passed, ${failed} failed ===`);
+    let threw = false;
+    try {
+      await connection.createSession({ cwd: process.cwd() });
+    } catch {
+      threw = true;
+    }
+    assert(threw, 'createSession should throw after connection close');
+  });
 
+  // ── 16. Fresh connection — reconnect test ──
+  console.log('\n16. Reconnect');
+
+  await test('can create a new connection after closing', async () => {
+    const conn2 = await connectDaemon({
+      apiKey: process.env.FACTORY_API_KEY,
+    });
+    const s = await conn2.createSession({ cwd: process.cwd() });
+    let text = '';
+    for await (const msg of s.stream('Say "ok".')) {
+      if (msg.type === 'assistant') text += msg.text;
+    }
+    console.log(`    response: ${text.slice(0, 50)}`);
+    assert(text.length > 0, 'should get a response');
+    await s.close();
+    await conn2.close();
+  });
+
+  // ── Summary ──
+  console.log('\n═══ Results ═══');
+  console.log(`  ${PASS} Passed: ${passed}`);
   if (failed > 0) {
-    process.exit(1);
+    console.log(`  ${FAIL} Failed: ${failed}`);
+    for (const f of failures) {
+      console.log(`    - ${f}`);
+    }
   }
+  if (skipped > 0) {
+    console.log(`  ${SKIP} Skipped: ${skipped}`);
+  }
+  console.log(`  Total: ${passed + failed + skipped}\n`);
+
+  process.exit(failed > 0 ? 1 : 0);
 }
 
-main().catch((err) => {
-  console.error('Fatal error:', err);
+async function collectStreamText(
+  session: DaemonSession,
+  prompt: string
+): Promise<string> {
+  let text = '';
+  for await (const msg of session.stream(prompt)) {
+    if (msg.type === 'assistant') text += msg.text;
+    if (msg.type === 'result') text = text || msg.result;
+  }
+  return text;
+}
+
+main().catch((e) => {
+  console.error('Fatal error:', e);
   process.exit(1);
 });

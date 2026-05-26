@@ -80,7 +80,14 @@ export class DaemonClient {
     });
 
     this._engine.onNotification((notification) => {
-      dispatchNotification(notification, [...this._notificationListeners]);
+      // Remap daemon.session_notification → droid.session_notification so
+      // MessageBridge/StreamStateTracker (which validate against the exec-mode
+      // SessionNotificationSchema) can parse the inner notification payload.
+      const normalized =
+        notification['method'] === 'daemon.session_notification'
+          ? { ...notification, method: 'droid.session_notification' }
+          : notification;
+      dispatchNotification(normalized, [...this._notificationListeners]);
     });
 
     this._engine.setPermissionHandler((params) =>
