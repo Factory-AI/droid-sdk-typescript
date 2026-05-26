@@ -3,6 +3,10 @@ import { describe, expect, it } from 'vitest';
 import * as sdk from '../../src/index.js';
 
 describe('daemon public API exports', () => {
+  it('exports DaemonClient class', () => {
+    expect(typeof sdk.DaemonClient).toBe('function');
+  });
+
   it('exports connectDaemon function', () => {
     expect(typeof sdk.connectDaemon).toBe('function');
   });

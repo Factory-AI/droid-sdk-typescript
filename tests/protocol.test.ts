@@ -870,67 +870,24 @@ describe('ProtocolEngine', () => {
     });
   });
 
-  describe('methodPrefix remapping', () => {
-    let daemonTransport: InMemoryTransport;
-    let daemonEngine: ProtocolEngine;
-
-    beforeEach(async () => {
-      daemonTransport = new InMemoryTransport();
-      await daemonTransport.connect();
-      daemonEngine = new ProtocolEngine({
-        transport: daemonTransport,
-        methodPrefix: 'daemon',
-      });
-    });
-
-    afterEach(async () => {
-      await daemonEngine.close();
-    });
-
-    it('remaps droid.* to daemon.* on outgoing requests', async () => {
-      const promise = daemonEngine.sendRequest(
-        'droid.initialize_session',
-        { cwd: '.' }
-      );
-
-      const sent = daemonTransport.sentMessages[0] as Record<string, unknown>;
-      expect(sent['method']).toBe('daemon.initialize_session');
-
-      const id = sent['id'] as string;
-      daemonTransport.injectMessage(makeSuccessResponse(id, { sessionId: 'x' }));
-      await promise;
-    });
-
-    it('remaps daemon.* to droid.* on incoming notifications', async () => {
-      const received: Record<string, unknown>[] = [];
-      daemonEngine.onNotification((n) => received.push(n));
-
-      daemonTransport.injectMessage({
-        jsonrpc: JSONRPC_VERSION,
-        factoryApiVersion: LEGACY_FACTORY_API_VERSION,
-        factoryProtocolVersion: FACTORY_PROTOCOL_VERSION,
-        type: 'notification',
-        method: 'daemon.session_notification',
-        params: {
-          sessionId: 'test-session',
-          notification: {
-            type: 'droid_working_state_changed',
-            newState: 'idle',
-          },
+  describe('serverRequestMethodMap', () => {
+    it('dispatches permission requests using custom method map', async () => {
+      const customTransport = new InMemoryTransport();
+      await customTransport.connect();
+      const customEngine = new ProtocolEngine({
+        transport: customTransport,
+        serverRequestMethodMap: {
+          'daemon.request_permission': 'permission',
+          'daemon.ask_user': 'askUser',
         },
       });
 
-      expect(received).toHaveLength(1);
-      expect(received[0]!['method']).toBe('droid.session_notification');
-    });
-
-    it('remaps daemon.* to droid.* on incoming server requests', async () => {
       const handler = vi.fn().mockReturnValue({
         selectedOption: ToolConfirmationOutcome.ProceedOnce,
       });
-      daemonEngine.setPermissionHandler(handler);
+      customEngine.setPermissionHandler(handler);
 
-      daemonTransport.injectMessage({
+      customTransport.injectMessage({
         jsonrpc: JSONRPC_VERSION,
         factoryApiVersion: LEGACY_FACTORY_API_VERSION,
         factoryProtocolVersion: FACTORY_PROTOCOL_VERSION,
@@ -964,17 +921,104 @@ describe('ProtocolEngine', () => {
       await vi.waitFor(() => {
         expect(handler).toHaveBeenCalledOnce();
       });
+
+      await customEngine.close();
     });
 
-    it('does not remap methods without droid. prefix', async () => {
-      const promise = daemonEngine.sendRequest('custom.method', { x: 1 });
+    it('dispatches ask-user requests using custom method map', async () => {
+      const customTransport = new InMemoryTransport();
+      await customTransport.connect();
+      const customEngine = new ProtocolEngine({
+        transport: customTransport,
+        serverRequestMethodMap: {
+          'daemon.request_permission': 'permission',
+          'daemon.ask_user': 'askUser',
+        },
+      });
 
-      const sent = daemonTransport.sentMessages[0] as Record<string, unknown>;
-      expect(sent['method']).toBe('custom.method');
+      const handler = vi.fn().mockReturnValue({
+        cancelled: false,
+        answers: [{ index: 0, question: 'Pick one', answer: 'A' }],
+      });
+      customEngine.setAskUserHandler(handler);
+
+      customTransport.injectMessage({
+        jsonrpc: JSONRPC_VERSION,
+        factoryApiVersion: LEGACY_FACTORY_API_VERSION,
+        factoryProtocolVersion: FACTORY_PROTOCOL_VERSION,
+        type: 'request',
+        id: 'ask-1',
+        method: 'daemon.ask_user',
+        params: {
+          toolCallId: 'tc1',
+          questions: [
+            { index: 0, topic: 'Test', question: 'Pick one', options: ['A', 'B'] },
+          ],
+        },
+      });
+
+      await vi.waitFor(() => {
+        expect(handler).toHaveBeenCalledOnce();
+      });
+
+      await customEngine.close();
+    });
+
+    it('sends method as-is on the wire (no remapping)', async () => {
+      const customTransport = new InMemoryTransport();
+      await customTransport.connect();
+      const customEngine = new ProtocolEngine({
+        transport: customTransport,
+        serverRequestMethodMap: {
+          'daemon.request_permission': 'permission',
+          'daemon.ask_user': 'askUser',
+        },
+      });
+
+      const promise = customEngine.sendRequest(
+        'daemon.initialize_session',
+        { cwd: '.' }
+      );
+
+      const sent = customTransport.sentMessages[0] as Record<string, unknown>;
+      expect(sent['method']).toBe('daemon.initialize_session');
 
       const id = sent['id'] as string;
-      daemonTransport.injectMessage(makeSuccessResponse(id, {}));
+      customTransport.injectMessage(makeSuccessResponse(id, { sessionId: 'x' }));
       await promise;
+
+      await customEngine.close();
+    });
+
+    it('ignores server requests with unmapped methods', async () => {
+      const customTransport = new InMemoryTransport();
+      await customTransport.connect();
+      const customEngine = new ProtocolEngine({
+        transport: customTransport,
+        serverRequestMethodMap: {},
+      });
+
+      const permHandler = vi.fn();
+      const askHandler = vi.fn();
+      customEngine.setPermissionHandler(permHandler);
+      customEngine.setAskUserHandler(askHandler);
+
+      customTransport.injectMessage({
+        jsonrpc: JSONRPC_VERSION,
+        factoryApiVersion: LEGACY_FACTORY_API_VERSION,
+        factoryProtocolVersion: FACTORY_PROTOCOL_VERSION,
+        type: 'request',
+        id: 'perm-1',
+        method: 'droid.request_permission',
+        params: {},
+      });
+
+      // Give time for any async dispatch
+      await new Promise((r) => setTimeout(r, 50));
+      expect(permHandler).not.toHaveBeenCalled();
+      expect(askHandler).not.toHaveBeenCalled();
+
+      await customEngine.close();
     });
   });
 });

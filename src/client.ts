@@ -113,19 +113,10 @@ export interface DroidClientOptions {
 
   /** Default request timeout in ms. Defaults to 30 000. */
   defaultTimeout?: number;
-
-  /**
-   * Override the default `droid.` method prefix on the wire.
-   * Set to `'daemon'` for daemon connections so that `droid.initialize_session`
-   * is sent as `daemon.initialize_session`, and incoming `daemon.*` messages
-   * are remapped back to `droid.*` for internal dispatch.
-   */
-  methodPrefix?: string;
 }
 
 export class DroidClient {
   private readonly _engine: ProtocolEngine;
-  private readonly _methodPrefix: string | undefined;
   private _sessionId: string | null = null;
   private _closed = false;
 
@@ -138,11 +129,9 @@ export class DroidClient {
   private _askUserHandler: ClientAskUserHandler | null = null;
 
   constructor(options: DroidClientOptions) {
-    this._methodPrefix = options.methodPrefix;
     this._engine = new ProtocolEngine({
       transport: options.transport,
       defaultTimeout: options.defaultTimeout,
-      methodPrefix: options.methodPrefix,
     });
 
     this._engine.onNotification((notification) => {
@@ -175,11 +164,7 @@ export class DroidClient {
   ): Promise<z.output<T>> {
     this._ensureNotClosed();
     this._ensureSession();
-    // In daemon mode, inject sessionId into every session-scoped request
-    const effectiveParams = this._methodPrefix
-      ? { sessionId: this._sessionId, ...params }
-      : params;
-    return this._rpc(method, effectiveParams, schema, timeout);
+    return this._rpc(method, params, schema, timeout);
   }
 
   private async _sessionRpcWithoutParams<T extends z.ZodTypeAny>(

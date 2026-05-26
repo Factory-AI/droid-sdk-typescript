@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
-import { DroidClient } from '../../src/client.js';
+import { DaemonClient } from '../../src/daemon/client.js';
 import { DaemonSession } from '../../src/daemon/session.js';
 import { ConnectionError } from '../../src/errors.js';
 import {
@@ -12,7 +12,7 @@ import {
 
 async function initializeClient(
   transport: InMemoryTransport,
-  client: DroidClient,
+  client: DaemonClient,
   sessionId: string
 ): Promise<void> {
   const initPromise = client.initializeSession({
@@ -33,29 +33,29 @@ async function initializeClient(
 
 describe('DaemonSession', () => {
   let transport: InMemoryTransport;
-  let client: DroidClient;
+  let client: DaemonClient;
   let session: DaemonSession;
   const SESSION_ID = 'test-session-id';
 
   beforeEach(async () => {
     transport = new InMemoryTransport();
     await transport.connect();
-    client = new DroidClient({ transport });
+    client = new DaemonClient({ transport, token: 'test-token' });
     await initializeClient(transport, client, SESSION_ID);
 
     // Auto-respond to protocol requests to prevent timeout
     wireTransportSend(transport, ({ method, id }) => {
-      if (method === 'droid.close_session') {
+      if (method === 'daemon.close_session') {
         queueMicrotask(() => {
           transport.injectMessage(makeSuccessResponse(id, {}));
         });
-      } else if (method === 'droid.add_user_message') {
+      } else if (method === 'daemon.add_user_message') {
         queueMicrotask(() => {
           transport.injectMessage(
             makeSuccessResponse(id, { messageId: `msg-${id}` })
           );
         });
-      } else if (method === 'droid.interrupt_session') {
+      } else if (method === 'daemon.interrupt_session') {
         queueMicrotask(() => {
           transport.injectMessage(makeSuccessResponse(id, { accepted: true }));
         });
@@ -85,7 +85,7 @@ describe('DaemonSession', () => {
 
       // Verify the addUserMessage request was sent
       const sent = transport.sentMessages.find(
-        (m) => m['method'] === 'droid.add_user_message'
+        (m) => m['method'] === 'daemon.add_user_message'
       )!;
       expect(sent).toBeDefined();
       expect((sent['params'] as Record<string, unknown>)['text']).toBe(
@@ -101,7 +101,7 @@ describe('DaemonSession', () => {
       });
 
       const sent = transport.sentMessages.find(
-        (m) => m['method'] === 'droid.add_user_message'
+        (m) => m['method'] === 'daemon.add_user_message'
       )!;
       const params = sent['params'] as Record<string, unknown>;
       expect(params['images']).toEqual([
@@ -158,7 +158,7 @@ describe('DaemonSession', () => {
       await session.interrupt();
 
       const interruptSent = transport.sentMessages.find(
-        (m) => m['method'] === 'droid.interrupt_session'
+        (m) => m['method'] === 'daemon.interrupt_session'
       )!;
       expect(interruptSent).toBeDefined();
     });

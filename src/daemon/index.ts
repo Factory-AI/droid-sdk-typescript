@@ -1,3 +1,5 @@
+export { DaemonClient } from './client.js';
+export type { DaemonClientOptions } from './client.js';
 export {
   connectDaemon,
   DaemonConnection,

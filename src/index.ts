@@ -106,12 +106,14 @@ export { listSessions } from './session-discovery.js';
 
 // Daemon mode
 export {
+  DaemonClient,
   connectDaemon,
   DaemonConnection,
   resolveWebSocketUrl,
   ensureLocalDaemon,
   resolveLocalAuthToken,
 } from './daemon/index.js';
+export type { DaemonClientOptions } from './daemon/index.js';
 export { DaemonSession } from './daemon/index.js';
 export { WebSocketTransport } from './daemon/index.js';
 export { MachineType } from './daemon/index.js';

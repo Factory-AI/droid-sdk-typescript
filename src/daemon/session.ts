@@ -1,19 +1,19 @@
-import type { DroidClient } from '../client.js';
 import { ConnectionError } from '../errors.js';
 import { MessageBridge, wireAbortSignal } from '../helpers.js';
 import type { NotificationCallback, NotificationFilter } from '../protocol.js';
 import type { MessageOptions } from '../session.js';
 import type { DroidStreamEvent, DroidStreamMessage } from '../stream.js';
+import type { DaemonClient } from './client.js';
 import type { SendOptions } from './types.js';
 
 export class DaemonSession {
-  private _client: DroidClient;
+  private _client: DaemonClient;
   private _sessionId: string;
   private _closed = false;
   private readonly _activeBridges = new Set<MessageBridge>();
 
   /** @internal */
-  constructor(client: DroidClient, sessionId: string) {
+  constructor(client: DaemonClient, sessionId: string) {
     this._client = client;
     this._sessionId = sessionId;
   }

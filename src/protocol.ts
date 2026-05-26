@@ -94,10 +94,22 @@ export function dispatchNotification(
   }
 }
 
+/** Default method map for exec-mode (droid.*) server-to-client requests. */
+const DEFAULT_SERVER_REQUEST_METHOD_MAP: Record<
+  string,
+  'permission' | 'askUser'
+> = {
+  [DroidClientMethod.REQUEST_PERMISSION]: 'permission',
+  [DroidClientMethod.ASK_USER]: 'askUser',
+};
+
 export class ProtocolEngine {
   private readonly _transport: DroidClientTransport;
   private readonly _defaultTimeout: number;
-  private readonly _methodPrefix: string | null;
+  private readonly _serverRequestMethodMap: Record<
+    string,
+    'permission' | 'askUser'
+  >;
 
   private readonly _pendingRequests = new Map<string, PendingRequest>();
   private readonly _notificationListeners = new Set<NotificationListener>();
@@ -110,16 +122,16 @@ export class ProtocolEngine {
     transport: DroidClientTransport;
     defaultTimeout?: number;
     /**
-     * Replace the default `droid.` method prefix on the wire.
-     * When set to e.g. `'daemon'`, outgoing `droid.initialize_session`
-     * becomes `daemon.initialize_session`, and incoming `daemon.*`
-     * methods are translated back to `droid.*` before internal dispatch.
+     * Maps incoming server-to-client request method strings to handler types.
+     * Defaults to `{ 'droid.request_permission': 'permission', 'droid.ask_user': 'askUser' }`.
+     * Override for daemon mode: `{ 'daemon.request_permission': 'permission', ... }`.
      */
-    methodPrefix?: string;
+    serverRequestMethodMap?: Record<string, 'permission' | 'askUser'>;
   }) {
     this._transport = options.transport;
     this._defaultTimeout = options.defaultTimeout ?? DEFAULT_REQUEST_TIMEOUT;
-    this._methodPrefix = options.methodPrefix ?? null;
+    this._serverRequestMethodMap =
+      options.serverRequestMethodMap ?? DEFAULT_SERVER_REQUEST_METHOD_MAP;
 
     this._transport.onMessage((message: Record<string, unknown>) => {
       this._handleMessage(message);
@@ -147,15 +159,13 @@ export class ProtocolEngine {
     const effectiveTimeout = timeout ?? this._defaultTimeout;
     const requestId = uuidv4();
 
-    const wireMethod = this._toWireMethod(method);
-
     const envelope = {
       jsonrpc: JSONRPC_VERSION,
       factoryApiVersion: LEGACY_FACTORY_API_VERSION,
       factoryProtocolVersion: FACTORY_PROTOCOL_VERSION,
       type: JsonRpcMessageType.Request,
       id: requestId,
-      method: wireMethod,
+      method,
       params,
     };
 
@@ -259,10 +269,7 @@ export class ProtocolEngine {
   }
 
   private _handleMessage(raw: Record<string, unknown>): void {
-    // Remap incoming method before Zod parsing so schemas with
-    // z.literal('droid.*') still match daemon.* wire methods.
-    const remapped = this._remapIncomingMethod(raw);
-    const parsed = JsonRpcMessageSchema.safeParse(remapped);
+    const parsed = JsonRpcMessageSchema.safeParse(raw);
 
     if (!parsed.success) {
       // Malformed message — silently ignore
@@ -328,9 +335,10 @@ export class ProtocolEngine {
     requestId: string,
     params: unknown
   ): Promise<void> {
-    if (method === DroidClientMethod.REQUEST_PERMISSION) {
+    const handlerType = this._serverRequestMethodMap[method];
+    if (handlerType === 'permission') {
       await this._handlePermissionRequest(requestId, params);
-    } else if (method === DroidClientMethod.ASK_USER) {
+    } else if (handlerType === 'askUser') {
       await this._handleAskUserRequest(requestId, params);
     }
   }
@@ -474,34 +482,4 @@ export class ProtocolEngine {
     }
   }
 
-  /**
-   * Remap an outgoing method from `droid.*` to the configured wire prefix.
-   * e.g. `droid.initialize_session` -> `daemon.initialize_session`
-   */
-  private _toWireMethod(method: string): string {
-    if (!this._methodPrefix) return method;
-    if (method.startsWith('droid.')) {
-      return `${this._methodPrefix}.${method.slice('droid.'.length)}`;
-    }
-    return method;
-  }
-
-  /**
-   * Remap incoming message method from the wire prefix back to `droid.*`
-   * so Zod schemas with `z.literal('droid.*')` can parse correctly.
-   */
-  private _remapIncomingMethod(
-    raw: Record<string, unknown>
-  ): Record<string, unknown> {
-    if (!this._methodPrefix) return raw;
-
-    const prefix = `${this._methodPrefix}.`;
-    if (typeof raw['method'] === 'string' && raw['method'].startsWith(prefix)) {
-      return {
-        ...raw,
-        method: `droid.${raw['method'].slice(prefix.length)}`,
-      };
-    }
-    return raw;
-  }
 }

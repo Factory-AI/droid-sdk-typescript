@@ -1,8 +1,6 @@
-import { DroidClient } from '../client.js';
 import { ConnectionError } from '../errors.js';
-import { buildInitParams, setupClientHandlers } from '../helpers.js';
+import { buildInitParams } from '../helpers.js';
 import { startSdkMcpServers } from '../mcp.js';
-import type { LoadSessionRequestParams } from '../schemas/client.js';
 import {
   FACTORY_PROTOCOL_VERSION,
   JSONRPC_VERSION,
@@ -15,6 +13,7 @@ import type {
   MessageCallback,
 } from '../types.js';
 import { isRecord } from '../utils.js';
+import { DaemonClient } from './client.js';
 import { ensureLocalDaemon, resolveLocalAuthToken } from './local.js';
 import { DaemonSession } from './session.js';
 import { WebSocketTransport } from './transport.js';
@@ -349,11 +348,16 @@ export class DaemonConnection {
     this._ensureNotClosed();
 
     const view = this._multiplexer.createView();
-    const client = new DroidClient({ transport: view, methodPrefix: 'daemon' });
-    setupClientHandlers(client, {
-      permissionHandler: options.permissionHandler,
-      askUserHandler: options.askUserHandler,
+    const client = new DaemonClient({
+      transport: view,
+      token: this._authToken,
     });
+    if (options.permissionHandler) {
+      client.setPermissionHandler(options.permissionHandler);
+    }
+    if (options.askUserHandler) {
+      client.setAskUserHandler(options.askUserHandler);
+    }
 
     let sdkMcpServers:
       | Awaited<ReturnType<typeof startSdkMcpServers>>
@@ -365,11 +369,6 @@ export class DaemonConnection {
         ...options,
         mcpServers: sdkMcpServers.mcpServers,
       });
-
-      // Daemon requires `token` in init params for session auth.
-      // Spread token into initParams — the wire protocol accepts it even
-      // though the exec-mode TypeScript type doesn't define it.
-      Object.assign(initParams, { token: this._authToken });
 
       const initResult = await client.initializeSession(initParams);
       const session = new DaemonSession(client, initResult.sessionId);
@@ -388,11 +387,16 @@ export class DaemonConnection {
     this._ensureNotClosed();
 
     const view = this._multiplexer.createView();
-    const client = new DroidClient({ transport: view, methodPrefix: 'daemon' });
-    setupClientHandlers(client, {
-      permissionHandler: options.permissionHandler,
-      askUserHandler: options.askUserHandler,
+    const client = new DaemonClient({
+      transport: view,
+      token: this._authToken,
     });
+    if (options.permissionHandler) {
+      client.setPermissionHandler(options.permissionHandler);
+    }
+    if (options.askUserHandler) {
+      client.setAskUserHandler(options.askUserHandler);
+    }
 
     let sdkMcpServers:
       | Awaited<ReturnType<typeof startSdkMcpServers>>
@@ -400,13 +404,10 @@ export class DaemonConnection {
 
     try {
       sdkMcpServers = await startSdkMcpServers(options.mcpServers);
-      // Daemon requires `token` in load params for session auth
-      const loadParams: LoadSessionRequestParams = {
+      await client.loadSession({
         sessionId,
         mcpServers: sdkMcpServers.mcpServers,
-      };
-      Object.assign(loadParams, { token: this._authToken });
-      await client.loadSession(loadParams);
+      });
       const session = new DaemonSession(client, sessionId);
       return session;
     } catch (error) {
@@ -420,11 +421,12 @@ export class DaemonConnection {
     this._ensureNotClosed();
 
     const view = this._multiplexer.createView();
-    const client = new DroidClient({ transport: view, methodPrefix: 'daemon' });
+    const client = new DaemonClient({
+      transport: view,
+      token: this._authToken,
+    });
     try {
-      const loadParams: LoadSessionRequestParams = { sessionId };
-      Object.assign(loadParams, { token: this._authToken });
-      await client.loadSession(loadParams);
+      await client.loadSession({ sessionId });
       await client.interruptSession();
     } finally {
       await client.close();
