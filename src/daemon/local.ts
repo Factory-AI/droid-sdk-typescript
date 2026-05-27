@@ -53,13 +53,19 @@ function getDefaultDaemonPort(): number {
 }
 
 function resolveExecPath(): string {
-  const override = process.env.FACTORY_DROID_BINARY;
-  if (override && override.trim().length > 0) {
-    try {
-      fs.accessSync(override, fs.constants.X_OK);
+  const override = process.env.FACTORY_DROID_BINARY?.trim();
+  if (override && override.length > 0) {
+    if (override.includes('/') || override.includes('\\')) {
+      // Absolute or relative path — validate it exists before using
+      try {
+        fs.accessSync(override, fs.constants.X_OK);
+        return override;
+      } catch {
+        // Fall through to default
+      }
+    } else {
+      // Bare command name — return as-is and let spawn() resolve via PATH
       return override;
-    } catch {
-      // Fall through to default
     }
   }
   return 'droid';
@@ -202,7 +208,7 @@ async function spawnDaemon(
   }
 
   const child = spawn(execPath, args, {
-    detached: false,
+    detached: true,
     stdio: ['ignore', 'ignore', stderrFd ?? 'ignore'],
     cwd: os.homedir(),
     env: { ...process.env },
@@ -217,6 +223,10 @@ async function spawnDaemon(
   }
 
   spawnedDaemonProcess = child;
+
+  // Allow the Node process to exit without waiting for the daemon.
+  // The daemon is a long-lived server that should outlive the SDK.
+  child.unref();
 
   child.once('exit', () => {
     clearSpawnedDaemonProcess(child);
