@@ -18,7 +18,8 @@ const session = await connection.createSession({ cwd: process.cwd() });
 
 for await (const msg of session.stream('What files are in this directory?')) {
   if (msg.type === DroidMessageType.Assistant) console.log(msg.text);
-  if (msg.type === DroidMessageType.Result) console.log(`Done in ${msg.durationMs}ms`);
+  if (msg.type === DroidMessageType.Result)
+    console.log(`Done in ${msg.durationMs}ms`);
 }
 
 await session.close();
@@ -29,12 +30,12 @@ await connection.close();
 
 ## Daemon vs Exec Mode
 
-| | Exec mode (`run`, `createSession`) | Daemon mode (`connectDaemon`) |
-|---|---|---|
-| Transport | Spawns `droid exec` subprocess (stdio) | WebSocket to `droid daemon` |
-| Sessions | One per subprocess | Multiple per connection |
-| Auth | Implicit (subprocess inherits env) | Explicit (`apiKey` or stored credentials) |
-| Use case | Simple scripts, CI | Server-side integrations, long-lived services |
+|           | Exec mode (`run`, `createSession`)     | Daemon mode (`connectDaemon`)                 |
+| --------- | -------------------------------------- | --------------------------------------------- |
+| Transport | Spawns `droid exec` subprocess (stdio) | WebSocket to `droid daemon`                   |
+| Sessions  | One per subprocess                     | Multiple per connection                       |
+| Auth      | Implicit (subprocess inherits env)     | Explicit (`apiKey` or stored credentials)     |
+| Use case  | Simple scripts, CI                     | Server-side integrations, long-lived services |
 
 Use daemon mode when you need multiple concurrent sessions, want to avoid subprocess overhead, or are building a server-side integration.
 
@@ -301,7 +302,10 @@ await connection.interruptSession('session-id-to-interrupt');
 Programmatically approve or reject tool calls.
 
 ```ts
-import { ToolConfirmationOutcome, ToolConfirmationType } from '@factory/droid-sdk';
+import {
+  ToolConfirmationOutcome,
+  ToolConfirmationType,
+} from '@factory/droid-sdk';
 
 const session = await connection.createSession({
   cwd: process.cwd(),
@@ -464,65 +468,65 @@ try {
 
 ### `ConnectDaemonOptions`
 
-| Field | Type | Description |
-|:------|:-----|:------------|
-| `machine` | `SDKMachineConfig` | Machine target. Defaults to local daemon. |
-| `url` | `string` | Direct WebSocket URL. Overrides machine resolution. |
-| `apiKey` | `string` | Factory API key for authentication. |
-| `token` | `string` | WorkOS JWT access token for authentication. |
-| `maxRetries` | `number` | Retry budget for connect+authenticate cycle. |
-| `daemonPort` | `number` | WebSocket port override. Default: `37643`. |
-| `relayBaseUrl` | `string` | Relay URL for computer connections. Default: `wss://relay.factory.ai`. |
+| Field          | Type               | Description                                                            |
+| :------------- | :----------------- | :--------------------------------------------------------------------- |
+| `machine`      | `SDKMachineConfig` | Machine target. Defaults to local daemon.                              |
+| `url`          | `string`           | Direct WebSocket URL. Overrides machine resolution.                    |
+| `apiKey`       | `string`           | Factory API key for authentication.                                    |
+| `token`        | `string`           | WorkOS JWT access token for authentication.                            |
+| `maxRetries`   | `number`           | Retry budget for connect+authenticate cycle.                           |
+| `daemonPort`   | `number`           | WebSocket port override. Default: `37643`.                             |
+| `relayBaseUrl` | `string`           | Relay URL for computer connections. Default: `wss://relay.factory.ai`. |
 
 ### `SDKMachineConfig`
 
-| Variant | Fields | Description |
-|:--------|:-------|:------------|
-| `Local` | `{ type: MachineType.Local }` | Local daemon on this machine. |
-| `Ephemeral` | `{ type, sandboxId, workspaceId }` | e2b sandbox. |
-| `Computer` | `{ type, computerId }` | Remote computer via relay. |
+| Variant     | Fields                             | Description                   |
+| :---------- | :--------------------------------- | :---------------------------- |
+| `Local`     | `{ type: MachineType.Local }`      | Local daemon on this machine. |
+| `Ephemeral` | `{ type, sandboxId, workspaceId }` | e2b sandbox.                  |
+| `Computer`  | `{ type, computerId }`             | Remote computer via relay.    |
 
 ### `DaemonSessionOptions`
 
-| Field | Type | Description |
-|:------|:-----|:------------|
-| `cwd` | `string` | Working directory for the session. |
-| `modelId` | `string` | LLM model identifier. |
-| `autonomyLevel` | `AutonomyLevel` | `Off` \| `Low` \| `Medium` \| `High`. |
-| `interactionMode` | `DroidInteractionMode` | `Auto` \| `Spec` \| `AGI`. |
-| `reasoningEffort` | `ReasoningEffort` | `Off` \| `Low` \| `Medium` \| `High` \| `Max`. |
-| `specModeModelId` | `string` | Override model for spec mode. |
-| `specModeReasoningEffort` | `ReasoningEffort` | Override reasoning effort for spec mode. |
-| `mcpServers` | `DroidMcpServerConfig[]` | MCP server configurations. |
-| `enabledToolIds` | `string[]` | Tool allowlist. |
-| `disabledToolIds` | `string[]` | Tool denylist. |
-| `tags` | `SessionTag[]` | Session tags for categorization. |
-| `permissionHandler` | `PermissionHandler` | Tool confirmation callback. |
-| `askUserHandler` | `AskUserHandler` | Structured user-input callback. |
-| `title` | `string` | Session title. |
-| `sessionSource` | `Record<string, unknown>` | Attribution metadata. |
+| Field                     | Type                      | Description                                    |
+| :------------------------ | :------------------------ | :--------------------------------------------- |
+| `cwd`                     | `string`                  | Working directory for the session.             |
+| `modelId`                 | `string`                  | LLM model identifier.                          |
+| `autonomyLevel`           | `AutonomyLevel`           | `Off` \| `Low` \| `Medium` \| `High`.          |
+| `interactionMode`         | `DroidInteractionMode`    | `Auto` \| `Spec` \| `AGI`.                     |
+| `reasoningEffort`         | `ReasoningEffort`         | `Off` \| `Low` \| `Medium` \| `High` \| `Max`. |
+| `specModeModelId`         | `string`                  | Override model for spec mode.                  |
+| `specModeReasoningEffort` | `ReasoningEffort`         | Override reasoning effort for spec mode.       |
+| `mcpServers`              | `DroidMcpServerConfig[]`  | MCP server configurations.                     |
+| `enabledToolIds`          | `string[]`                | Tool allowlist.                                |
+| `disabledToolIds`         | `string[]`                | Tool denylist.                                 |
+| `tags`                    | `SessionTag[]`            | Session tags for categorization.               |
+| `permissionHandler`       | `PermissionHandler`       | Tool confirmation callback.                    |
+| `askUserHandler`          | `AskUserHandler`          | Structured user-input callback.                |
+| `title`                   | `string`                  | Session title.                                 |
+| `sessionSource`           | `Record<string, unknown>` | Attribution metadata.                          |
 
 ### `DaemonResumeOptions`
 
-| Field | Type | Description |
-|:------|:-----|:------------|
-| `permissionHandler` | `PermissionHandler` | Tool confirmation callback. |
-| `askUserHandler` | `AskUserHandler` | Structured user-input callback. |
-| `mcpServers` | `DroidMcpServerConfig[]` | MCP servers to attach. |
+| Field               | Type                     | Description                     |
+| :------------------ | :----------------------- | :------------------------------ |
+| `permissionHandler` | `PermissionHandler`      | Tool confirmation callback.     |
+| `askUserHandler`    | `AskUserHandler`         | Structured user-input callback. |
+| `mcpServers`        | `DroidMcpServerConfig[]` | MCP servers to attach.          |
 
 ### `SendOptions`
 
-| Field | Type | Description |
-|:------|:-----|:------------|
-| `images` | `Base64ImageSource[]` | Base64-encoded image attachments. |
-| `files` | `DocumentSource[]` | Document/file attachments. |
-| `outputFormat` | `OutputFormat` | Structured output JSON schema request. |
+| Field          | Type                  | Description                            |
+| :------------- | :-------------------- | :------------------------------------- |
+| `images`       | `Base64ImageSource[]` | Base64-encoded image attachments.      |
+| `files`        | `DocumentSource[]`    | Document/file attachments.             |
+| `outputFormat` | `OutputFormat`        | Structured output JSON schema request. |
 
 ### Key Classes
 
-| Class | Description |
-|:------|:------------|
-| `DaemonConnection` | Manages the WebSocket connection. Creates/resumes sessions. |
-| `DaemonSession` | A single session. Provides `stream()`, `send()`, `interrupt()`, `close()`. |
-| `DaemonClient` | Low-level RPC client. Used internally by `DaemonSession`. |
-| `WebSocketTransport` | WebSocket transport with retry and reconnection. |
+| Class                | Description                                                                |
+| :------------------- | :------------------------------------------------------------------------- |
+| `DaemonConnection`   | Manages the WebSocket connection. Creates/resumes sessions.                |
+| `DaemonSession`      | A single session. Provides `stream()`, `send()`, `interrupt()`, `close()`. |
+| `DaemonClient`       | Low-level RPC client. Used internally by `DaemonSession`.                  |
+| `WebSocketTransport` | WebSocket transport with retry and reconnection.                           |

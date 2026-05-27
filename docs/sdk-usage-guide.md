@@ -331,7 +331,11 @@ await session.close();
 Create a copy of the current session with all context preserved. Useful for branching a conversation.
 
 ```ts
-import { createSession, DroidMessageType, resumeSession } from '@factory/droid-sdk';
+import {
+  createSession,
+  DroidMessageType,
+  resumeSession,
+} from '@factory/droid-sdk';
 
 const session = await createSession({ cwd: process.cwd() });
 for await (const msg of session.stream('Remember: the password is "banana".')) {

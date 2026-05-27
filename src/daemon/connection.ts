@@ -131,7 +131,10 @@ class SharedTransportMultiplexer {
     const view: DroidClientTransport = {
       send: (message: Record<string, unknown>) => {
         // Track request IDs for response routing
-        if (message['type'] === 'request' && typeof message['id'] === 'string') {
+        if (
+          message['type'] === 'request' &&
+          typeof message['id'] === 'string'
+        ) {
           viewState.pendingRequestIds.add(message['id']);
         }
         // Track sessionId from init/load responses
@@ -487,8 +490,7 @@ export async function connectDaemon(
   const transport = new WebSocketTransport(wsConfig);
 
   // Resolve the auth token string used for session-level auth params
-  const authToken =
-    resolvedOptions.apiKey ?? resolvedOptions.token ?? '';
+  const authToken = resolvedOptions.apiKey ?? resolvedOptions.token ?? '';
 
   try {
     // Connect with optional retry budget

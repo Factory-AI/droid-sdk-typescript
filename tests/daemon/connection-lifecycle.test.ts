@@ -33,7 +33,10 @@ function createTestConnection(transport: InMemoryTransport): DaemonConnection {
   return new (DaemonConnection as unknown as new (
     transport: unknown,
     authToken: string
-  ) => DaemonConnection)(transport as unknown as WebSocketTransport, 'test-token');
+  ) => DaemonConnection)(
+    transport as unknown as WebSocketTransport,
+    'test-token'
+  );
 }
 
 describe('DaemonConnection — lifecycle', () => {
@@ -145,7 +148,12 @@ describe('DaemonConnection — lifecycle', () => {
           sessionId: 'perm-session',
           toolUses: [
             {
-              toolUse: { type: 'tool_use', id: 'tu-1', name: 'Execute', input: {} },
+              toolUse: {
+                type: 'tool_use',
+                id: 'tu-1',
+                name: 'Execute',
+                input: {},
+              },
               confirmationType: 'exec',
               details: { type: 'exec', fullCommand: 'ls', command: 'ls' },
             },
@@ -216,9 +224,9 @@ describe('DaemonConnection — lifecycle', () => {
 
     it('throws when connection is closed', async () => {
       await connection.close();
-      await expect(
-        connection.createSession({ cwd: '/test' })
-      ).rejects.toThrow(ConnectionError);
+      await expect(connection.createSession({ cwd: '/test' })).rejects.toThrow(
+        ConnectionError
+      );
     });
 
     // Note: createSession error handling is tested via DaemonClient.initializeSession
@@ -232,9 +240,7 @@ describe('DaemonConnection — lifecycle', () => {
       wireTransportSend(transport, ({ method, id }) => {
         if (method === 'daemon.load_session') {
           queueMicrotask(() => {
-            transport.injectMessage(
-              makeSuccessResponse(id, loadResponse())
-            );
+            transport.injectMessage(makeSuccessResponse(id, loadResponse()));
           });
         }
         if (method === 'daemon.close_session') {
@@ -254,9 +260,7 @@ describe('DaemonConnection — lifecycle', () => {
       wireTransportSend(transport, ({ method, id }) => {
         if (method === 'daemon.load_session') {
           queueMicrotask(() => {
-            transport.injectMessage(
-              makeSuccessResponse(id, loadResponse())
-            );
+            transport.injectMessage(makeSuccessResponse(id, loadResponse()));
           });
         }
         if (method === 'daemon.close_session') {
@@ -282,9 +286,7 @@ describe('DaemonConnection — lifecycle', () => {
       wireTransportSend(transport, ({ method, id }) => {
         if (method === 'daemon.load_session') {
           queueMicrotask(() => {
-            transport.injectMessage(
-              makeSuccessResponse(id, loadResponse())
-            );
+            transport.injectMessage(makeSuccessResponse(id, loadResponse()));
           });
         }
         if (method === 'daemon.close_session') {
@@ -314,7 +316,12 @@ describe('DaemonConnection — lifecycle', () => {
           sessionId: 'resume-handlers',
           toolUses: [
             {
-              toolUse: { type: 'tool_use', id: 'tu-r', name: 'Execute', input: {} },
+              toolUse: {
+                type: 'tool_use',
+                id: 'tu-r',
+                name: 'Execute',
+                input: {},
+              },
               confirmationType: 'exec',
               details: { type: 'exec', fullCommand: 'rm -rf', command: 'rm' },
             },
@@ -331,9 +338,9 @@ describe('DaemonConnection — lifecycle', () => {
 
     it('throws when connection is closed', async () => {
       await connection.close();
-      await expect(
-        connection.resumeSession('some-id')
-      ).rejects.toThrow(ConnectionError);
+      await expect(connection.resumeSession('some-id')).rejects.toThrow(
+        ConnectionError
+      );
     });
 
     it('cleans up client on load failure', async () => {
@@ -349,9 +356,7 @@ describe('DaemonConnection — lifecycle', () => {
         }
       });
 
-      await expect(
-        connection.resumeSession('nonexistent')
-      ).rejects.toThrow();
+      await expect(connection.resumeSession('nonexistent')).rejects.toThrow();
     });
   });
 
@@ -360,9 +365,7 @@ describe('DaemonConnection — lifecycle', () => {
       wireTransportSend(transport, ({ method, id }) => {
         if (method === 'daemon.load_session') {
           queueMicrotask(() => {
-            transport.injectMessage(
-              makeSuccessResponse(id, loadResponse())
-            );
+            transport.injectMessage(makeSuccessResponse(id, loadResponse()));
           });
         }
         if (method === 'daemon.interrupt_session') {
@@ -389,9 +392,9 @@ describe('DaemonConnection — lifecycle', () => {
 
     it('throws when connection is closed', async () => {
       await connection.close();
-      await expect(
-        connection.interruptSession('some-id')
-      ).rejects.toThrow(ConnectionError);
+      await expect(connection.interruptSession('some-id')).rejects.toThrow(
+        ConnectionError
+      );
     });
   });
 
@@ -403,23 +406,23 @@ describe('DaemonConnection — lifecycle', () => {
 
     it('makes subsequent createSession throw', async () => {
       await connection.close();
-      await expect(
-        connection.createSession({ cwd: '/' })
-      ).rejects.toThrow(ConnectionError);
+      await expect(connection.createSession({ cwd: '/' })).rejects.toThrow(
+        ConnectionError
+      );
     });
 
     it('makes subsequent resumeSession throw', async () => {
       await connection.close();
-      await expect(
-        connection.resumeSession('id')
-      ).rejects.toThrow(ConnectionError);
+      await expect(connection.resumeSession('id')).rejects.toThrow(
+        ConnectionError
+      );
     });
 
     it('makes subsequent interruptSession throw', async () => {
       await connection.close();
-      await expect(
-        connection.interruptSession('id')
-      ).rejects.toThrow(ConnectionError);
+      await expect(connection.interruptSession('id')).rejects.toThrow(
+        ConnectionError
+      );
     });
   });
 
@@ -462,9 +465,7 @@ describe('DaemonConnection — lifecycle', () => {
           sessionNum++;
           const sid = `concurrent-${sessionNum}`;
           queueMicrotask(() => {
-            transport.injectMessage(
-              makeSuccessResponse(id, initResponse(sid))
-            );
+            transport.injectMessage(makeSuccessResponse(id, initResponse(sid)));
           });
         }
         if (method === 'daemon.close_session') {

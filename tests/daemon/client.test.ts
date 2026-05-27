@@ -144,9 +144,9 @@ describe('DaemonClient', () => {
 
     it('throws when client is closed', async () => {
       await client.close();
-      await expect(
-        client.loadSession({ sessionId: 'x' })
-      ).rejects.toThrow(ConnectionError);
+      await expect(client.loadSession({ sessionId: 'x' })).rejects.toThrow(
+        ConnectionError
+      );
     });
   });
 
@@ -172,7 +172,11 @@ describe('DaemonClient', () => {
       await initializeClient(transport, client);
 
       const images = [
-        { type: 'base64' as const, mediaType: 'image/png' as const, data: 'abc' },
+        {
+          type: 'base64' as const,
+          mediaType: 'image/png' as const,
+          data: 'abc',
+        },
       ];
       const addPromise = client.addUserMessage({
         text: 'Analyze',
@@ -196,17 +200,17 @@ describe('DaemonClient', () => {
     });
 
     it('throws SessionError when no active session', async () => {
-      await expect(
-        client.addUserMessage({ text: 'hello' })
-      ).rejects.toThrow(SessionError);
+      await expect(client.addUserMessage({ text: 'hello' })).rejects.toThrow(
+        SessionError
+      );
     });
 
     it('throws ConnectionError when client is closed', async () => {
       await initializeClient(transport, client);
       await client.close();
-      await expect(
-        client.addUserMessage({ text: 'hello' })
-      ).rejects.toThrow(ConnectionError);
+      await expect(client.addUserMessage({ text: 'hello' })).rejects.toThrow(
+        ConnectionError
+      );
     });
   });
 
@@ -218,9 +222,7 @@ describe('DaemonClient', () => {
       const sent = transport.sentMessages.find(
         (m) => m['method'] === 'daemon.interrupt_session'
       )!;
-      transport.injectMessage(
-        makeSuccessResponse(sent['id'] as string, {})
-      );
+      transport.injectMessage(makeSuccessResponse(sent['id'] as string, {}));
       await intPromise;
 
       const params = sent['params'] as Record<string, unknown>;
@@ -240,9 +242,7 @@ describe('DaemonClient', () => {
       const sent = transport.sentMessages.find(
         (m) => m['method'] === 'daemon.close_session'
       )!;
-      transport.injectMessage(
-        makeSuccessResponse(sent['id'] as string, {})
-      );
+      transport.injectMessage(makeSuccessResponse(sent['id'] as string, {}));
       await closePromise;
 
       const params = sent['params'] as Record<string, unknown>;
@@ -257,9 +257,7 @@ describe('DaemonClient', () => {
       const sent = transport.sentMessages.find(
         (m) => m['method'] === 'daemon.close_session'
       )!;
-      transport.injectMessage(
-        makeSuccessResponse(sent['id'] as string, {})
-      );
+      transport.injectMessage(makeSuccessResponse(sent['id'] as string, {}));
       await closePromise;
 
       const params = sent['params'] as Record<string, unknown>;
@@ -290,7 +288,10 @@ describe('DaemonClient', () => {
         type: 'notification',
         method: 'daemon.session_notification',
         params: {
-          notification: { type: 'droid_working_state_changed', newState: 'idle' },
+          notification: {
+            type: 'droid_working_state_changed',
+            newState: 'idle',
+          },
         },
       });
 
@@ -333,7 +334,10 @@ describe('DaemonClient', () => {
         type: 'notification',
         method: 'daemon.session_notification',
         params: {
-          notification: { type: 'droid_working_state_changed', newState: 'idle' },
+          notification: {
+            type: 'droid_working_state_changed',
+            newState: 'idle',
+          },
         },
       });
 
@@ -353,19 +357,28 @@ describe('DaemonClient', () => {
     it('returns Cancel when no handler set', async () => {
       await initializeClient(transport, client, 'perm-sess');
 
-      const permRequest = makeServerRequest('perm-1', 'daemon.request_permission', {
-        toolUses: [
-          {
-            toolUse: { type: 'tool_use', id: 'tu-1', name: 'Execute', input: {} },
-            confirmationType: 'exec',
-            details: { type: 'exec', fullCommand: 'ls', command: 'ls' },
-          },
-        ],
-        options: [
-          { label: 'Yes', value: 'proceed_once' },
-          { label: 'No', value: 'cancel' },
-        ],
-      });
+      const permRequest = makeServerRequest(
+        'perm-1',
+        'daemon.request_permission',
+        {
+          toolUses: [
+            {
+              toolUse: {
+                type: 'tool_use',
+                id: 'tu-1',
+                name: 'Execute',
+                input: {},
+              },
+              confirmationType: 'exec',
+              details: { type: 'exec', fullCommand: 'ls', command: 'ls' },
+            },
+          ],
+          options: [
+            { label: 'Yes', value: 'proceed_once' },
+            { label: 'No', value: 'cancel' },
+          ],
+        }
+      );
       transport.injectMessage(permRequest);
 
       await new Promise((r) => setTimeout(r, 50));
@@ -383,19 +396,33 @@ describe('DaemonClient', () => {
 
       client.setPermissionHandler(() => ToolConfirmationOutcome.ProceedOnce);
 
-      const permRequest = makeServerRequest('perm-2', 'daemon.request_permission', {
-        toolUses: [
-          {
-            toolUse: { type: 'tool_use', id: 'tu-2', name: 'Create', input: {} },
-            confirmationType: 'create',
-            details: { type: 'create', filePath: '/a.txt', fileName: 'a.txt', content: '' },
-          },
-        ],
-        options: [
-          { label: 'Yes', value: 'proceed_once' },
-          { label: 'No', value: 'cancel' },
-        ],
-      });
+      const permRequest = makeServerRequest(
+        'perm-2',
+        'daemon.request_permission',
+        {
+          toolUses: [
+            {
+              toolUse: {
+                type: 'tool_use',
+                id: 'tu-2',
+                name: 'Create',
+                input: {},
+              },
+              confirmationType: 'create',
+              details: {
+                type: 'create',
+                filePath: '/a.txt',
+                fileName: 'a.txt',
+                content: '',
+              },
+            },
+          ],
+          options: [
+            { label: 'Yes', value: 'proceed_once' },
+            { label: 'No', value: 'cancel' },
+          ],
+        }
+      );
       transport.injectMessage(permRequest);
 
       await new Promise((r) => setTimeout(r, 50));
@@ -405,7 +432,9 @@ describe('DaemonClient', () => {
       );
       expect(response).toBeDefined();
       const result = response!['result'] as Record<string, unknown>;
-      expect(result['selectedOption']).toBe(ToolConfirmationOutcome.ProceedOnce);
+      expect(result['selectedOption']).toBe(
+        ToolConfirmationOutcome.ProceedOnce
+      );
     });
 
     it('supports async permission handler', async () => {
@@ -416,16 +445,25 @@ describe('DaemonClient', () => {
         return ToolConfirmationOutcome.ProceedOnce;
       });
 
-      const permRequest = makeServerRequest('perm-3', 'daemon.request_permission', {
-        toolUses: [
-          {
-            toolUse: { type: 'tool_use', id: 'tu-3', name: 'Edit', input: {} },
-            confirmationType: 'edit',
-            details: { type: 'edit', filePath: '/b.txt', fileName: 'b.txt' },
-          },
-        ],
-        options: [],
-      });
+      const permRequest = makeServerRequest(
+        'perm-3',
+        'daemon.request_permission',
+        {
+          toolUses: [
+            {
+              toolUse: {
+                type: 'tool_use',
+                id: 'tu-3',
+                name: 'Edit',
+                input: {},
+              },
+              confirmationType: 'edit',
+              details: { type: 'edit', filePath: '/b.txt', fileName: 'b.txt' },
+            },
+          ],
+          options: [],
+        }
+      );
       transport.injectMessage(permRequest);
 
       await new Promise((r) => setTimeout(r, 100));
@@ -445,7 +483,12 @@ describe('DaemonClient', () => {
         sessionId: 'ask-sess',
         toolCallId: 'tc-1',
         questions: [
-          { index: 0, topic: 'Feature', question: 'Which one?', options: ['A', 'B'] },
+          {
+            index: 0,
+            topic: 'Feature',
+            question: 'Which one?',
+            options: ['A', 'B'],
+          },
         ],
       });
       transport.injectMessage(askRequest);
@@ -533,9 +576,9 @@ describe('DaemonClient', () => {
       await expect(
         client.initializeSession({ machineId: 'x', cwd: '.' })
       ).rejects.toThrow(ConnectionError);
-      await expect(
-        client.loadSession({ sessionId: 'x' })
-      ).rejects.toThrow(ConnectionError);
+      await expect(client.loadSession({ sessionId: 'x' })).rejects.toThrow(
+        ConnectionError
+      );
     });
   });
 });

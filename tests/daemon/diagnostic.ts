@@ -37,7 +37,9 @@ async function main(): Promise<void> {
       console.log(`  [notif #${notifCount}] ${type} role=${msg?.['role']}`);
     } else if (type === 'session_token_usage_changed') {
       const tu = raw['tokenUsage'] as Record<string, unknown> | undefined;
-      console.log(`  [notif #${notifCount}] ${type} in=${tu?.['inputTokens']} out=${tu?.['outputTokens']}`);
+      console.log(
+        `  [notif #${notifCount}] ${type} in=${tu?.['inputTokens']} out=${tu?.['outputTokens']}`
+      );
     } else {
       console.log(`  [notif #${notifCount}] ${type}`);
     }
@@ -62,7 +64,9 @@ async function main(): Promise<void> {
 
   let msgCount = 0;
   try {
-    for await (const msg of session.stream('What is 3 + 3? Reply with just the number.')) {
+    for await (const msg of session.stream(
+      'What is 3 + 3? Reply with just the number.'
+    )) {
       msgCount++;
       console.log(`  [stream msg #${msgCount}] type=${msg.type}`);
       if (msg.type === 'result') {

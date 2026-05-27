@@ -3,7 +3,11 @@
  */
 import * as fs from 'node:fs';
 
-import { connectDaemon, AutonomyLevel, type DroidStreamEvent } from '../../src/index.js';
+import {
+  connectDaemon,
+  AutonomyLevel,
+  type DroidStreamEvent,
+} from '../../src/index.js';
 
 const TEST_CWD = '/tmp/daemon-sdk-stress-test';
 fs.mkdirSync(TEST_CWD, { recursive: true });
@@ -21,9 +25,14 @@ async function main() {
   // Also subscribe to raw notifications
   session.onNotification((n) => {
     const params = n['params'] as Record<string, unknown> | undefined;
-    const notification = params?.['notification'] as Record<string, unknown> | undefined;
+    const notification = params?.['notification'] as
+      | Record<string, unknown>
+      | undefined;
     if (notification) {
-      console.log('RAW NOTIFICATION:', JSON.stringify(notification).substring(0, 300));
+      console.log(
+        'RAW NOTIFICATION:',
+        JSON.stringify(notification).substring(0, 300)
+      );
     }
   });
 
@@ -44,7 +53,10 @@ async function main() {
   }
 
   console.log(`\nTotal events: ${events.length}`);
-  console.log('Event types:', events.map((e) => e.type));
+  console.log(
+    'Event types:',
+    events.map((e) => e.type)
+  );
 
   await session.close();
   await conn.close();

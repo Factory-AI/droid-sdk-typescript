@@ -7,8 +7,8 @@
  * the full SDK stack end-to-end.
  */
 
-import { connectDaemon } from '../../src/daemon/index.js';
 import { DaemonConnection } from '../../src/daemon/connection.js';
+import { connectDaemon } from '../../src/daemon/index.js';
 import { DaemonSession } from '../../src/daemon/session.js';
 import { ToolConfirmationOutcome } from '../../src/schemas/enums.js';
 import type { DroidStreamEvent } from '../../src/stream.js';
@@ -43,7 +43,8 @@ async function test(name: string, fn: () => Promise<void>): Promise<void> {
   }
 }
 
-function skip(name: string, reason: string): void {
+// Available for selective test skipping
+export function skip(name: string, reason: string): void {
   console.log(`  ${SKIP} ${name} — ${reason}`);
   skipped++;
 }
@@ -60,7 +61,7 @@ async function main(): Promise<void> {
   // ── 1. Connection ──
   console.log('1. Connection');
 
-  let connection: DaemonConnection;
+  let connection!: DaemonConnection;
 
   await test('connectDaemon() with FACTORY_API_KEY', async () => {
     connection = await connectDaemon({
@@ -72,14 +73,17 @@ async function main(): Promise<void> {
   // ── 2. Session creation ──
   console.log('\n2. Session creation');
 
-  let session: DaemonSession;
+  let session!: DaemonSession;
 
   await test('createSession with cwd', async () => {
     session = await connection.createSession({
       cwd: process.cwd(),
     });
     assert(session != null, 'session should not be null');
-    assert(typeof session.sessionId === 'string', 'sessionId should be a string');
+    assert(
+      typeof session.sessionId === 'string',
+      'sessionId should be a string'
+    );
     assert(session.sessionId.length > 0, 'sessionId should not be empty');
     console.log(`    sessionId: ${session.sessionId}`);
   });
@@ -89,14 +93,18 @@ async function main(): Promise<void> {
 
   await test('stream() yields messages and ends with Result', async () => {
     const messages: DroidStreamEvent[] = [];
-    for await (const msg of session.stream('What is 2 + 2? Reply with just the number.')) {
+    for await (const msg of session.stream(
+      'What is 2 + 2? Reply with just the number.'
+    )) {
       messages.push(msg);
     }
     assert(messages.length > 0, 'should yield at least one message');
     const result = messages.find((m) => m.type === 'result');
     assert(result != null, 'should end with a Result message');
     if (result && result.type === 'result') {
-      console.log(`    turns: ${result.numTurns}, duration: ${result.durationMs}ms`);
+      console.log(
+        `    turns: ${result.numTurns}, duration: ${result.durationMs}ms`
+      );
       console.log(`    result text: ${result.result.slice(0, 100)}`);
     }
     const assistant = messages.find((m) => m.type === 'assistant');
@@ -128,7 +136,9 @@ async function main(): Promise<void> {
 
   await test('multi-turn preserves context', async () => {
     // Turn 1: give it something to remember
-    for await (const _msg of session.stream('Remember this code: XRAY42. Do not forget it.')) {
+    for await (const _msg of session.stream(
+      'Remember this code: XRAY42. Do not forget it.'
+    )) {
       // consume
     }
     // Turn 2: ask it back
@@ -169,7 +179,7 @@ async function main(): Promise<void> {
     // Use includePartialMessages to get frequent events we can interrupt on
     const streamPromise = (async () => {
       try {
-        for await (const msg of session.stream(
+        for await (const _msg of session.stream(
           'Write an extremely detailed 10000-word essay about every major event in world history from 3000 BC to the present. Cover politics, science, art, and culture for each century.',
           { includePartialMessages: true }
         )) {
@@ -308,13 +318,17 @@ async function main(): Promise<void> {
         permissionCount++;
         console.log(`    permission request #${permissionCount}:`);
         for (const tu of params.toolUses) {
-          console.log(`      tool: ${tu.toolUse.name}, type: ${tu.confirmationType}`);
+          console.log(
+            `      tool: ${tu.toolUse.name}, type: ${tu.confirmationType}`
+          );
         }
         return ToolConfirmationOutcome.ProceedOnce;
       },
     });
 
-    for await (const msg of s.stream('Read the file package.json and tell me the package name.')) {
+    for await (const msg of s.stream(
+      'Read the file package.json and tell me the package name.'
+    )) {
       if (msg.type === 'assistant') {
         console.log(`    response: ${msg.text.slice(0, 100)}`);
       }
@@ -337,18 +351,25 @@ async function main(): Promise<void> {
       // type is at params.notification.type
       const raw = n as Record<string, unknown>;
       const params = raw['params'] as Record<string, unknown> | undefined;
-      const inner = params?.['notification'] as Record<string, unknown> | undefined;
+      const inner = params?.['notification'] as
+        | Record<string, unknown>
+        | undefined;
       const innerType = inner?.['type'] as string | undefined;
       if (innerType) notifTypes.add(innerType);
     });
 
-    for await (const _msg of s.stream('What is 1 + 1? Reply with just the number.')) {
+    for await (const _msg of s.stream(
+      'What is 1 + 1? Reply with just the number.'
+    )) {
       // consume
     }
 
     unsub();
     console.log(`    notification types: ${[...notifTypes].join(', ')}`);
-    assert(notifTypes.size > 0, 'should receive at least one notification type');
+    assert(
+      notifTypes.size > 0,
+      'should receive at least one notification type'
+    );
 
     await s.close();
   });

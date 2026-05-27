@@ -952,7 +952,12 @@ describe('ProtocolEngine', () => {
         params: {
           toolCallId: 'tc1',
           questions: [
-            { index: 0, topic: 'Test', question: 'Pick one', options: ['A', 'B'] },
+            {
+              index: 0,
+              topic: 'Test',
+              question: 'Pick one',
+              options: ['A', 'B'],
+            },
           ],
         },
       });
@@ -975,16 +980,17 @@ describe('ProtocolEngine', () => {
         },
       });
 
-      const promise = customEngine.sendRequest(
-        'daemon.initialize_session',
-        { cwd: '.' }
-      );
+      const promise = customEngine.sendRequest('daemon.initialize_session', {
+        cwd: '.',
+      });
 
       const sent = customTransport.sentMessages[0] as Record<string, unknown>;
       expect(sent['method']).toBe('daemon.initialize_session');
 
       const id = sent['id'] as string;
-      customTransport.injectMessage(makeSuccessResponse(id, { sessionId: 'x' }));
+      customTransport.injectMessage(
+        makeSuccessResponse(id, { sessionId: 'x' })
+      );
       await promise;
 
       await customEngine.close();

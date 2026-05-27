@@ -213,9 +213,7 @@ describe('DaemonSession — advanced scenarios', () => {
     it('passes images to addUserMessage', async () => {
       const streamPromise = (async () => {
         for await (const _msg of session.stream('Describe this.', {
-          images: [
-            { type: 'base64', mediaType: 'image/png', data: 'imgdata' },
-          ],
+          images: [{ type: 'base64', mediaType: 'image/png', data: 'imgdata' }],
         })) {
           // consume
         }
@@ -374,7 +372,14 @@ describe('DaemonSession — advanced scenarios', () => {
 
     it('passes files', async () => {
       await session.send('Analyze files', {
-        files: [{ type: 'base64', data: 'filedata', fileName: 'doc.pdf', mediaType: 'application/pdf' }],
+        files: [
+          {
+            type: 'base64',
+            data: 'filedata',
+            fileName: 'doc.pdf',
+            mediaType: 'application/pdf',
+          },
+        ],
       });
 
       const sent = transport.sentMessages.find(

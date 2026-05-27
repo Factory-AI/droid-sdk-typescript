@@ -481,5 +481,4 @@ export class ProtocolEngine {
       req.reject(error);
     }
   }
-
 }

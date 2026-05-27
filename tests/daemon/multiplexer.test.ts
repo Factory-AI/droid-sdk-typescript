@@ -28,7 +28,10 @@ function createTestConnection(transport: InMemoryTransport): DaemonConnection {
   return new (DaemonConnection as unknown as new (
     transport: unknown,
     authToken: string
-  ) => DaemonConnection)(transport as unknown as WebSocketTransport, 'test-token');
+  ) => DaemonConnection)(
+    transport as unknown as WebSocketTransport,
+    'test-token'
+  );
 }
 
 describe('SharedTransportMultiplexer (via DaemonConnection)', () => {
@@ -72,10 +75,7 @@ describe('SharedTransportMultiplexer (via DaemonConnection)', () => {
           sessionCount++;
           queueMicrotask(() => {
             transport.injectMessage(
-              makeSuccessResponse(
-                id,
-                initResponse(`session-${sessionCount}`)
-              )
+              makeSuccessResponse(id, initResponse(`session-${sessionCount}`))
             );
           });
         }
@@ -114,7 +114,10 @@ describe('SharedTransportMultiplexer (via DaemonConnection)', () => {
         method: 'daemon.session_notification',
         params: {
           sessionId: 'session-1',
-          notification: { type: 'droid_working_state_changed', newState: 'idle' },
+          notification: {
+            type: 'droid_working_state_changed',
+            newState: 'idle',
+          },
         },
       });
 
@@ -289,9 +292,18 @@ describe('SharedTransportMultiplexer (via DaemonConnection)', () => {
           sessionId: 's-perm',
           toolUses: [
             {
-              toolUse: { type: 'tool_use', id: 'tu-1', name: 'Execute', input: {} },
+              toolUse: {
+                type: 'tool_use',
+                id: 'tu-1',
+                name: 'Execute',
+                input: {},
+              },
               confirmationType: 'exec',
-              details: { type: 'exec', fullCommand: 'echo hi', command: 'echo' },
+              details: {
+                type: 'exec',
+                fullCommand: 'echo hi',
+                command: 'echo',
+              },
             },
           ],
           options: [],
