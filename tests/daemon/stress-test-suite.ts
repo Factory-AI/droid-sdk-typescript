@@ -8,6 +8,7 @@
  * Omit group arg to run all.
  */
 import { z } from 'zod';
+import { _resetDaemonStateForTesting } from '../../src/daemon/local.js';
 import {
   run,
   createSession,
@@ -17,18 +18,14 @@ import {
   tool,
   connectDaemon,
   DroidMessageType,
-  AutonomyLevel,
   ReasoningEffort,
   OutputFormatType,
   ToolConfirmationOutcome,
   ToolConfirmationType,
-  ConnectionError,
   SessionNotFoundError,
   type DroidSession,
   type DaemonSession,
-  type DaemonConnection,
 } from '../../src/index.js';
-import { _resetDaemonStateForTesting } from '../../src/daemon/local.js';
 
 // ── Config ──────────────────────────────────────────────────────────────
 
@@ -69,23 +66,46 @@ async function test(
     await Promise.race([
       fn(),
       new Promise<never>((_, reject) =>
-        setTimeout(() => reject(new Error(`Timeout after ${timeoutMs}ms`)), timeoutMs)
+        setTimeout(
+          () => reject(new Error(`Timeout after ${timeoutMs}ms`)),
+          timeoutMs
+        )
       ),
     ]);
     const dur = Date.now() - start;
-    results.push({ group: currentGroup, name, passed: true, skipped: false, durationMs: dur });
+    results.push({
+      group: currentGroup,
+      name,
+      passed: true,
+      skipped: false,
+      durationMs: dur,
+    });
     console.log(`✓ (${dur}ms)`);
   } catch (e: any) {
     const dur = Date.now() - start;
     const msg = e?.message || String(e);
-    results.push({ group: currentGroup, name, passed: false, skipped: false, error: msg, durationMs: dur });
+    results.push({
+      group: currentGroup,
+      name,
+      passed: false,
+      skipped: false,
+      error: msg,
+      durationMs: dur,
+    });
     console.log(`✗ (${dur}ms)\n    Error: ${msg.slice(0, 200)}`);
   }
 }
 
 function skip(name: string, reason: string) {
   process.stdout.write(`  ▶ ${name} ... `);
-  results.push({ group: currentGroup, name, passed: false, skipped: true, error: reason, durationMs: 0 });
+  results.push({
+    group: currentGroup,
+    name,
+    passed: false,
+    skipped: true,
+    error: reason,
+    durationMs: 0,
+  });
   console.log(`⊘ SKIPPED: ${reason}`);
 }
 
@@ -93,7 +113,10 @@ function assert(condition: boolean, msg: string) {
   if (!condition) throw new Error(`Assertion failed: ${msg}`);
 }
 
-async function consumeStream(session: DroidSession | DaemonSession, prompt: string) {
+async function consumeStream(
+  session: DroidSession | DaemonSession,
+  prompt: string
+) {
   let text = '';
   for await (const msg of session.stream(prompt)) {
     if (msg.type === DroidMessageType.Assistant) text += msg.text;
@@ -107,10 +130,19 @@ async function group1() {
   setGroup('Group 1: Exec Mode — Core Flows');
 
   await test('1.1 One-shot run()', async () => {
-    const r = await run('Reply with exactly one word: HELLO', { cwd: CWD, execPath: EXEC_PATH });
-    assert(typeof r.text === 'string' && r.text.length > 0, 'result.text is empty');
+    const r = await run('Reply with exactly one word: HELLO', {
+      cwd: CWD,
+      execPath: EXEC_PATH,
+    });
+    assert(
+      typeof r.text === 'string' && r.text.length > 0,
+      'result.text is empty'
+    );
     assert(typeof r.sessionId === 'string', 'missing sessionId');
-    assert(typeof r.durationMs === 'number' && r.durationMs > 0, 'invalid durationMs');
+    assert(
+      typeof r.durationMs === 'number' && r.durationMs > 0,
+      'invalid durationMs'
+    );
     assert(r.success === true, 'success should be true');
     assert(r.tokenUsage != null, 'missing tokenUsage');
   });
@@ -136,9 +168,18 @@ async function group1() {
   await test('1.3 Multi-turn context', async () => {
     const session = await createSession({ cwd: CWD, execPath: EXEC_PATH });
     try {
-      await consumeStream(session, 'Remember this code word: BANANA. Just confirm you remember it.');
-      const text = await consumeStream(session, 'What was the code word I told you? Reply with just the word.');
-      assert(text.toUpperCase().includes('BANANA'), `Context lost, got: ${text.slice(0, 100)}`);
+      await consumeStream(
+        session,
+        'Remember this code word: BANANA. Just confirm you remember it.'
+      );
+      const text = await consumeStream(
+        session,
+        'What was the code word I told you? Reply with just the word.'
+      );
+      assert(
+        text.toUpperCase().includes('BANANA'),
+        `Context lost, got: ${text.slice(0, 100)}`
+      );
     } finally {
       await session.close();
     }
@@ -148,7 +189,9 @@ async function group1() {
     const session = await createSession({ cwd: CWD, execPath: EXEC_PATH });
     try {
       let deltaCount = 0;
-      for await (const msg of session.stream('Say hello.', { includePartialMessages: true })) {
+      for await (const msg of session.stream('Say hello.', {
+        includePartialMessages: true,
+      })) {
         if (msg.type === DroidMessageType.AssistantTextDelta) deltaCount++;
       }
       assert(deltaCount > 0, `Expected deltas, got ${deltaCount}`);
@@ -162,7 +205,6 @@ async function group1() {
     try {
       const controller = new AbortController();
       setTimeout(() => controller.abort(), 3000);
-      let threw = false;
       try {
         for await (const _msg of session.stream(
           'Write a very long essay about the history of mathematics, at least 2000 words.',
@@ -171,7 +213,7 @@ async function group1() {
           // consume
         }
       } catch {
-        threw = true;
+        // Expected: abort signal fires
       }
       // Either it threw on abort or it finished quickly — both are acceptable
     } finally {
@@ -183,7 +225,9 @@ async function group1() {
     const session = await createSession({ cwd: CWD, execPath: EXEC_PATH });
     try {
       let gotText = false;
-      for await (const msg of session.stream('Write a long essay about space exploration.')) {
+      for await (const msg of session.stream(
+        'Write a long essay about space exploration.'
+      )) {
         if (msg.type === DroidMessageType.Assistant && !gotText) {
           gotText = true;
           await session.interrupt();
@@ -196,15 +240,16 @@ async function group1() {
   });
 
   await test('1.7 Permission handler', async () => {
-    let handlerCalled = false;
-    const r = await run('Read the file package.json and tell me the package name.', {
-      cwd: CWD,
-      execPath: EXEC_PATH,
-      permissionHandler(params) {
-        handlerCalled = true;
-        return ToolConfirmationOutcome.ProceedOnce;
-      },
-    });
+    const r = await run(
+      'Read the file package.json and tell me the package name.',
+      {
+        cwd: CWD,
+        execPath: EXEC_PATH,
+        permissionHandler() {
+          return ToolConfirmationOutcome.ProceedOnce;
+        },
+      }
+    );
     assert(r.success === true, 'run should succeed');
     // Handler may or may not be called depending on autonomy defaults
   });
@@ -213,7 +258,12 @@ async function group1() {
     const server = createSdkMcpServer({
       name: 'test-tools',
       tools: [
-        tool('get_weather', 'Get weather for a city', { city: z.string() }, ({ city }) => `${city}: 72°F, sunny`),
+        tool(
+          'get_weather',
+          'Get weather for a city',
+          { city: z.string() },
+          ({ city }) => `${city}: 72°F, sunny`
+        ),
       ],
     });
     const session = await createSession({
@@ -225,12 +275,25 @@ async function group1() {
     try {
       let toolCalled = false;
       let toolResult = '';
-      for await (const msg of session.stream('Use the get_weather tool to check the weather in Paris. You MUST call the get_weather tool.')) {
-        if (msg.type === DroidMessageType.ToolCall && msg.toolUse.name.includes('get_weather')) toolCalled = true;
-        if (msg.type === DroidMessageType.ToolResult) toolResult = typeof msg.content === 'string' ? msg.content : JSON.stringify(msg.content);
+      for await (const msg of session.stream(
+        'Use the get_weather tool to check the weather in Paris. You MUST call the get_weather tool.'
+      )) {
+        if (
+          msg.type === DroidMessageType.ToolCall &&
+          msg.toolUse.name.includes('get_weather')
+        )
+          toolCalled = true;
+        if (msg.type === DroidMessageType.ToolResult)
+          toolResult =
+            typeof msg.content === 'string'
+              ? msg.content
+              : JSON.stringify(msg.content);
       }
       assert(toolCalled, 'get_weather tool was not called');
-      assert(toolResult.includes('72°F'), `Unexpected tool result: ${toolResult.slice(0, 100)}`);
+      assert(
+        toolResult.includes('72°F'),
+        `Unexpected tool result: ${toolResult.slice(0, 100)}`
+      );
     } finally {
       await session.close();
     }
@@ -247,11 +310,20 @@ async function group2() {
     try {
       await consumeStream(session, 'Remember: the secret number is 7777.');
       const { newSessionId } = await session.forkSession();
-      assert(typeof newSessionId === 'string' && newSessionId.length > 0, 'forkSession returned no ID');
+      assert(
+        typeof newSessionId === 'string' && newSessionId.length > 0,
+        'forkSession returned no ID'
+      );
       const fork = await resumeSession(newSessionId, { execPath: EXEC_PATH });
       try {
-        const text = await consumeStream(fork, 'What was the secret number? Reply with just the number.');
-        assert(text.includes('7777'), `Fork lost context, got: ${text.slice(0, 100)}`);
+        const text = await consumeStream(
+          fork,
+          'What was the secret number? Reply with just the number.'
+        );
+        assert(
+          text.includes('7777'),
+          `Fork lost context, got: ${text.slice(0, 100)}`
+        );
       } finally {
         await fork.close();
       }
@@ -267,7 +339,10 @@ async function group2() {
       await consumeStream(session, 'Tell me another joke.');
       await consumeStream(session, 'One more joke please.');
       const result = await session.compactSession();
-      assert(typeof result.newSessionId === 'string', 'compact returned no newSessionId');
+      assert(
+        typeof result.newSessionId === 'string',
+        'compact returned no newSessionId'
+      );
     } finally {
       await session.close();
     }
@@ -284,8 +359,14 @@ async function group2() {
     }
     const resumed = await resumeSession(sessionId, { execPath: EXEC_PATH });
     try {
-      const text = await consumeStream(resumed, 'What was the password? Reply with just the word.');
-      assert(text.toUpperCase().includes('MANGO'), `Resume lost context, got: ${text.slice(0, 100)}`);
+      const text = await consumeStream(
+        resumed,
+        'What was the password? Reply with just the word.'
+      );
+      assert(
+        text.toUpperCase().includes('MANGO'),
+        `Resume lost context, got: ${text.slice(0, 100)}`
+      );
     } finally {
       await resumed.close();
     }
@@ -333,7 +414,9 @@ async function group3() {
     });
     try {
       const { tools } = await session.listTools();
-      const hasExecute = tools.some((t: any) => t.name === 'Execute' || t.toolId === 'Execute');
+      const hasExecute = tools.some(
+        (t: any) => t.name === 'Execute' || t.toolId === 'Execute'
+      );
       assert(!hasExecute, 'Execute tool should be disabled');
     } finally {
       await session.close();
@@ -431,8 +514,14 @@ async function group4() {
     try {
       const session = await conn.createSession({ cwd: CWD });
       await consumeStream(session, 'Remember: the color is PURPLE.');
-      const text = await consumeStream(session, 'What color did I say? Reply with just the color.');
-      assert(text.toUpperCase().includes('PURPLE'), `Context lost: ${text.slice(0, 100)}`);
+      const text = await consumeStream(
+        session,
+        'What color did I say? Reply with just the color.'
+      );
+      assert(
+        text.toUpperCase().includes('PURPLE'),
+        `Context lost: ${text.slice(0, 100)}`
+      );
       await session.close();
     } finally {
       await conn.close();
@@ -444,7 +533,9 @@ async function group4() {
     try {
       const session = await conn.createSession({ cwd: CWD });
       let deltaCount = 0;
-      for await (const msg of session.stream('Say hello.', { includePartialMessages: true })) {
+      for await (const msg of session.stream('Say hello.', {
+        includePartialMessages: true,
+      })) {
         if (msg.type === DroidMessageType.AssistantTextDelta) deltaCount++;
       }
       assert(deltaCount > 0, `Expected deltas, got ${deltaCount}`);
@@ -476,7 +567,9 @@ async function group4() {
         for await (const _msg of session.stream(
           'Write a very long essay about the history of mathematics.',
           { abortSignal: controller.signal }
-        )) {}
+        )) {
+          // consume
+        }
       } catch {
         // abort is expected
       }
@@ -491,7 +584,9 @@ async function group4() {
     try {
       const session = await conn.createSession({ cwd: CWD });
       let gotText = false;
-      for await (const msg of session.stream('Write a long essay about space.')) {
+      for await (const msg of session.stream(
+        'Write a long essay about space.'
+      )) {
         if (msg.type === DroidMessageType.Assistant && !gotText) {
           gotText = true;
           await session.interrupt();
@@ -508,7 +603,12 @@ async function group4() {
     const server = createSdkMcpServer({
       name: 'daemon-tools',
       tools: [
-        tool('lookup', 'Look up a user', { name: z.string() }, ({ name }) => `${name} is user #42.`),
+        tool(
+          'lookup',
+          'Look up a user',
+          { name: z.string() },
+          ({ name }) => `${name} is user #42.`
+        ),
       ],
     });
     const conn = await connectDaemon({ apiKey: API_KEY });
@@ -519,8 +619,14 @@ async function group4() {
         permissionHandler: () => ToolConfirmationOutcome.ProceedOnce,
       });
       let toolCalled = false;
-      for await (const msg of session.stream('Use the lookup tool to look up Alice. You MUST call the lookup tool.')) {
-        if (msg.type === DroidMessageType.ToolCall && msg.toolUse.name.includes('lookup')) toolCalled = true;
+      for await (const msg of session.stream(
+        'Use the lookup tool to look up Alice. You MUST call the lookup tool.'
+      )) {
+        if (
+          msg.type === DroidMessageType.ToolCall &&
+          msg.toolUse.name.includes('lookup')
+        )
+          toolCalled = true;
       }
       assert(toolCalled, 'lookup tool was not called');
       await session.close();
@@ -555,7 +661,10 @@ async function group5() {
 
       const resumed = await conn.resumeSession(sid);
       const text = await consumeStream(resumed, 'What animal did I say?');
-      assert(text.toUpperCase().includes('TIGER'), `Resume lost context: ${text.slice(0, 100)}`);
+      assert(
+        text.toUpperCase().includes('TIGER'),
+        `Resume lost context: ${text.slice(0, 100)}`
+      );
       await resumed.close();
     } finally {
       await conn.close();
@@ -582,13 +691,11 @@ async function group5() {
   });
 
   await test('5.3 Permission handler (daemon)', async () => {
-    let handlerCalled = false;
     const conn = await connectDaemon({ apiKey: API_KEY });
     try {
       const session = await conn.createSession({
         cwd: CWD,
         permissionHandler() {
-          handlerCalled = true;
           return ToolConfirmationOutcome.ProceedOnce;
         },
       });
@@ -600,13 +707,11 @@ async function group5() {
   });
 
   await test('5.4 Ask-user handler (daemon)', async () => {
-    let handlerCalled = false;
     const conn = await connectDaemon({ apiKey: API_KEY });
     try {
       const session = await conn.createSession({
         cwd: CWD,
-        askUserHandler(params) {
-          handlerCalled = true;
+        askUserHandler(params: any) {
           return {
             cancelled: false,
             answers: params.questions.map((q: any) => ({
@@ -622,7 +727,6 @@ async function group5() {
     } finally {
       await conn.close();
     }
-    // Handler may not be called if no AskUser triggered — that's fine
   });
 }
 
@@ -726,12 +830,16 @@ async function group7() {
   await test('7.1 SessionNotFoundError (exec)', async () => {
     let caught = false;
     try {
-      await resumeSession('nonexistent-session-id-12345', { execPath: EXEC_PATH });
-    } catch (e: any) {
+      await resumeSession('nonexistent-session-id-12345', {
+        execPath: EXEC_PATH,
+      });
+    } catch (err: any) {
       caught = true;
       assert(
-        e instanceof SessionNotFoundError || e.message?.includes('not found') || e.message?.includes('Session'),
-        `Expected SessionNotFoundError, got: ${e.constructor.name}: ${e.message?.slice(0, 100)}`
+        err instanceof SessionNotFoundError ||
+          err.message?.includes('not found') ||
+          err.message?.includes('Session'),
+        `Expected SessionNotFoundError, got: ${err.constructor.name}: ${err.message?.slice(0, 100)}`
       );
     }
     assert(caught, 'Should have thrown');
@@ -746,7 +854,7 @@ async function group7() {
         let caught = false;
         try {
           await conn.resumeSession('nonexistent-session-id-12345');
-        } catch (e: any) {
+        } catch {
           caught = true;
         }
         assert(caught, 'Should have thrown');
@@ -761,8 +869,12 @@ async function group7() {
   await test('7.3 Invalid daemon URL', async () => {
     let caught = false;
     try {
-      await connectDaemon({ url: 'ws://127.0.0.1:1', apiKey: 'fake', maxRetries: 0 });
-    } catch (e: any) {
+      await connectDaemon({
+        url: 'ws://127.0.0.1:1',
+        apiKey: 'fake',
+        maxRetries: 0,
+      });
+    } catch {
       caught = true;
     }
     assert(caught, 'Should have thrown ConnectionError');
@@ -773,7 +885,9 @@ async function group7() {
     await session.close();
     let caught = false;
     try {
-      for await (const _msg of session.stream('Hello')) {}
+      for await (const _msg of session.stream('Hello')) {
+        // consume
+      }
     } catch {
       caught = true;
     }
@@ -797,8 +911,18 @@ async function group8() {
     const server = createSdkMcpServer({
       name: 'multi-tools',
       tools: [
-        tool('add', 'Add two numbers', { a: z.number(), b: z.number() }, ({ a, b }) => `${a + b}`),
-        tool('greet', 'Greet a person', { name: z.string() }, ({ name }) => `Hello, ${name}!`),
+        tool(
+          'add',
+          'Add two numbers',
+          { a: z.number(), b: z.number() },
+          ({ a, b }) => `${a + b}`
+        ),
+        tool(
+          'greet',
+          'Greet a person',
+          { name: z.string() },
+          ({ name }) => `Hello, ${name}!`
+        ),
       ],
     });
     const session = await createSession({
@@ -829,9 +953,14 @@ async function group8() {
     const server = createSdkMcpServer({
       name: 'error-tools',
       tools: [
-        tool('fail_tool', 'A tool that always fails', { input: z.string() }, () => {
-          throw new Error('Intentional failure');
-        }),
+        tool(
+          'fail_tool',
+          'A tool that always fails',
+          { input: z.string() },
+          () => {
+            throw new Error('Intentional failure');
+          }
+        ),
       ],
     });
     const session = await createSession({
@@ -846,7 +975,11 @@ async function group8() {
       for await (const msg of session.stream(
         'Call the fail_tool with input "test". You MUST call fail_tool.'
       )) {
-        if (msg.type === DroidMessageType.ToolCall && msg.toolUse.name.includes('fail_tool')) toolCalled = true;
+        if (
+          msg.type === DroidMessageType.ToolCall &&
+          msg.toolUse.name.includes('fail_tool')
+        )
+          toolCalled = true;
         if (msg.type === DroidMessageType.Result) gotResult = true;
       }
       assert(toolCalled, 'fail_tool not called');
@@ -867,7 +1000,8 @@ async function group8() {
             customer: z.string(),
             items: z.array(z.object({ name: z.string(), qty: z.number() })),
           },
-          ({ customer, items }) => `Order for ${customer}: ${items.map((i) => `${i.qty}x ${i.name}`).join(', ')}`
+          ({ customer, items }) =>
+            `Order for ${customer}: ${items.map((i) => `${i.qty}x ${i.name}`).join(', ')}`
         ),
       ],
     });
@@ -883,11 +1017,22 @@ async function group8() {
       for await (const msg of session.stream(
         'Use process_order to place an order for customer "Alice" with items: 2x Widget and 1x Gadget. You MUST call process_order.'
       )) {
-        if (msg.type === DroidMessageType.ToolCall && msg.toolUse.name.includes('process_order')) toolCalled = true;
-        if (msg.type === DroidMessageType.ToolResult) toolResult = typeof msg.content === 'string' ? msg.content : JSON.stringify(msg.content);
+        if (
+          msg.type === DroidMessageType.ToolCall &&
+          msg.toolUse.name.includes('process_order')
+        )
+          toolCalled = true;
+        if (msg.type === DroidMessageType.ToolResult)
+          toolResult =
+            typeof msg.content === 'string'
+              ? msg.content
+              : JSON.stringify(msg.content);
       }
       assert(toolCalled, 'process_order not called');
-      assert(toolResult.includes('Alice'), `Result should mention Alice: ${toolResult.slice(0, 100)}`);
+      assert(
+        toolResult.includes('Alice'),
+        `Result should mention Alice: ${toolResult.slice(0, 100)}`
+      );
     } finally {
       await session.close();
     }
@@ -897,38 +1042,60 @@ async function group8() {
     const server = createSdkMcpServer({
       name: 'perm-tools',
       tools: [
-        tool('secret_tool', 'A secret operation', { key: z.string() }, ({ key }) => `secret: ${key}`),
+        tool(
+          'secret_tool',
+          'A secret operation',
+          { key: z.string() },
+          ({ key }) => `secret: ${key}`
+        ),
       ],
     });
-    let sawMcpType = false;
     const session = await createSession({
       cwd: CWD,
       execPath: EXEC_PATH,
       mcpServers: [server],
       permissionHandler(params) {
         for (const tu of params.toolUses) {
-          if (tu.details.type === ToolConfirmationType.McpTool) sawMcpType = true;
+          if (tu.details.type === ToolConfirmationType.McpTool) {
+            // MCP tool confirmation type detected
+          }
         }
         return ToolConfirmationOutcome.ProceedOnce;
       },
     });
     try {
-      for await (const msg of session.stream(
+      for await (const _msg of session.stream(
         'Use the secret_tool with key "abc123". You MUST call secret_tool.'
-      )) {}
+      )) {
+        // consume
+      }
     } finally {
       await session.close();
     }
-    // sawMcpType may or may not be true depending on autonomy level
   });
 }
 
 // ── Runner ──────────────────────────────────────────────────────────────
 
 const groupMap: Record<string, () => Promise<void>> = {
-  group1, group2, group3, group4, group5, group6, group7, group8,
-  exec: async () => { await group1(); await group2(); await group3(); },
-  daemon: async () => { await group4(); await group5(); await group6(); },
+  group1,
+  group2,
+  group3,
+  group4,
+  group5,
+  group6,
+  group7,
+  group8,
+  exec: async () => {
+    await group1();
+    await group2();
+    await group3();
+  },
+  daemon: async () => {
+    await group4();
+    await group5();
+    await group6();
+  },
   errors: group7,
   mcp: group8,
 };
@@ -940,7 +1107,9 @@ async function main() {
   console.log('║           SDK STRESS TEST SUITE                        ║');
   console.log('╠══════════════════════════════════════════════════════════╣');
   console.log(`║  Binary:   ${EXEC_PATH.padEnd(45)}║`);
-  console.log(`║  API Key:  ${API_KEY ? `${API_KEY.slice(0, 8)}...${API_KEY.slice(-4)}` : 'NOT SET'}${''.padEnd(API_KEY ? 31 : 39)}║`);
+  console.log(
+    `║  API Key:  ${API_KEY ? `${API_KEY.slice(0, 8)}...${API_KEY.slice(-4)}` : 'NOT SET'}${''.padEnd(API_KEY ? 31 : 39)}║`
+  );
   console.log(`║  CWD:      ${CWD.slice(-45).padEnd(45)}║`);
   console.log(`║  Filter:   ${(filter || 'all').padEnd(45)}║`);
   console.log('╚══════════════════════════════════════════════════════════╝');
@@ -953,7 +1122,16 @@ async function main() {
   if (filter && groupMap[filter]) {
     await groupMap[filter]!();
   } else if (!filter) {
-    for (const fn of [group1, group2, group3, group4, group5, group6, group7, group8]) {
+    for (const fn of [
+      group1,
+      group2,
+      group3,
+      group4,
+      group5,
+      group6,
+      group7,
+      group8,
+    ]) {
       await fn();
     }
   } else {
@@ -974,11 +1152,17 @@ async function main() {
   for (const r of results) {
     const icon = r.skipped ? '⊘' : r.passed ? '✓' : '✗';
     const status = r.skipped ? 'SKIP' : r.passed ? 'PASS' : 'FAIL';
-    console.log(`  ${icon} [${status}] ${r.name}${r.error && !r.skipped ? ` — ${r.error.slice(0, 80)}` : ''}`);
+    console.log(
+      `  ${icon} [${status}] ${r.name}${r.error && !r.skipped ? ` — ${r.error.slice(0, 80)}` : ''}`
+    );
   }
 
-  console.log(`\n  Total: ${results.length} | Passed: ${passed.length} | Failed: ${failed.length} | Skipped: ${skipped.length}`);
-  console.log(`  Duration: ${(results.reduce((s, r) => s + r.durationMs, 0) / 1000).toFixed(1)}s`);
+  console.log(
+    `\n  Total: ${results.length} | Passed: ${passed.length} | Failed: ${failed.length} | Skipped: ${skipped.length}`
+  );
+  console.log(
+    `  Duration: ${(results.reduce((s, r) => s + r.durationMs, 0) / 1000).toFixed(1)}s`
+  );
 
   if (failed.length > 0) {
     console.log('\n  FAILED TESTS:');
