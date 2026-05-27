@@ -6,7 +6,7 @@
 npm install @factory/droid-sdk
 ```
 
-Requires Node.js 18+ and the `droid` CLI on your PATH.
+Requires Node.js 18+ and the `droid` CLI on your PATH. This guide covers **exec mode** (`run()`, `createSession()`), which spawns a subprocess per session. For WebSocket-based daemon mode with concurrent sessions, see the [Daemon Usage Guide](./daemon-usage-guide.md).
 
 ```ts
 import { run } from '@factory/droid-sdk';

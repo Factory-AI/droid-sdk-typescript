@@ -8,7 +8,7 @@ The daemon SDK connects to a running `droid daemon` process over WebSocket inste
 npm install @factory/droid-sdk
 ```
 
-Requires a running `droid daemon` (the SDK will auto-start one locally) and either `FACTORY_API_KEY` in your environment or `droid auth login` completed.
+Requires a running `droid daemon` (the SDK will auto-start one locally) and either `FACTORY_API_KEY` in your environment or `droid auth login` completed. For simpler use cases that don't need concurrent sessions, see the [SDK Usage Guide](./sdk-usage-guide.md) which covers exec mode (`run()`, `createSession()`).
 
 ```ts
 import { connectDaemon, DroidMessageType } from '@factory/droid-sdk';
