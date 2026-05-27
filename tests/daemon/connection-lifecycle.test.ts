@@ -233,6 +233,84 @@ describe('DaemonConnection — lifecycle', () => {
     // tests in client.test.ts (propagates protocol errors). The connection-level
     // cleanup pattern (sdkMcpServers cleanup + client.close) is the same as
     // resumeSession, which is tested in "cleans up client on load failure" below.
+
+    it('forwards sessionSource in daemon.initialize_session params', async () => {
+      wireTransportSend(transport, ({ method, id }) => {
+        if (method === 'daemon.initialize_session') {
+          queueMicrotask(() => {
+            transport.injectMessage(
+              makeSuccessResponse(id, initResponse('src-session'))
+            );
+          });
+        }
+        if (method === 'daemon.close_session') {
+          queueMicrotask(() => {
+            transport.injectMessage(makeSuccessResponse(id, {}));
+          });
+        }
+      });
+
+      const session = await connection.createSession({
+        cwd: '/project',
+        sessionSource: { platform: 'slack' },
+      });
+
+      const initSent = transport.sentMessages.find(
+        (m) => m['method'] === 'daemon.initialize_session'
+      )!;
+      const params = initSent['params'] as Record<string, unknown>;
+      expect(params['sessionSource']).toEqual({ platform: 'slack' });
+
+      await session.close();
+    });
+
+    it('omits sessionSource when not provided', async () => {
+      wireTransportSend(transport, ({ method, id }) => {
+        if (method === 'daemon.initialize_session') {
+          queueMicrotask(() => {
+            transport.injectMessage(
+              makeSuccessResponse(id, initResponse('no-src-session'))
+            );
+          });
+        }
+        if (method === 'daemon.close_session') {
+          queueMicrotask(() => {
+            transport.injectMessage(makeSuccessResponse(id, {}));
+          });
+        }
+      });
+
+      const session = await connection.createSession({ cwd: '/project' });
+
+      const initSent = transport.sentMessages.find(
+        (m) => m['method'] === 'daemon.initialize_session'
+      )!;
+      const params = initSent['params'] as Record<string, unknown>;
+      expect(params).not.toHaveProperty('sessionSource');
+
+      await session.close();
+    });
+
+    it('session.close() completes without error (MCP cleanup path)', async () => {
+      wireTransportSend(transport, ({ method, id }) => {
+        if (method === 'daemon.initialize_session') {
+          queueMicrotask(() => {
+            transport.injectMessage(
+              makeSuccessResponse(id, initResponse('mcp-cleanup-session'))
+            );
+          });
+        }
+        if (method === 'daemon.close_session') {
+          queueMicrotask(() => {
+            transport.injectMessage(makeSuccessResponse(id, {}));
+          });
+        }
+      });
+
+      const session = await connection.createSession({ cwd: '/test' });
+      // Verifies the cleanup callback path executes without throwing
+      await session.close();
+    });
   });
 
   describe('resumeSession', () => {

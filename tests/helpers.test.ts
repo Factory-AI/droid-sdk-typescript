@@ -388,6 +388,31 @@ describe('buildInitParams', () => {
     expect(params).not.toHaveProperty('mcpServers');
     expect(params).not.toHaveProperty('enabledToolIds');
     expect(params).not.toHaveProperty('disabledToolIds');
+    expect(params).not.toHaveProperty('sessionSource');
+  });
+
+  it('includes sessionSource when provided', () => {
+    const params = buildInitParams({
+      cwd: '/project',
+      sessionSource: { platform: 'slack' },
+    });
+
+    expect(params.sessionSource).toEqual({ platform: 'slack' });
+  });
+
+  it('includes sessionSource with passthrough fields', () => {
+    const params = buildInitParams({
+      cwd: '/project',
+      sessionSource: {
+        platform: 'linear',
+        delegationSessionId: 'thread-123',
+      } as any,
+    });
+
+    expect(params.sessionSource).toEqual({
+      platform: 'linear',
+      delegationSessionId: 'thread-123',
+    });
   });
 });
 

@@ -11,11 +11,17 @@ export class DaemonSession {
   private _sessionId: string;
   private _closed = false;
   private readonly _activeBridges = new Set<MessageBridge>();
+  private readonly _cleanupCallbacks: Array<() => Promise<void> | void> = [];
 
   /** @internal */
   constructor(client: DaemonClient, sessionId: string) {
     this._client = client;
     this._sessionId = sessionId;
+  }
+
+  /** @internal */
+  addCleanup(cleanup: () => Promise<void> | void): void {
+    this._cleanupCallbacks.push(cleanup);
   }
 
   get sessionId(): string {
@@ -115,6 +121,14 @@ export class DaemonSession {
       await this._client.closeSession({ reason: 'other' }).catch(() => {});
     } finally {
       await this._client.close();
+      for (const cleanup of this._cleanupCallbacks) {
+        try {
+          await cleanup();
+        } catch {
+          // Best-effort cleanup
+        }
+      }
+      this._cleanupCallbacks.length = 0;
     }
   }
 

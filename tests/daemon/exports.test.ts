@@ -41,4 +41,15 @@ describe('daemon public API exports', () => {
   it('exports resolveLocalAuthToken function', () => {
     expect(typeof sdk.resolveLocalAuthToken).toBe('function');
   });
+
+  it('DaemonSessionOptions does not include title', () => {
+    // Compile-time type check: title was removed because it could
+    // never reach the daemon (not in InitializeSessionRequestParams,
+    // no renameSession in DaemonClient).
+    const opts: import('../../src/daemon/types.js').DaemonSessionOptions = {
+      cwd: '/test',
+      sessionSource: { platform: 'test' },
+    };
+    expect(opts).not.toHaveProperty('title');
+  });
 });

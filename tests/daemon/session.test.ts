@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { DaemonClient } from '../../src/daemon/client.js';
 import { DaemonSession } from '../../src/daemon/session.js';
@@ -184,6 +184,66 @@ describe('DaemonSession', () => {
       // Close the session — should terminate the stream
       await session.close();
       await streamPromise;
+    });
+
+    it('invokes cleanup callbacks when session is closed', async () => {
+      const cleanupFn = vi.fn();
+      session.addCleanup(cleanupFn);
+
+      await session.close();
+
+      expect(cleanupFn).toHaveBeenCalledOnce();
+    });
+
+    it('invokes multiple cleanup callbacks in order', async () => {
+      const order: number[] = [];
+      session.addCleanup(() => {
+        order.push(1);
+      });
+      session.addCleanup(() => {
+        order.push(2);
+      });
+      session.addCleanup(() => {
+        order.push(3);
+      });
+
+      await session.close();
+
+      expect(order).toEqual([1, 2, 3]);
+    });
+
+    it('awaits async cleanup callbacks', async () => {
+      let cleaned = false;
+      session.addCleanup(async () => {
+        await new Promise<void>((r) => setTimeout(r, 10));
+        cleaned = true;
+      });
+
+      await session.close();
+
+      expect(cleaned).toBe(true);
+    });
+
+    it('continues cleanup even if one callback throws', async () => {
+      const secondCleanup = vi.fn();
+      session.addCleanup(() => {
+        throw new Error('cleanup failed');
+      });
+      session.addCleanup(secondCleanup);
+
+      await session.close();
+
+      expect(secondCleanup).toHaveBeenCalledOnce();
+    });
+
+    it('does not invoke cleanup callbacks on second close()', async () => {
+      const cleanupFn = vi.fn();
+      session.addCleanup(cleanupFn);
+
+      await session.close();
+      await session.close();
+
+      expect(cleanupFn).toHaveBeenCalledOnce();
     });
   });
 });

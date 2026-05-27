@@ -375,6 +375,9 @@ export class DaemonConnection {
 
       const initResult = await client.initializeSession(initParams);
       const session = new DaemonSession(client, initResult.sessionId);
+      if (sdkMcpServers) {
+        session.addCleanup(sdkMcpServers.cleanup);
+      }
       return session;
     } catch (error) {
       await sdkMcpServers?.cleanup();
@@ -412,6 +415,9 @@ export class DaemonConnection {
         mcpServers: sdkMcpServers.mcpServers,
       });
       const session = new DaemonSession(client, sessionId);
+      if (sdkMcpServers) {
+        session.addCleanup(sdkMcpServers.cleanup);
+      }
       return session;
     } catch (error) {
       await sdkMcpServers?.cleanup();

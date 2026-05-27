@@ -3,7 +3,11 @@ import type {
   ClientPermissionHandler,
 } from '../client.js';
 import type { DroidMcpServerConfig } from '../mcp.js';
-import type { OutputFormat, SessionTag } from '../schemas/client.js';
+import type {
+  OutputFormat,
+  SessionSource,
+  SessionTag,
+} from '../schemas/client.js';
 import type {
   AutonomyLevel,
   DroidInteractionMode,
@@ -63,11 +67,8 @@ export interface DaemonSessionOptions extends ToolSelectionOverrides {
   /** Handler for ask-user requests from the agent. */
   askUserHandler?: ClientAskUserHandler;
 
-  /** Title for the session. */
-  title?: string;
-
   /** Where this session was created from. Used for attribution. */
-  sessionSource?: Record<string, unknown>;
+  sessionSource?: SessionSource;
 }
 
 export interface DaemonResumeOptions {
