@@ -113,7 +113,7 @@ export class DaemonClient {
 
     const result = await this._rpc(
       DaemonMethod.INITIALIZE_SESSION,
-      { ...params, apiKey: this._apiKey },
+      { ...params, token: this._apiKey },
       InitializeSessionResultSchema,
       SESSION_INIT_TIMEOUT
     );
@@ -128,7 +128,7 @@ export class DaemonClient {
 
     const result = await this._rpc(
       DaemonMethod.LOAD_SESSION,
-      { ...params, apiKey: this._apiKey },
+      { ...params, token: this._apiKey },
       LoadSessionResultSchema,
       SESSION_INIT_TIMEOUT
     );

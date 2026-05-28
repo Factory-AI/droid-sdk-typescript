@@ -355,7 +355,7 @@ describe('DaemonConnection — lifecycle', () => {
       )!;
       const params = loadSent['params'] as Record<string, unknown>;
       expect(params['sessionId']).toBe('resume-target');
-      expect(params['apiKey']).toBe('test-token');
+      expect(params['token']).toBe('test-token');
 
       await session.close();
     });
