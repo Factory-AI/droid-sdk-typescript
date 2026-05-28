@@ -52,8 +52,8 @@ describe('ensureLocalDaemon', () => {
   beforeEach(() => {
     _resetDaemonStateForTesting();
     tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'droid-sdk-daemon-'));
-    factoryDir = path.join(tmpDir, '.factory-dev');
-    fs.mkdirSync(factoryDir, { recursive: true });
+    factoryDir = path.join(tmpDir, '.factory');
+    fs.mkdirSync(path.join(factoryDir, 'sdk'), { recursive: true });
     vi.stubEnv('FACTORY_HOME_OVERRIDE', tmpDir);
     // Point to a nonexistent binary so spawn attempts fail fast
     vi.stubEnv('FACTORY_DROID_BINARY', '/nonexistent/droid');
@@ -65,56 +65,32 @@ describe('ensureLocalDaemon', () => {
     fs.rmSync(tmpDir, { recursive: true, force: true });
   });
 
-  it('discovers daemon on the well-known dev port if reachable', async () => {
-    const devPort = 41723;
-    const alreadyRunning = await isPortReachable(devPort);
+  it('discovers daemon on the well-known port if reachable', async () => {
+    const wellKnownPort = 37643;
+    const alreadyRunning = await isPortReachable(wellKnownPort);
 
     let server: net.Server | undefined;
     if (!alreadyRunning) {
-      server = await startTcpServer('127.0.0.1', devPort);
+      server = await startTcpServer('127.0.0.1', wellKnownPort);
     }
 
     try {
       const result = await ensureLocalDaemon();
-      expect(result.port).toBe(devPort);
-    } finally {
-      if (server) await closeTcpServer(server);
-    }
-  });
-
-  it('discovers daemon on the well-known prod port if reachable', async () => {
-    vi.stubEnv('FACTORY_ENV', 'production');
-    const prodPort = 37643;
-    const alreadyRunning = await isPortReachable(prodPort);
-
-    let server: net.Server | undefined;
-    if (!alreadyRunning) {
-      server = await startTcpServer('127.0.0.1', prodPort);
-    }
-
-    try {
-      const result = await ensureLocalDaemon();
-      expect(result.port).toBe(prodPort);
+      expect(result.port).toBe(wellKnownPort);
     } finally {
       if (server) await closeTcpServer(server);
     }
   });
 
   it('discovers daemon via port file when well-known port is unavailable', async () => {
-    // Use a high, unusual port range to avoid collisions with running daemons.
-    // We set FACTORY_ENV to production so the well-known port is 37643,
-    // then check if 37643 is free. If a real daemon is on 37643, the
-    // well-known port discovery will take precedence (correct behavior),
-    // so we skip the port-file-specific assertion in that case.
-    vi.stubEnv('FACTORY_ENV', 'production');
     const wellKnownPort = 37643;
     const wellKnownRunning = await isPortReachable(wellKnownPort);
 
     const fakeServer = await startTcpServer('127.0.0.1', 0);
     const fakePort = (fakeServer.address() as net.AddressInfo).port;
-    const prodDir = path.join(tmpDir, '.factory');
-    fs.mkdirSync(prodDir, { recursive: true });
-    fs.writeFileSync(path.join(prodDir, 'daemon.port'), String(fakePort));
+    const sdkDir = path.join(factoryDir, 'sdk');
+    fs.mkdirSync(sdkDir, { recursive: true });
+    fs.writeFileSync(path.join(sdkDir, 'daemon.port'), String(fakePort));
 
     try {
       const result = await ensureLocalDaemon();
@@ -132,7 +108,10 @@ describe('ensureLocalDaemon', () => {
     // Start a fake server on a random port and put it in the port file
     const fakeServer = await startTcpServer('127.0.0.1', 0);
     const fakePort = (fakeServer.address() as net.AddressInfo).port;
-    fs.writeFileSync(path.join(factoryDir, 'daemon.port'), String(fakePort));
+    fs.writeFileSync(
+      path.join(factoryDir, 'sdk', 'daemon.port'),
+      String(fakePort)
+    );
 
     try {
       const r1 = await ensureLocalDaemon();
@@ -147,7 +126,10 @@ describe('ensureLocalDaemon', () => {
   it('deduplicates concurrent calls', async () => {
     const fakeServer = await startTcpServer('127.0.0.1', 0);
     const fakePort = (fakeServer.address() as net.AddressInfo).port;
-    fs.writeFileSync(path.join(factoryDir, 'daemon.port'), String(fakePort));
+    fs.writeFileSync(
+      path.join(factoryDir, 'sdk', 'daemon.port'),
+      String(fakePort)
+    );
 
     try {
       const [r1, r2, r3] = await Promise.all([
@@ -167,7 +149,10 @@ describe('ensureLocalDaemon', () => {
     // First call — discover via port file
     const server1 = await startTcpServer('127.0.0.1', 0);
     const port1 = (server1.address() as net.AddressInfo).port;
-    fs.writeFileSync(path.join(factoryDir, 'daemon.port'), String(port1));
+    fs.writeFileSync(
+      path.join(factoryDir, 'sdk', 'daemon.port'),
+      String(port1)
+    );
 
     const r1 = await ensureLocalDaemon();
     // r1 will be either well-known port or port1 — just record it
@@ -180,20 +165,23 @@ describe('ensureLocalDaemon', () => {
     // (unless the well-known port is running, in which case both will be well-known)
     const server2 = await startTcpServer('127.0.0.1', 0);
     const port2 = (server2.address() as net.AddressInfo).port;
-    fs.writeFileSync(path.join(factoryDir, 'daemon.port'), String(port2));
+    fs.writeFileSync(
+      path.join(factoryDir, 'sdk', 'daemon.port'),
+      String(port2)
+    );
 
     try {
       const r2 = await ensureLocalDaemon();
       // After reset, the cache is cleared. The result should be a fresh discovery.
       // If well-known port is running, both will be well-known (fine).
       // If not, r2 should be port2 (not port1 from the old cache).
-      const wellKnownRunning = await isPortReachable(41723);
+      const wellKnownRunning = await isPortReachable(37643);
       if (!wellKnownRunning) {
         expect(r2.port).toBe(port2);
         expect(r2.port).not.toBe(firstPort);
       } else {
         // Both resolve to well-known — that's correct behavior
-        expect(r2.port).toBe(41723);
+        expect(r2.port).toBe(37643);
       }
     } finally {
       await closeTcpServer(server2);
@@ -201,14 +189,14 @@ describe('ensureLocalDaemon', () => {
   });
 
   it('ignores stale port file when port is unreachable', async () => {
-    fs.writeFileSync(path.join(factoryDir, 'daemon.port'), '59999');
+    fs.writeFileSync(path.join(factoryDir, 'sdk', 'daemon.port'), '59999');
 
-    const wellKnownRunning = await isPortReachable(41723);
+    const wellKnownRunning = await isPortReachable(37643);
 
     if (wellKnownRunning) {
       // A daemon is running — ensureLocalDaemon discovers it (correct)
       const result = await ensureLocalDaemon();
-      expect(result.port).toBe(41723);
+      expect(result.port).toBe(37643);
     } else {
       // No daemon — spawn fails because binary is invalid
       await expect(ensureLocalDaemon()).rejects.toThrow(

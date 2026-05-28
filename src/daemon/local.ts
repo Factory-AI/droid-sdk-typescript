@@ -11,11 +11,9 @@ const STARTUP_POLL_INTERVAL_MS = 250;
 const STARTUP_TIMEOUT_MS = 30_000;
 const MAX_STARTUP_ATTEMPTS = 3;
 
-const FACTORY_DIR_PRODUCTION = '.factory';
-const FACTORY_DIR_DEVELOPMENT = '.factory-dev';
+const FACTORY_DIR = '.factory';
 
-const DEFAULT_PROD_PORT = 37643;
-const DEFAULT_DEV_PORT = 41723;
+const DEFAULT_PORT = 37643;
 const DAEMON_PORT_FILE = 'daemon.port';
 const DEFAULT_HOST = '127.0.0.1';
 
@@ -30,18 +28,19 @@ function getFactoryHome(): string {
 }
 
 function getFactoryDirName(): string {
-  const env = process.env.FACTORY_ENV?.toLowerCase();
-  if (env === 'production') return FACTORY_DIR_PRODUCTION;
-  return FACTORY_DIR_DEVELOPMENT;
+  return FACTORY_DIR;
 }
 
 function getFactoryDir(): string {
   return path.join(getFactoryHome(), getFactoryDirName());
 }
 
+function getSdkDir(): string {
+  return path.join(getFactoryDir(), 'sdk');
+}
+
 function getDefaultDaemonPort(): number {
-  const env = process.env.FACTORY_ENV?.toLowerCase();
-  return env === 'production' ? DEFAULT_PROD_PORT : DEFAULT_DEV_PORT;
+  return DEFAULT_PORT;
 }
 
 function resolveExecPath(): string {
@@ -149,7 +148,7 @@ async function waitForDaemonReady(
 
 function readPortFile(): number | null {
   try {
-    const portPath = path.join(getFactoryDir(), DAEMON_PORT_FILE);
+    const portPath = path.join(getSdkDir(), DAEMON_PORT_FILE);
     const content = fs.readFileSync(portPath, 'utf-8').trim();
     const port = parseInt(content, 10);
     if (Number.isFinite(port) && port > 0 && port < 65536) {
@@ -163,9 +162,9 @@ function readPortFile(): number | null {
 
 function writePortFile(port: number): void {
   try {
-    const factoryDir = getFactoryDir();
-    fs.mkdirSync(factoryDir, { recursive: true });
-    fs.writeFileSync(path.join(factoryDir, DAEMON_PORT_FILE), String(port), {
+    const sdkDir = getSdkDir();
+    fs.mkdirSync(sdkDir, { recursive: true });
+    fs.writeFileSync(path.join(sdkDir, DAEMON_PORT_FILE), String(port), {
       mode: 0o600,
     });
   } catch {
@@ -192,7 +191,7 @@ async function spawnDaemon(
 
   let stderrFd: number | undefined;
   try {
-    const logsDir = path.join(getFactoryDir(), 'logs');
+    const logsDir = path.join(getSdkDir(), 'logs');
     fs.mkdirSync(logsDir, { recursive: true });
     stderrFd = fs.openSync(path.join(logsDir, 'daemon-stderr.log'), 'a');
   } catch {
@@ -248,8 +247,8 @@ async function spawnDaemon(
  * Core implementation — called at most once per inflight window.
  *
  * Discovery order:
- * 1. Well-known port (37643 prod / 41723 dev)
- * 2. Port file (~/.factory[-dev]/daemon.port)
+ * 1. Well-known port (37643)
+ * 2. Port file (~/.factory/sdk/daemon.port)
  * 3. Spawn new daemon (prefer well-known port, fallback to random)
  */
 async function _ensureLocalDaemon(): Promise<{ port: number }> {
@@ -297,8 +296,8 @@ async function _ensureLocalDaemon(): Promise<{ port: number }> {
  *
  * Discovery order:
  * 1. Cached target from a previous call in this process
- * 2. Well-known port (37643 prod / 41723 dev)
- * 3. Port file (`~/.factory[-dev]/daemon.port`)
+ * 2. Well-known port (37643)
+ * 3. Port file (`~/.factory/sdk/daemon.port`)
  * 4. Spawn new daemon (prefer well-known port, fallback to random)
  *
  * Concurrent calls are deduplicated — all callers join the same

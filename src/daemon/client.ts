@@ -29,7 +29,10 @@ import {
   LoadSessionResultSchema,
 } from '../schemas/client.js';
 import { SESSION_INIT_TIMEOUT } from '../schemas/constants.js';
-import { ToolConfirmationOutcome } from '../schemas/enums.js';
+import {
+  ServerRequestHandlerType,
+  ToolConfirmationOutcome,
+} from '../schemas/enums.js';
 import type {
   AskUserRequestParams,
   AskUserResult,
@@ -48,10 +51,10 @@ enum DaemonMethod {
 }
 
 /** Maps daemon server-to-client request methods to handler types. */
-const DAEMON_SERVER_REQUEST_METHODS: Record<string, 'permission' | 'askUser'> =
+const DAEMON_SERVER_REQUEST_METHODS: Record<string, ServerRequestHandlerType> =
   {
-    'daemon.request_permission': 'permission',
-    'daemon.ask_user': 'askUser',
+    'daemon.request_permission': ServerRequestHandlerType.Permission,
+    'daemon.ask_user': ServerRequestHandlerType.AskUser,
   };
 
 export type DaemonClientPermissionHandler = PermissionHandler;

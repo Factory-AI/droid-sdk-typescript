@@ -283,6 +283,11 @@ export enum JsonRpcMessageType {
   Notification = 'notification',
 }
 
+export enum ServerRequestHandlerType {
+  Permission = 'permission',
+  AskUser = 'askUser',
+}
+
 /**
  * Settings hierarchy level enum.
  * Precedence order (highest to lowest): Org → Runtime → Folder → Project → User

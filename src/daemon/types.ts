@@ -104,11 +104,8 @@ export interface WebSocketTransportOptions {
   connectionTimeoutMs?: number;
 }
 
-/** Default daemon WebSocket port (production). */
+/** Default daemon WebSocket port. */
 export const DEFAULT_DAEMON_PORT = 37643;
-
-/** Default daemon WebSocket port (development). */
-export const DEFAULT_DEV_DAEMON_PORT = 41723;
 
 /** Default Factory relay base URL. */
 export const DEFAULT_RELAY_BASE_URL = 'wss://relay.factory.ai';

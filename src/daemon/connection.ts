@@ -7,6 +7,7 @@ import {
   LEGACY_FACTORY_API_VERSION,
 } from '../schemas/constants.js';
 import { JsonRpcMessageType } from '../schemas/enums.js';
+import type { JsonRpcRequest } from '../schemas/shared.js';
 import type {
   DroidClientTransport,
   ErrorCallback,
@@ -278,7 +279,7 @@ async function authenticate(
 ): Promise<void> {
   const requestId = crypto.randomUUID();
 
-  const envelope: Record<string, unknown> = {
+  const envelope: JsonRpcRequest = {
     jsonrpc: JSONRPC_VERSION,
     factoryApiVersion: LEGACY_FACTORY_API_VERSION,
     factoryProtocolVersion: FACTORY_PROTOCOL_VERSION,

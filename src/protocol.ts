@@ -16,6 +16,7 @@ import {
   DroidClientMethod,
   JsonRpcMessageType,
   JsonRpcErrorCode,
+  ServerRequestHandlerType,
   ToolConfirmationOutcome,
 } from './schemas/enums.js';
 import {
@@ -97,10 +98,10 @@ export function dispatchNotification(
 /** Default method map for exec-mode (droid.*) server-to-client requests. */
 const DEFAULT_SERVER_REQUEST_METHOD_MAP: Record<
   string,
-  'permission' | 'askUser'
+  ServerRequestHandlerType
 > = {
-  [DroidClientMethod.REQUEST_PERMISSION]: 'permission',
-  [DroidClientMethod.ASK_USER]: 'askUser',
+  [DroidClientMethod.REQUEST_PERMISSION]: ServerRequestHandlerType.Permission,
+  [DroidClientMethod.ASK_USER]: ServerRequestHandlerType.AskUser,
 };
 
 export class ProtocolEngine {
@@ -108,7 +109,7 @@ export class ProtocolEngine {
   private readonly _defaultTimeout: number;
   private readonly _serverRequestMethodMap: Record<
     string,
-    'permission' | 'askUser'
+    ServerRequestHandlerType
   >;
 
   private readonly _pendingRequests = new Map<string, PendingRequest>();
@@ -126,7 +127,7 @@ export class ProtocolEngine {
      * Defaults to `{ 'droid.request_permission': 'permission', 'droid.ask_user': 'askUser' }`.
      * Override for daemon mode: `{ 'daemon.request_permission': 'permission', ... }`.
      */
-    serverRequestMethodMap?: Record<string, 'permission' | 'askUser'>;
+    serverRequestMethodMap?: Record<string, ServerRequestHandlerType>;
   }) {
     this._transport = options.transport;
     this._defaultTimeout = options.defaultTimeout ?? DEFAULT_REQUEST_TIMEOUT;
@@ -336,9 +337,9 @@ export class ProtocolEngine {
     params: unknown
   ): Promise<void> {
     const handlerType = this._serverRequestMethodMap[method];
-    if (handlerType === 'permission') {
+    if (handlerType === ServerRequestHandlerType.Permission) {
       await this._handlePermissionRequest(requestId, params);
-    } else if (handlerType === 'askUser') {
+    } else if (handlerType === ServerRequestHandlerType.AskUser) {
       await this._handleAskUserRequest(requestId, params);
     }
   }

@@ -19,6 +19,7 @@ import {
   JSONRPC_VERSION,
   JsonRpcErrorCode,
   LEGACY_FACTORY_API_VERSION,
+  ServerRequestHandlerType,
   ToolConfirmationOutcome,
 } from '../src/schemas/index.js';
 import {
@@ -877,8 +878,8 @@ describe('ProtocolEngine', () => {
       const customEngine = new ProtocolEngine({
         transport: customTransport,
         serverRequestMethodMap: {
-          'daemon.request_permission': 'permission',
-          'daemon.ask_user': 'askUser',
+          'daemon.request_permission': ServerRequestHandlerType.Permission,
+          'daemon.ask_user': ServerRequestHandlerType.AskUser,
         },
       });
 
@@ -931,8 +932,8 @@ describe('ProtocolEngine', () => {
       const customEngine = new ProtocolEngine({
         transport: customTransport,
         serverRequestMethodMap: {
-          'daemon.request_permission': 'permission',
-          'daemon.ask_user': 'askUser',
+          'daemon.request_permission': ServerRequestHandlerType.Permission,
+          'daemon.ask_user': ServerRequestHandlerType.AskUser,
         },
       });
 
@@ -975,8 +976,8 @@ describe('ProtocolEngine', () => {
       const customEngine = new ProtocolEngine({
         transport: customTransport,
         serverRequestMethodMap: {
-          'daemon.request_permission': 'permission',
-          'daemon.ask_user': 'askUser',
+          'daemon.request_permission': ServerRequestHandlerType.Permission,
+          'daemon.ask_user': ServerRequestHandlerType.AskUser,
         },
       });
 

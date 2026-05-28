@@ -11,7 +11,6 @@ export { WebSocketTransport } from './transport.js';
 export {
   MachineType,
   DEFAULT_DAEMON_PORT,
-  DEFAULT_DEV_DAEMON_PORT,
   DEFAULT_RELAY_BASE_URL,
 } from './types.js';
 export type {
