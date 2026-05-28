@@ -2,7 +2,12 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import { DaemonClient } from '../../src/daemon/client.js';
 import { ConnectionError, SessionError } from '../../src/errors.js';
-import { ToolConfirmationOutcome } from '../../src/schemas/enums.js';
+import {
+  AutonomyLevel,
+  McpServerType,
+  SettingsLevel,
+  ToolConfirmationOutcome,
+} from '../../src/schemas/enums.js';
 import {
   InMemoryTransport,
   makeErrorResponse,
@@ -535,6 +540,423 @@ describe('DaemonClient', () => {
       expect(result['cancelled']).toBe(false);
       const answers = result['answers'] as Array<Record<string, unknown>>;
       expect(answers[0]!['answer']).toBe('X');
+    });
+  });
+
+  describe('updateSessionSettings', () => {
+    it('sends daemon.update_session_settings with params', async () => {
+      await initializeClient(transport, client, 'sess-settings');
+
+      const promise = client.updateSessionSettings({
+        autonomyLevel: AutonomyLevel.High,
+      });
+      const sent = transport.sentMessages.find(
+        (m) => m['method'] === 'daemon.update_session_settings'
+      )!;
+      expect(sent).toBeDefined();
+      transport.injectMessage(makeSuccessResponse(sent['id'] as string, {}));
+      await promise;
+
+      const params = sent['params'] as Record<string, unknown>;
+      expect(params['sessionId']).toBe('sess-settings');
+      expect(params['autonomyLevel']).toBe('high');
+    });
+
+    it('throws SessionError when no active session', async () => {
+      await expect(
+        client.updateSessionSettings({ autonomyLevel: AutonomyLevel.High })
+      ).rejects.toThrow(SessionError);
+    });
+  });
+
+  describe('compactSession', () => {
+    it('sends daemon.compact_session', async () => {
+      await initializeClient(transport, client, 'sess-compact');
+
+      const promise = client.compactSession({});
+      const sent = transport.sentMessages.find(
+        (m) => m['method'] === 'daemon.compact_session'
+      )!;
+      expect(sent).toBeDefined();
+      transport.injectMessage(
+        makeSuccessResponse(sent['id'] as string, {
+          newSessionId: 'compacted-sess',
+          removedCount: 3,
+        })
+      );
+      const result = await promise;
+
+      expect(result.newSessionId).toBe('compacted-sess');
+      const params = sent['params'] as Record<string, unknown>;
+      expect(params['sessionId']).toBe('sess-compact');
+    });
+
+    it('throws SessionError when no active session', async () => {
+      await expect(client.compactSession({})).rejects.toThrow(SessionError);
+    });
+  });
+
+  describe('forkSession', () => {
+    it('sends daemon.fork_session', async () => {
+      await initializeClient(transport, client, 'sess-fork');
+
+      const promise = client.forkSession();
+      const sent = transport.sentMessages.find(
+        (m) => m['method'] === 'daemon.fork_session'
+      )!;
+      expect(sent).toBeDefined();
+      transport.injectMessage(
+        makeSuccessResponse(sent['id'] as string, {
+          newSessionId: 'forked-sess',
+        })
+      );
+      const result = await promise;
+
+      expect(result.newSessionId).toBe('forked-sess');
+      const params = sent['params'] as Record<string, unknown>;
+      expect(params['sessionId']).toBe('sess-fork');
+    });
+
+    it('throws SessionError when no active session', async () => {
+      await expect(client.forkSession()).rejects.toThrow(SessionError);
+    });
+  });
+
+  describe('getContextBreakdown', () => {
+    it('sends daemon.get_context_breakdown', async () => {
+      await initializeClient(transport, client, 'sess-ctx');
+
+      const promise = client.getContextBreakdown();
+      const sent = transport.sentMessages.find(
+        (m) => m['method'] === 'daemon.get_context_breakdown'
+      )!;
+      expect(sent).toBeDefined();
+      transport.injectMessage(
+        makeSuccessResponse(sent['id'] as string, {
+          modelId: 'test-model',
+          modelDisplayName: 'Test Model',
+          contextBudget: 200000,
+          usedTokens: 1000,
+          freeTokens: 199000,
+          categories: [
+            { name: 'messages', tokens: 800, colorKey: 'messages' },
+          ],
+        })
+      );
+      const result = await promise;
+
+      expect(result.modelId).toBe('test-model');
+      expect(result.usedTokens).toBe(1000);
+      const params = sent['params'] as Record<string, unknown>;
+      expect(params['sessionId']).toBe('sess-ctx');
+    });
+
+    it('throws SessionError when no active session', async () => {
+      await expect(client.getContextBreakdown()).rejects.toThrow(SessionError);
+    });
+  });
+
+  describe('renameSession', () => {
+    it('sends daemon.rename_session with title', async () => {
+      await initializeClient(transport, client, 'sess-rename');
+
+      const promise = client.renameSession({ title: 'New Title' });
+      const sent = transport.sentMessages.find(
+        (m) => m['method'] === 'daemon.rename_session'
+      )!;
+      expect(sent).toBeDefined();
+      transport.injectMessage(
+        makeSuccessResponse(sent['id'] as string, { success: true })
+      );
+      await promise;
+
+      const params = sent['params'] as Record<string, unknown>;
+      expect(params['sessionId']).toBe('sess-rename');
+      expect(params['title']).toBe('New Title');
+    });
+
+    it('throws SessionError when no active session', async () => {
+      await expect(
+        client.renameSession({ title: 'x' })
+      ).rejects.toThrow(SessionError);
+    });
+  });
+
+  describe('getRewindInfo', () => {
+    it('sends daemon.get_rewind_info with messageId', async () => {
+      await initializeClient(transport, client, 'sess-rewind');
+
+      const promise = client.getRewindInfo({ messageId: 'msg-123' });
+      const sent = transport.sentMessages.find(
+        (m) => m['method'] === 'daemon.get_rewind_info'
+      )!;
+      expect(sent).toBeDefined();
+      transport.injectMessage(
+        makeSuccessResponse(sent['id'] as string, {
+          availableFiles: [],
+          createdFiles: [],
+          evictedFiles: [],
+        })
+      );
+      await promise;
+
+      const params = sent['params'] as Record<string, unknown>;
+      expect(params['sessionId']).toBe('sess-rewind');
+      expect(params['messageId']).toBe('msg-123');
+    });
+
+    it('throws SessionError when no active session', async () => {
+      await expect(
+        client.getRewindInfo({ messageId: 'x' })
+      ).rejects.toThrow(SessionError);
+    });
+  });
+
+  describe('executeRewind', () => {
+    it('sends daemon.execute_rewind with messageId', async () => {
+      await initializeClient(transport, client, 'sess-exec-rewind');
+
+      const promise = client.executeRewind({
+        messageId: 'msg-456',
+        filesToRestore: [],
+        filesToDelete: [],
+        forkTitle: 'Rewind test',
+      });
+      const sent = transport.sentMessages.find(
+        (m) => m['method'] === 'daemon.execute_rewind'
+      )!;
+      expect(sent).toBeDefined();
+      transport.injectMessage(
+        makeSuccessResponse(sent['id'] as string, {
+          newSessionId: 'rewound-sess',
+          restoredCount: 2,
+          deletedCount: 1,
+          failedRestoreCount: 0,
+          failedDeleteCount: 0,
+        })
+      );
+      const result = await promise;
+
+      expect(result.newSessionId).toBe('rewound-sess');
+      const params = sent['params'] as Record<string, unknown>;
+      expect(params['sessionId']).toBe('sess-exec-rewind');
+      expect(params['messageId']).toBe('msg-456');
+    });
+
+    it('throws SessionError when no active session', async () => {
+      await expect(
+        client.executeRewind({
+          messageId: 'x',
+          filesToRestore: [],
+          filesToDelete: [],
+          forkTitle: 'test',
+        })
+      ).rejects.toThrow(SessionError);
+    });
+  });
+
+  describe('addMcpServer', () => {
+    it('sends daemon.add_mcp_server with params', async () => {
+      await initializeClient(transport, client, 'sess-mcp-add');
+
+      const promise = client.addMcpServer({
+        name: 'test-server',
+        type: McpServerType.Stdio,
+        command: 'node',
+        args: ['server.js'],
+      });
+      const sent = transport.sentMessages.find(
+        (m) => m['method'] === 'daemon.add_mcp_server'
+      )!;
+      expect(sent).toBeDefined();
+      transport.injectMessage(
+        makeSuccessResponse(sent['id'] as string, { success: true })
+      );
+      await promise;
+
+      const params = sent['params'] as Record<string, unknown>;
+      expect(params['sessionId']).toBe('sess-mcp-add');
+      expect(params['name']).toBe('test-server');
+    });
+
+    it('throws SessionError when no active session', async () => {
+      await expect(
+        client.addMcpServer({
+          name: 'x',
+          type: McpServerType.Stdio,
+          command: 'y',
+        })
+      ).rejects.toThrow(SessionError);
+    });
+  });
+
+  describe('removeMcpServer', () => {
+    it('sends daemon.remove_mcp_server', async () => {
+      await initializeClient(transport, client, 'sess-mcp-rm');
+
+      const promise = client.removeMcpServer({
+        serverName: 'test-server',
+        settingsLevel: SettingsLevel.User,
+      });
+      const sent = transport.sentMessages.find(
+        (m) => m['method'] === 'daemon.remove_mcp_server'
+      )!;
+      expect(sent).toBeDefined();
+      transport.injectMessage(
+        makeSuccessResponse(sent['id'] as string, { success: true })
+      );
+      await promise;
+
+      const params = sent['params'] as Record<string, unknown>;
+      expect(params['sessionId']).toBe('sess-mcp-rm');
+      expect(params['serverName']).toBe('test-server');
+    });
+
+    it('throws SessionError when no active session', async () => {
+      await expect(
+        client.removeMcpServer({
+          serverName: 'x',
+          settingsLevel: SettingsLevel.User,
+        })
+      ).rejects.toThrow(SessionError);
+    });
+  });
+
+  describe('toggleMcpServer', () => {
+    it('sends daemon.toggle_mcp_server', async () => {
+      await initializeClient(transport, client, 'sess-mcp-toggle');
+
+      const promise = client.toggleMcpServer({
+        serverName: 'test-server',
+        enabled: false,
+        settingsLevel: SettingsLevel.User,
+      });
+      const sent = transport.sentMessages.find(
+        (m) => m['method'] === 'daemon.toggle_mcp_server'
+      )!;
+      expect(sent).toBeDefined();
+      transport.injectMessage(
+        makeSuccessResponse(sent['id'] as string, { success: true })
+      );
+      await promise;
+
+      const params = sent['params'] as Record<string, unknown>;
+      expect(params['sessionId']).toBe('sess-mcp-toggle');
+      expect(params['serverName']).toBe('test-server');
+      expect(params['enabled']).toBe(false);
+    });
+
+    it('throws SessionError when no active session', async () => {
+      await expect(
+        client.toggleMcpServer({
+          serverName: 'x',
+          enabled: true,
+          settingsLevel: SettingsLevel.User,
+        })
+      ).rejects.toThrow(SessionError);
+    });
+  });
+
+  describe('listMcpServers', () => {
+    it('sends daemon.list_mcp_servers', async () => {
+      await initializeClient(transport, client, 'sess-mcp-list');
+
+      const promise = client.listMcpServers();
+      const sent = transport.sentMessages.find(
+        (m) => m['method'] === 'daemon.list_mcp_servers'
+      )!;
+      expect(sent).toBeDefined();
+      transport.injectMessage(
+        makeSuccessResponse(sent['id'] as string, {
+          servers: [],
+          summary: { total: 0, connected: 0, connecting: 0, failed: 0 },
+        })
+      );
+      const result = await promise;
+
+      expect(result.servers).toEqual([]);
+      const params = sent['params'] as Record<string, unknown>;
+      expect(params['sessionId']).toBe('sess-mcp-list');
+    });
+
+    it('throws SessionError when no active session', async () => {
+      await expect(client.listMcpServers()).rejects.toThrow(SessionError);
+    });
+  });
+
+  describe('listMcpTools', () => {
+    it('sends daemon.list_mcp_tools', async () => {
+      await initializeClient(transport, client, 'sess-mcp-tools');
+
+      const promise = client.listMcpTools();
+      const sent = transport.sentMessages.find(
+        (m) => m['method'] === 'daemon.list_mcp_tools'
+      )!;
+      expect(sent).toBeDefined();
+      transport.injectMessage(
+        makeSuccessResponse(sent['id'] as string, { tools: [] })
+      );
+      const result = await promise;
+
+      expect(result.tools).toEqual([]);
+      const params = sent['params'] as Record<string, unknown>;
+      expect(params['sessionId']).toBe('sess-mcp-tools');
+    });
+
+    it('throws SessionError when no active session', async () => {
+      await expect(client.listMcpTools()).rejects.toThrow(SessionError);
+    });
+  });
+
+  describe('authenticateMcpServer', () => {
+    it('sends daemon.authenticate_mcp_server', async () => {
+      await initializeClient(transport, client, 'sess-mcp-auth');
+
+      const promise = client.authenticateMcpServer({
+        serverName: 'test-server',
+      });
+      const sent = transport.sentMessages.find(
+        (m) => m['method'] === 'daemon.authenticate_mcp_server'
+      )!;
+      expect(sent).toBeDefined();
+      transport.injectMessage(
+        makeSuccessResponse(sent['id'] as string, { success: true })
+      );
+      await promise;
+
+      const params = sent['params'] as Record<string, unknown>;
+      expect(params['sessionId']).toBe('sess-mcp-auth');
+      expect(params['serverName']).toBe('test-server');
+    });
+
+    it('throws SessionError when no active session', async () => {
+      await expect(
+        client.authenticateMcpServer({ serverName: 'x' })
+      ).rejects.toThrow(SessionError);
+    });
+  });
+
+  describe('listSkills', () => {
+    it('sends daemon.list_skills', async () => {
+      await initializeClient(transport, client, 'sess-skills');
+
+      const promise = client.listSkills();
+      const sent = transport.sentMessages.find(
+        (m) => m['method'] === 'daemon.list_skills'
+      )!;
+      expect(sent).toBeDefined();
+      transport.injectMessage(
+        makeSuccessResponse(sent['id'] as string, { skills: [] })
+      );
+      const result = await promise;
+
+      expect(result.skills).toEqual([]);
+      const params = sent['params'] as Record<string, unknown>;
+      expect(params['sessionId']).toBe('sess-skills');
+    });
+
+    it('throws SessionError when no active session', async () => {
+      await expect(client.listSkills()).rejects.toThrow(SessionError);
     });
   });
 
