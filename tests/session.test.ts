@@ -218,7 +218,7 @@ describe('createSession()', () => {
 
       setupInitResponder(transport, 'sess-create-001');
 
-      const session = await createSession({ transport });
+      const session = await createSession({ apiKey: 'test-key', transport });
 
       expect(session).toBeInstanceOf(DroidSession);
       expect(session.sessionId).toBe('sess-create-001');
@@ -237,6 +237,7 @@ describe('createSession()', () => {
       setupInitResponder(transport, 'sess-create-002');
 
       const session = await createSession({
+        apiKey: 'test-key',
         transport,
         cwd: '/my/project',
         machineId: 'my-machine',
@@ -277,7 +278,9 @@ describe('createSession()', () => {
         }
       };
 
-      await expect(createSession({ transport })).rejects.toThrow();
+      await expect(
+        createSession({ apiKey: 'test-key', transport })
+      ).rejects.toThrow();
 
       expect(transport.isConnected).toBe(false);
     });
@@ -292,7 +295,10 @@ describe('resumeSession()', () => {
 
       setupLoadResponder(transport, 'sess-resume-001');
 
-      const session = await resumeSession('sess-resume-001', { transport });
+      const session = await resumeSession('sess-resume-001', {
+        apiKey: 'test-key',
+        transport,
+      });
 
       expect(session).toBeInstanceOf(DroidSession);
       expect(session.sessionId).toBe('sess-resume-001');
@@ -307,7 +313,10 @@ describe('resumeSession()', () => {
 
       setupLoadResponder(transport, 'sess-resume-002');
 
-      const session = await resumeSession('sess-resume-002', { transport });
+      const session = await resumeSession('sess-resume-002', {
+        apiKey: 'test-key',
+        transport,
+      });
 
       const loadMsg = transport.sentMessages.find(
         (m) =>
@@ -348,7 +357,7 @@ describe('resumeSession()', () => {
       };
 
       await expect(
-        resumeSession('non-existent-session', { transport })
+        resumeSession('non-existent-session', { apiKey: 'test-key', transport })
       ).rejects.toThrow(SessionNotFoundError);
 
       expect(transport.isConnected).toBe(false);
@@ -363,6 +372,7 @@ describe('resumeSession()', () => {
       setupLoadResponder(transport, 'sess-resume-cwd-001');
 
       const session = await resumeSession('sess-resume-cwd-001', {
+        apiKey: 'test-key',
         transport,
       });
 
@@ -386,6 +396,7 @@ describe('resumeSession()', () => {
       setupLoadResponder(transport, 'sess-resume-cwd-002');
 
       const session = await resumeSession('sess-resume-cwd-002', {
+        apiKey: 'test-key',
         transport,
         // @ts-expect-error - cwd is not a valid ResumeSessionOptions field
         cwd: '/tmp/should-not-be-allowed',
@@ -413,7 +424,7 @@ describe('DroidSession', () => {
 
       setupFullResponder(transport, 'sess-stream-001');
 
-      const session = await createSession({ transport });
+      const session = await createSession({ apiKey: 'test-key', transport });
 
       const messages: DroidMessage[] = [];
       for await (const msg of session.stream('Hello')) {
@@ -466,7 +477,7 @@ describe('DroidSession', () => {
           }
         });
 
-        return createSession({ transport });
+        return createSession({ apiKey: 'test-key', transport });
       };
 
       const defaultSession = await createStreamingSession('sess-default');
@@ -542,7 +553,7 @@ describe('DroidSession', () => {
         }
       });
 
-      const session = await createSession({ transport });
+      const session = await createSession({ apiKey: 'test-key', transport });
       const messages: DroidMessage[] = [];
       for await (const msg of session.stream('Return a person', {
         outputFormat: {
@@ -601,7 +612,7 @@ describe('DroidSession', () => {
         }
       });
 
-      const session = await createSession({ transport });
+      const session = await createSession({ apiKey: 'test-key', transport });
       const messages: DroidMessage[] = [];
       for await (const msg of session.stream('Return a person', {
         outputFormat: {
@@ -633,7 +644,7 @@ describe('DroidSession', () => {
 
       setupFullResponder(transport, 'sess-stream-multi');
 
-      const session = await createSession({ transport });
+      const session = await createSession({ apiKey: 'test-key', transport });
 
       const msgs1: DroidMessage[] = [];
       for await (const msg of session.stream('First message')) {
@@ -665,7 +676,7 @@ describe('DroidSession', () => {
 
       setupInitResponder(transport, 'sess-close-001');
 
-      const session = await createSession({ transport });
+      const session = await createSession({ apiKey: 'test-key', transport });
 
       await session.close();
 
@@ -680,7 +691,7 @@ describe('DroidSession', () => {
 
       setupInitResponder(transport, 'sess-close-idempotent');
 
-      const session = await createSession({ transport });
+      const session = await createSession({ apiKey: 'test-key', transport });
 
       await session.close();
       await session.close();
@@ -700,6 +711,7 @@ describe('DroidSession', () => {
       });
 
       const session = await createSession({
+        apiKey: 'test-key',
         transport,
       });
 
@@ -748,7 +760,7 @@ describe('DroidSession', () => {
         }
       });
 
-      const session = await createSession({ transport });
+      const session = await createSession({ apiKey: 'test-key', transport });
       const messages: DroidMessage[] = [];
       const streamPromise = (async () => {
         for await (const msg of session.stream('wait forever')) {
@@ -797,7 +809,7 @@ describe('DroidSession', () => {
         }
       });
 
-      const session = await createSession({ transport });
+      const session = await createSession({ apiKey: 'test-key', transport });
       const streamPromise = (async () => {
         const collected: DroidMessage[] = [];
         for await (const msg of session.stream('pending add')) {
@@ -851,7 +863,7 @@ describe('DroidSession', () => {
         }
       });
 
-      const session = await createSession({ transport });
+      const session = await createSession({ apiKey: 'test-key', transport });
       const collect = async (prompt: string): Promise<DroidMessage[]> => {
         const messages: DroidMessage[] = [];
         for await (const msg of session.stream(prompt)) {
@@ -883,7 +895,7 @@ describe('DroidSession', () => {
 
       setupFullResponder(transport, 'sess-mcp-001');
 
-      const session = await createSession({ transport });
+      const session = await createSession({ apiKey: 'test-key', transport });
 
       const result = await session.addMcpServer({
         name: 'test-server',
@@ -911,7 +923,7 @@ describe('DroidSession', () => {
 
       setupFullResponder(transport, 'sess-mcp-002');
 
-      const session = await createSession({ transport });
+      const session = await createSession({ apiKey: 'test-key', transport });
 
       const result = await session.removeMcpServer({
         serverName: 'test-server',
@@ -929,7 +941,7 @@ describe('DroidSession', () => {
 
       setupFullResponder(transport, 'sess-mcp-003');
 
-      const session = await createSession({ transport });
+      const session = await createSession({ apiKey: 'test-key', transport });
 
       const result = await session.toggleMcpServer({
         serverName: 'test-server',
@@ -948,7 +960,7 @@ describe('DroidSession', () => {
 
       setupFullResponder(transport, 'sess-mcp-004');
 
-      const session = await createSession({ transport });
+      const session = await createSession({ apiKey: 'test-key', transport });
 
       const result = await session.listMcpServers();
 
@@ -964,7 +976,7 @@ describe('DroidSession', () => {
 
       setupFullResponder(transport, 'sess-mcp-005');
 
-      const session = await createSession({ transport });
+      const session = await createSession({ apiKey: 'test-key', transport });
 
       const result = await session.listMcpTools();
 
@@ -980,7 +992,7 @@ describe('DroidSession', () => {
 
       setupFullResponder(transport, 'sess-tools-001');
 
-      const session = await createSession({ transport });
+      const session = await createSession({ apiKey: 'test-key', transport });
 
       const result = await session.listTools({ disabledToolIds: ['Execute'] });
 
@@ -996,7 +1008,7 @@ describe('DroidSession', () => {
 
       setupFullResponder(transport, 'sess-mcp-006');
 
-      const session = await createSession({ transport });
+      const session = await createSession({ apiKey: 'test-key', transport });
 
       const result = await session.authenticateMcpServer({
         serverName: 'test-server',
@@ -1013,7 +1025,7 @@ describe('DroidSession', () => {
 
       setupInitResponder(transport, 'sess-mcp-closed');
 
-      const session = await createSession({ transport });
+      const session = await createSession({ apiKey: 'test-key', transport });
       await session.close();
 
       await expect(session.listMcpServers()).rejects.toThrow(ConnectionError);
@@ -1029,7 +1041,7 @@ describe('DroidSession', () => {
 
       setupFullResponder(transport, 'sess-settings-001');
 
-      const session = await createSession({ transport });
+      const session = await createSession({ apiKey: 'test-key', transport });
 
       const result = await session.updateSettings({ modelId: 'new-model' });
 
@@ -1056,7 +1068,7 @@ describe('DroidSession', () => {
 
       setupFullResponder(transport, 'sess-settings-spec-001');
 
-      const session = await createSession({ transport });
+      const session = await createSession({ apiKey: 'test-key', transport });
 
       const result = await session.enterSpecMode({
         specModeModelId: 'claude-spec',
@@ -1090,7 +1102,7 @@ describe('DroidSession', () => {
 
       setupFullResponder(transport, 'sess-interrupt-001');
 
-      const session = await createSession({ transport });
+      const session = await createSession({ apiKey: 'test-key', transport });
 
       await session.interrupt();
 
@@ -1126,7 +1138,7 @@ describe('DroidSession', () => {
         },
       });
 
-      const session = await createSession({ transport });
+      const session = await createSession({ apiKey: 'test-key', transport });
 
       const result = await session.getRewindInfo({ messageId: 'msg-1' });
 
@@ -1160,7 +1172,7 @@ describe('DroidSession', () => {
         },
       });
 
-      const session = await createSession({ transport });
+      const session = await createSession({ apiKey: 'test-key', transport });
 
       const result = await session.executeRewind({
         messageId: 'msg-1',
@@ -1196,7 +1208,7 @@ describe('DroidSession', () => {
         },
       });
 
-      const session = await createSession({ transport });
+      const session = await createSession({ apiKey: 'test-key', transport });
 
       const result = await session.compactSession({
         customInstructions: 'Keep context',
@@ -1225,7 +1237,7 @@ describe('DroidSession', () => {
         },
       });
 
-      const session = await createSession({ transport });
+      const session = await createSession({ apiKey: 'test-key', transport });
 
       const result = await session.compactSession();
 
@@ -1252,7 +1264,7 @@ describe('DroidSession', () => {
         },
       });
 
-      const session = await createSession({ transport });
+      const session = await createSession({ apiKey: 'test-key', transport });
 
       const result = await session.forkSession();
 
@@ -1279,7 +1291,7 @@ describe('DroidSession', () => {
         },
       });
 
-      const session = await createSession({ transport });
+      const session = await createSession({ apiKey: 'test-key', transport });
 
       const result = await session.renameSession({ title: 'My New Title' });
 
@@ -1310,7 +1322,7 @@ describe('DroidSession', () => {
         },
       });
 
-      const session = await createSession({ transport });
+      const session = await createSession({ apiKey: 'test-key', transport });
 
       const result = await session.getContextStats();
 
@@ -1329,7 +1341,7 @@ describe('DroidSession', () => {
 
       setupFullResponder(transport, 'sess-skills-001');
 
-      const session = await createSession({ transport });
+      const session = await createSession({ apiKey: 'test-key', transport });
 
       const result = await session.listSkills();
 
@@ -1347,7 +1359,7 @@ describe('DroidSession', () => {
 
       setupInitResponder(transport, 'sess-notif-001');
 
-      const session = await createSession({ transport });
+      const session = await createSession({ apiKey: 'test-key', transport });
 
       const notifications: unknown[] = [];
       const unsub = session.onNotification((n) => {
@@ -1437,7 +1449,7 @@ describe('DroidSession', () => {
         }
       };
 
-      const session = await createSession({ transport });
+      const session = await createSession({ apiKey: 'test-key', transport });
 
       const messages: DroidMessage[] = [];
       for await (const msg of session.stream('test', {
@@ -1485,7 +1497,7 @@ describe('DroidSession', () => {
         }
       };
 
-      const session = await createSession({ transport });
+      const session = await createSession({ apiKey: 'test-key', transport });
 
       await expect(async () => {
         for await (const _msg of session.stream('test')) {
@@ -1502,7 +1514,7 @@ describe('DroidSession', () => {
 
       setupFullResponder(transport, 'sess-break-001');
 
-      const session = await createSession({ transport });
+      const session = await createSession({ apiKey: 'test-key', transport });
 
       for await (const msg of session.stream('test', {
         includePartialMessages: true,
@@ -1609,7 +1621,7 @@ describe('DroidSession', () => {
         }
       };
 
-      const session = await createSession({ transport });
+      const session = await createSession({ apiKey: 'test-key', transport });
 
       const result1: DroidMessage[] = [];
       for await (const msg of session.stream('first')) {
@@ -1646,7 +1658,7 @@ describe('DroidSession', () => {
 
       setupInitResponder(transport, 'sess-post-close');
 
-      const session = await createSession({ transport });
+      const session = await createSession({ apiKey: 'test-key', transport });
       await session.close();
 
       await expect(async () => {
@@ -1662,7 +1674,7 @@ describe('DroidSession', () => {
 
       setupInitResponder(transport, 'sess-post-close-int');
 
-      const session = await createSession({ transport });
+      const session = await createSession({ apiKey: 'test-key', transport });
       await session.close();
 
       await expect(session.interrupt()).rejects.toThrow(ConnectionError);
@@ -1674,7 +1686,7 @@ describe('DroidSession', () => {
 
       setupInitResponder(transport, 'sess-post-close-settings');
 
-      const session = await createSession({ transport });
+      const session = await createSession({ apiKey: 'test-key', transport });
       await session.close();
 
       await expect(session.updateSettings({ modelId: 'x' })).rejects.toThrow(
@@ -1688,7 +1700,7 @@ describe('DroidSession', () => {
 
       setupInitResponder(transport, 'sess-post-close-rewind');
 
-      const session = await createSession({ transport });
+      const session = await createSession({ apiKey: 'test-key', transport });
       await session.close();
 
       await expect(
@@ -1717,7 +1729,7 @@ describe('DroidSession', () => {
 
       setupFullResponder(transport, 'sess-double-int');
 
-      const session = await createSession({ transport });
+      const session = await createSession({ apiKey: 'test-key', transport });
 
       let streamComplete = false;
       const streamPromise = (async () => {
@@ -1787,7 +1799,7 @@ describe('DroidSession', () => {
         },
       });
 
-      const session = await createSession({ transport });
+      const session = await createSession({ apiKey: 'test-key', transport });
 
       await expect(async () => {
         for await (const _msg of session.stream('first')) {
@@ -1810,7 +1822,7 @@ describe('DroidSession', () => {
 
       setupFullResponder(transport, 'sess-images');
 
-      const session = await createSession({ transport });
+      const session = await createSession({ apiKey: 'test-key', transport });
 
       for await (const _msg of session.stream('Look at this', {
         images: [{ type: 'base64', data: 'abc123', mediaType: 'image/png' }],
@@ -1842,6 +1854,7 @@ describe('DroidSession', () => {
       setupInitResponder(transport, 'sess-all-opts');
 
       const session = await createSession({
+        apiKey: 'test-key',
         transport,
         cwd: '/my/project',
         machineId: 'custom-machine',
@@ -1901,7 +1914,11 @@ describe('DroidSession', () => {
 
       setupInitResponder(transport, 'sess-sdk-tag-default');
 
-      const session = await createSession({ transport, cwd: '/tmp' });
+      const session = await createSession({
+        apiKey: 'test-key',
+        transport,
+        cwd: '/tmp',
+      });
 
       const initMsg = transport.sentMessages.find(
         (m) =>
@@ -1922,6 +1939,7 @@ describe('DroidSession', () => {
       setupInitResponder(transport, 'sess-sdk-tag-merge');
 
       const session = await createSession({
+        apiKey: 'test-key',
         transport,
         cwd: '/tmp',
         tags: [{ name: 'custom', metadata: { env: 'test' } }],
@@ -1953,6 +1971,7 @@ describe('DroidSession', () => {
       const controller = new AbortController();
 
       const session = await createSession({
+        apiKey: 'test-key',
         transport,
         abortSignal: controller.signal,
       });
@@ -1977,6 +1996,7 @@ describe('DroidSession', () => {
       controller.abort();
 
       const session = await createSession({
+        apiKey: 'test-key',
         transport,
         abortSignal: controller.signal,
       });
@@ -1998,6 +2018,7 @@ describe('DroidSession', () => {
       const controller = new AbortController();
 
       const session = await resumeSession('sess-resume-abort', {
+        apiKey: 'test-key',
         transport,
         abortSignal: controller.signal,
       });
@@ -2022,6 +2043,7 @@ describe('DroidSession', () => {
       controller.abort();
 
       const session = await resumeSession('sess-resume-pre-aborted', {
+        apiKey: 'test-key',
         transport,
         abortSignal: controller.signal,
       });
@@ -2040,7 +2062,7 @@ describe('DroidSession', () => {
 
       setupFullResponder(transport, 'sess-concurrent-settings');
 
-      const session = await createSession({ transport });
+      const session = await createSession({ apiKey: 'test-key', transport });
 
       const [streamResult, settingsResult] = await Promise.all([
         collectStreamText(session, 'test'),

@@ -13,7 +13,7 @@ export interface RunOptions
 
 export async function run(
   prompt: string,
-  options: RunOptions = {}
+  options: RunOptions
 ): Promise<DroidResult> {
   const session = await createSession(options);
 

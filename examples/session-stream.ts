@@ -15,7 +15,10 @@ async function main(): Promise<void> {
 
   console.log(`Sending prompt: "${prompt}"\n`);
 
-  const session = await createSession({ cwd: process.cwd() });
+  const session = await createSession({
+    apiKey: process.env.FACTORY_API_KEY!,
+    cwd: process.cwd(),
+  });
 
   try {
     for await (const msg of session.stream(prompt)) {

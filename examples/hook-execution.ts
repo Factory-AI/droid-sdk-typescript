@@ -15,7 +15,13 @@ async function main(): Promise<void> {
   console.log(`Sending prompt: "${prompt}"\n`);
 
   // Note: To actually see hooks, you need to have hooks configured in your droid settings.
-  const session = await createSession({ cwd: process.cwd() });
+  const apiKey = process.env.FACTORY_API_KEY;
+  if (!apiKey) {
+    console.error('Set FACTORY_API_KEY environment variable.');
+    process.exit(1);
+  }
+
+  const session = await createSession({ apiKey, cwd: process.cwd() });
 
   try {
     for await (const msg of session.stream(prompt)) {

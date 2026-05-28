@@ -1,0 +1,108 @@
+import { ConnectionError } from '../errors.js';
+import { streamFromClient } from '../helpers.js';
+import type { MessageBridge, MessageOptions } from '../helpers.js';
+import type { NotificationCallback, NotificationFilter } from '../protocol.js';
+import type { DroidStreamEvent, DroidStreamMessage } from '../stream.js';
+import type { DaemonClient } from './client.js';
+import type { SendOptions } from './types.js';
+
+export class DaemonSession {
+  private _client: DaemonClient;
+  private _sessionId: string;
+  private _closed = false;
+  private readonly _activeBridges = new Set<MessageBridge>();
+  private readonly _cleanupCallbacks: Array<() => Promise<void> | void> = [];
+
+  /** @internal */
+  constructor(client: DaemonClient, sessionId: string) {
+    this._client = client;
+    this._sessionId = sessionId;
+  }
+
+  /** @internal */
+  addCleanup(cleanup: () => Promise<void> | void): void {
+    this._cleanupCallbacks.push(cleanup);
+  }
+
+  get sessionId(): string {
+    return this._sessionId;
+  }
+
+  stream(
+    prompt: string,
+    options?: MessageOptions & { includePartialMessages?: false }
+  ): AsyncGenerator<DroidStreamMessage, void, undefined>;
+  stream(
+    prompt: string,
+    options: MessageOptions & { includePartialMessages: true }
+  ): AsyncGenerator<DroidStreamEvent, void, undefined>;
+  async *stream(
+    prompt: string,
+    options?: MessageOptions
+  ): AsyncGenerator<DroidStreamEvent, void, undefined> {
+    this._ensureNotClosed();
+    yield* streamFromClient(
+      this._client,
+      this._sessionId,
+      this._activeBridges,
+      prompt,
+      options
+    );
+  }
+
+  async send(prompt: string, options?: SendOptions): Promise<void> {
+    this._ensureNotClosed();
+
+    await this._client.addUserMessage({
+      text: prompt,
+      images: options?.images,
+      files: options?.files,
+      outputFormat: options?.outputFormat,
+    });
+  }
+
+  async interrupt(): Promise<void> {
+    this._ensureNotClosed();
+    await this._client.interruptSession();
+  }
+
+  async close(): Promise<void> {
+    if (this._closed) {
+      return;
+    }
+    this._closed = true;
+
+    for (const bridge of this._activeBridges) {
+      bridge.signalDone();
+    }
+
+    try {
+      await this._client.closeSession({ reason: 'other' }).catch(() => {});
+    } finally {
+      await this._client.close();
+      for (const cleanup of this._cleanupCallbacks) {
+        try {
+          await cleanup();
+        } catch {
+          // Best-effort cleanup
+        }
+      }
+      this._cleanupCallbacks.length = 0;
+    }
+  }
+
+  onNotification(
+    callback: NotificationCallback,
+    filter?: NotificationFilter
+  ): () => void {
+    return this._client.onNotification(callback, filter);
+  }
+
+  private _ensureNotClosed(): void {
+    if (this._closed) {
+      throw new ConnectionError(
+        'Daemon session has been closed. Create a new session to continue.'
+      );
+    }
+  }
+}

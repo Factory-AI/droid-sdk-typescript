@@ -12,7 +12,9 @@ async function streamText(
   prompt: string
 ): Promise<string> {
   let text = '';
-  for await (const msg of session.stream(prompt)) {
+  for await (const msg of session.stream(prompt, {
+    includePartialMessages: true,
+  })) {
     if (msg.type === DroidMessageType.AssistantTextDelta) {
       text += msg.text;
     }
@@ -20,7 +22,10 @@ async function streamText(
   return text;
 }
 
-const session = await createSession({ cwd: process.cwd() });
+const session = await createSession({
+  apiKey: process.env.FACTORY_API_KEY!,
+  cwd: process.cwd(),
+});
 
 try {
   console.log(`Session: ${session.sessionId}\n`);

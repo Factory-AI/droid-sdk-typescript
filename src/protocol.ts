@@ -16,6 +16,7 @@ import {
   DroidClientMethod,
   JsonRpcMessageType,
   JsonRpcErrorCode,
+  ServerRequestHandlerType,
   ToolConfirmationOutcome,
 } from './schemas/enums.js';
 import {
@@ -94,9 +95,22 @@ export function dispatchNotification(
   }
 }
 
+/** Default method map for exec-mode (droid.*) server-to-client requests. */
+const DEFAULT_SERVER_REQUEST_METHOD_MAP: Record<
+  string,
+  ServerRequestHandlerType
+> = {
+  [DroidClientMethod.REQUEST_PERMISSION]: ServerRequestHandlerType.Permission,
+  [DroidClientMethod.ASK_USER]: ServerRequestHandlerType.AskUser,
+};
+
 export class ProtocolEngine {
   private readonly _transport: DroidClientTransport;
   private readonly _defaultTimeout: number;
+  private readonly _serverRequestMethodMap: Record<
+    string,
+    ServerRequestHandlerType
+  >;
 
   private readonly _pendingRequests = new Map<string, PendingRequest>();
   private readonly _notificationListeners = new Set<NotificationListener>();
@@ -108,9 +122,17 @@ export class ProtocolEngine {
   constructor(options: {
     transport: DroidClientTransport;
     defaultTimeout?: number;
+    /**
+     * Maps incoming server-to-client request method strings to handler types.
+     * Defaults to `{ 'droid.request_permission': 'permission', 'droid.ask_user': 'askUser' }`.
+     * Override for daemon mode: `{ 'daemon.request_permission': 'permission', ... }`.
+     */
+    serverRequestMethodMap?: Record<string, ServerRequestHandlerType>;
   }) {
     this._transport = options.transport;
     this._defaultTimeout = options.defaultTimeout ?? DEFAULT_REQUEST_TIMEOUT;
+    this._serverRequestMethodMap =
+      options.serverRequestMethodMap ?? DEFAULT_SERVER_REQUEST_METHOD_MAP;
 
     this._transport.onMessage((message: Record<string, unknown>) => {
       this._handleMessage(message);
@@ -314,9 +336,10 @@ export class ProtocolEngine {
     requestId: string,
     params: unknown
   ): Promise<void> {
-    if (method === DroidClientMethod.REQUEST_PERMISSION) {
+    const handlerType = this._serverRequestMethodMap[method];
+    if (handlerType === ServerRequestHandlerType.Permission) {
       await this._handlePermissionRequest(requestId, params);
-    } else if (method === DroidClientMethod.ASK_USER) {
+    } else if (handlerType === ServerRequestHandlerType.AskUser) {
       await this._handleAskUserRequest(requestId, params);
     }
   }

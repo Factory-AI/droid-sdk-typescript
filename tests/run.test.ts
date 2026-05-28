@@ -59,7 +59,7 @@ describe('run()', () => {
     await transport.connect();
     setupRunResponder(transport, 'sess-run-success');
 
-    const result = await run('Say hello', { transport });
+    const result = await run('Say hello', { apiKey: 'test-key', transport });
 
     expect(result.text).toBe('Run result');
     expect(result.messages.length).toBeGreaterThan(0);
@@ -73,6 +73,7 @@ describe('run()', () => {
     setupRunResponder(transport, 'sess-run-options');
 
     await run('Describe these inputs', {
+      apiKey: 'test-key',
       transport,
       cwd: '/tmp/project',
       machineId: 'machine-1',
@@ -147,9 +148,9 @@ describe('run()', () => {
       }
     });
 
-    await expect(run('This will fail', { transport })).rejects.toThrow(
-      'send failed'
-    );
+    await expect(
+      run('This will fail', { apiKey: 'test-key', transport })
+    ).rejects.toThrow('send failed');
     expect(transport.isConnected).toBe(false);
   });
 
@@ -198,7 +199,10 @@ describe('run()', () => {
       }
     });
 
-    const result = await run('Test error metadata', { transport });
+    const result = await run('Test error metadata', {
+      apiKey: 'test-key',
+      transport,
+    });
 
     expect(result.success).toBe(false);
     expect(result.error).toMatchObject({
@@ -276,7 +280,11 @@ describe('run()', () => {
       },
     };
 
-    const result = await run('Return a person', { transport, outputFormat });
+    const result = await run('Return a person', {
+      apiKey: 'test-key',
+      transport,
+      outputFormat,
+    });
     const addUserMessage = transport.sentMessages.find(
       (message) =>
         (message as Record<string, unknown>)['method'] ===
@@ -360,6 +368,7 @@ describe('run()', () => {
     });
 
     const result = await run('Return a person', {
+      apiKey: 'test-key',
       transport,
       outputFormat: {
         type: OutputFormatType.JsonSchema,
@@ -427,7 +436,7 @@ describe('run()', () => {
       }
     });
 
-    const result = await run('Test', { transport });
+    const result = await run('Test', { apiKey: 'test-key', transport });
 
     expect(result.text).toBe('Hello beautiful world!');
   });
@@ -441,7 +450,11 @@ describe('run()', () => {
     controller.abort(new Error('run aborted'));
 
     await expect(
-      run('Should not send', { transport, abortSignal: controller.signal })
+      run('Should not send', {
+        apiKey: 'test-key',
+        transport,
+        abortSignal: controller.signal,
+      })
     ).rejects.toThrow();
 
     expect(

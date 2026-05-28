@@ -19,6 +19,7 @@ import {
   JSONRPC_VERSION,
   JsonRpcErrorCode,
   LEGACY_FACTORY_API_VERSION,
+  ServerRequestHandlerType,
   ToolConfirmationOutcome,
 } from '../src/schemas/index.js';
 import {
@@ -867,6 +868,164 @@ describe('ProtocolEngine', () => {
       expect(response['jsonrpc']).toBe(JSONRPC_VERSION);
       expect(response['factoryApiVersion']).toBe(LEGACY_FACTORY_API_VERSION);
       expect(response['factoryProtocolVersion']).toBe(FACTORY_PROTOCOL_VERSION);
+    });
+  });
+
+  describe('serverRequestMethodMap', () => {
+    it('dispatches permission requests using custom method map', async () => {
+      const customTransport = new InMemoryTransport();
+      await customTransport.connect();
+      const customEngine = new ProtocolEngine({
+        transport: customTransport,
+        serverRequestMethodMap: {
+          'daemon.request_permission': ServerRequestHandlerType.Permission,
+          'daemon.ask_user': ServerRequestHandlerType.AskUser,
+        },
+      });
+
+      const handler = vi.fn().mockReturnValue({
+        selectedOption: ToolConfirmationOutcome.ProceedOnce,
+      });
+      customEngine.setPermissionHandler(handler);
+
+      customTransport.injectMessage({
+        jsonrpc: JSONRPC_VERSION,
+        factoryApiVersion: LEGACY_FACTORY_API_VERSION,
+        factoryProtocolVersion: FACTORY_PROTOCOL_VERSION,
+        type: 'request',
+        id: 'perm-1',
+        method: 'daemon.request_permission',
+        params: {
+          toolUses: [
+            {
+              toolUse: {
+                type: 'tool_use',
+                id: 'tu1',
+                name: 'Execute',
+                input: { command: 'ls' },
+              },
+              confirmationType: 'exec',
+              details: {
+                type: 'exec',
+                fullCommand: 'ls',
+                command: 'ls',
+              },
+            },
+          ],
+          options: [
+            { label: 'Allow', value: 'proceed_once' },
+            { label: 'Deny', value: 'cancel' },
+          ],
+        },
+      });
+
+      await vi.waitFor(() => {
+        expect(handler).toHaveBeenCalledOnce();
+      });
+
+      await customEngine.close();
+    });
+
+    it('dispatches ask-user requests using custom method map', async () => {
+      const customTransport = new InMemoryTransport();
+      await customTransport.connect();
+      const customEngine = new ProtocolEngine({
+        transport: customTransport,
+        serverRequestMethodMap: {
+          'daemon.request_permission': ServerRequestHandlerType.Permission,
+          'daemon.ask_user': ServerRequestHandlerType.AskUser,
+        },
+      });
+
+      const handler = vi.fn().mockReturnValue({
+        cancelled: false,
+        answers: [{ index: 0, question: 'Pick one', answer: 'A' }],
+      });
+      customEngine.setAskUserHandler(handler);
+
+      customTransport.injectMessage({
+        jsonrpc: JSONRPC_VERSION,
+        factoryApiVersion: LEGACY_FACTORY_API_VERSION,
+        factoryProtocolVersion: FACTORY_PROTOCOL_VERSION,
+        type: 'request',
+        id: 'ask-1',
+        method: 'daemon.ask_user',
+        params: {
+          toolCallId: 'tc1',
+          questions: [
+            {
+              index: 0,
+              topic: 'Test',
+              question: 'Pick one',
+              options: ['A', 'B'],
+            },
+          ],
+        },
+      });
+
+      await vi.waitFor(() => {
+        expect(handler).toHaveBeenCalledOnce();
+      });
+
+      await customEngine.close();
+    });
+
+    it('sends method as-is on the wire (no remapping)', async () => {
+      const customTransport = new InMemoryTransport();
+      await customTransport.connect();
+      const customEngine = new ProtocolEngine({
+        transport: customTransport,
+        serverRequestMethodMap: {
+          'daemon.request_permission': ServerRequestHandlerType.Permission,
+          'daemon.ask_user': ServerRequestHandlerType.AskUser,
+        },
+      });
+
+      const promise = customEngine.sendRequest('daemon.initialize_session', {
+        cwd: '.',
+      });
+
+      const sent = customTransport.sentMessages[0] as Record<string, unknown>;
+      expect(sent['method']).toBe('daemon.initialize_session');
+
+      const id = sent['id'] as string;
+      customTransport.injectMessage(
+        makeSuccessResponse(id, { sessionId: 'x' })
+      );
+      await promise;
+
+      await customEngine.close();
+    });
+
+    it('ignores server requests with unmapped methods', async () => {
+      const customTransport = new InMemoryTransport();
+      await customTransport.connect();
+      const customEngine = new ProtocolEngine({
+        transport: customTransport,
+        serverRequestMethodMap: {},
+      });
+
+      const permHandler = vi.fn();
+      const askHandler = vi.fn();
+      customEngine.setPermissionHandler(permHandler);
+      customEngine.setAskUserHandler(askHandler);
+
+      customTransport.injectMessage({
+        jsonrpc: JSONRPC_VERSION,
+        factoryApiVersion: LEGACY_FACTORY_API_VERSION,
+        factoryProtocolVersion: FACTORY_PROTOCOL_VERSION,
+        type: 'request',
+        id: 'perm-1',
+        method: 'droid.request_permission',
+        params: {},
+      });
+
+      // Give time for any async dispatch
+      await new Promise((r) => setTimeout(r, 50));
+      expect(permHandler).not.toHaveBeenCalled();
+      expect(askHandler).not.toHaveBeenCalled();
+
+      await customEngine.close();
     });
   });
 });

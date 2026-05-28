@@ -22,6 +22,7 @@ const sdkTools = createSdkMcpServer({
 });
 
 const session = await createSession({
+  apiKey: process.env.FACTORY_API_KEY!,
   execPath,
   mcpServers: [sdkTools],
   cwd: process.cwd(),
@@ -30,7 +31,8 @@ const session = await createSession({
 
 try {
   for await (const msg of session.stream(
-    'Use the favorite_number tool for Ada and tell me the answer.'
+    'Use the favorite_number tool for Ada and tell me the answer.',
+    { includePartialMessages: true }
   )) {
     if (msg.type === DroidMessageType.AssistantTextDelta) {
       process.stdout.write(msg.text);

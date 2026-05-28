@@ -21,7 +21,9 @@ async function streamText(
   prompt: string
 ): Promise<string> {
   let text = '';
-  for await (const msg of session.stream(prompt)) {
+  for await (const msg of session.stream(prompt, {
+    includePartialMessages: true,
+  })) {
     if (msg.type === DroidMessageType.AssistantTextDelta) {
       text += msg.text;
     }
@@ -30,7 +32,10 @@ async function streamText(
 }
 
 async function main(): Promise<void> {
-  const session = await createSession({ cwd: process.cwd() });
+  const session = await createSession({
+    apiKey: process.env.FACTORY_API_KEY!,
+    cwd: process.cwd(),
+  });
   let fork: Awaited<ReturnType<typeof resumeSession>> | null = null;
 
   try {
@@ -40,7 +45,9 @@ async function main(): Promise<void> {
     const { newSessionId } = await session.forkSession();
     console.log(`Forked session:   ${newSessionId}\n`);
 
-    fork = await resumeSession(newSessionId);
+    fork = await resumeSession(newSessionId, {
+      apiKey: process.env.FACTORY_API_KEY!,
+    });
 
     const result = await streamText(
       fork,

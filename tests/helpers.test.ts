@@ -240,7 +240,10 @@ describe('createTransport', () => {
     const customTransport = new InMemoryTransport();
     await customTransport.connect();
 
-    const result = await createTransport({ transport: customTransport });
+    const result = await createTransport({
+      apiKey: 'test-key',
+      transport: customTransport,
+    });
 
     expect(result).toBe(customTransport);
     expect(result.isConnected).toBe(true);
@@ -249,7 +252,10 @@ describe('createTransport', () => {
   it('returns the exact same transport instance that was provided', async () => {
     const customTransport = new InMemoryTransport();
 
-    const result = await createTransport({ transport: customTransport });
+    const result = await createTransport({
+      apiKey: 'test-key',
+      transport: customTransport,
+    });
 
     expect(result).toStrictEqual(customTransport);
   });
@@ -388,6 +394,31 @@ describe('buildInitParams', () => {
     expect(params).not.toHaveProperty('mcpServers');
     expect(params).not.toHaveProperty('enabledToolIds');
     expect(params).not.toHaveProperty('disabledToolIds');
+    expect(params).not.toHaveProperty('sessionSource');
+  });
+
+  it('includes sessionSource when provided', () => {
+    const params = buildInitParams({
+      cwd: '/project',
+      sessionSource: { platform: 'slack' },
+    });
+
+    expect(params.sessionSource).toEqual({ platform: 'slack' });
+  });
+
+  it('includes sessionSource with passthrough fields', () => {
+    const params = buildInitParams({
+      cwd: '/project',
+      sessionSource: {
+        platform: 'linear',
+        delegationSessionId: 'thread-123',
+      } as any,
+    });
+
+    expect(params.sessionSource).toEqual({
+      platform: 'linear',
+      delegationSessionId: 'thread-123',
+    });
   });
 });
 

@@ -9,7 +9,7 @@ export const JSONRPC_VERSION = '2.0' as const;
 export const LEGACY_FACTORY_API_VERSION = '1.0.0' as const;
 
 /** Current Factory protocol version. */
-export const FACTORY_PROTOCOL_VERSION = '1.3.0' as const;
+export const FACTORY_PROTOCOL_VERSION = '1.51.0' as const;
 
 /** HTTP header identifying the Factory client type. */
 export const FACTORY_CLIENT_HEADER = 'X-Factory-Client' as const;

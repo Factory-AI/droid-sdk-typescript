@@ -7,7 +7,10 @@
 
 import { createSession } from '@factory/droid-sdk';
 
-const session = await createSession({ cwd: process.cwd() });
+const session = await createSession({
+  apiKey: process.env.FACTORY_API_KEY!,
+  cwd: process.cwd(),
+});
 const controller = new AbortController();
 const timeout = setTimeout(
   () => controller.abort(new Error('Stopped by AbortController')),

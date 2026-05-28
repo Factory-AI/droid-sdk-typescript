@@ -14,6 +14,7 @@ export {
   IssueSeverity,
   JsonRpcErrorCode,
   JsonRpcMessageType,
+  ServerRequestHandlerType,
   McpAuthOutcome,
   McpServerStatus,
   McpServerType,

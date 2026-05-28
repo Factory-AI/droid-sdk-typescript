@@ -9,6 +9,7 @@ import type {
   InitializeSessionRequestParams,
   McpServerConfig,
   OutputFormat,
+  SessionSource,
   SessionTag,
 } from './schemas/client.js';
 import type {
@@ -16,6 +17,7 @@ import type {
   DroidInteractionMode,
   ReasoningEffort,
 } from './schemas/enums.js';
+import type { Base64ImageSource, DocumentSource } from './schemas/messages.js';
 import {
   SessionNotificationSchema,
   type SessionNotificationPayload,
@@ -44,6 +46,98 @@ export function wireAbortSignal(
     const listener = () => onAbort();
     signal.addEventListener('abort', listener, { once: true });
     return () => signal.removeEventListener('abort', listener);
+  }
+}
+
+function getAbortError(signal: AbortSignal): Error {
+  if (signal.reason instanceof Error) {
+    return signal.reason;
+  }
+
+  return new Error(
+    typeof signal.reason === 'string' ? signal.reason : 'Operation aborted'
+  );
+}
+
+export function throwIfAborted(signal: AbortSignal | undefined): void {
+  if (signal?.aborted) {
+    throw getAbortError(signal);
+  }
+}
+
+export interface MessageOptions {
+  images?: Base64ImageSource[];
+  files?: DocumentSource[];
+  outputFormat?: OutputFormat;
+  includePartialMessages?: boolean;
+  abortSignal?: AbortSignal;
+}
+
+interface StreamableClient {
+  onNotification(handler: (n: Record<string, unknown>) => void): () => void;
+  addUserMessage(params: {
+    text: string;
+    images?: Base64ImageSource[];
+    files?: DocumentSource[];
+    outputFormat?: OutputFormat;
+  }): Promise<unknown>;
+  interruptSession(): Promise<unknown>;
+}
+
+export async function* streamFromClient(
+  client: StreamableClient,
+  sessionId: string,
+  activeBridges: Set<MessageBridge>,
+  prompt: string,
+  options?: MessageOptions
+): AsyncGenerator<DroidStreamEvent, void, undefined> {
+  throwIfAborted(options?.abortSignal);
+
+  const startedAt = Date.now();
+  let resolveDone: () => void = () => {};
+  const donePromise = new Promise<void>((resolve) => {
+    resolveDone = resolve;
+  });
+  const bridge = new MessageBridge(resolveDone, {
+    includePartialMessages: options?.includePartialMessages,
+    sessionId,
+    startedAt,
+    outputFormat: options?.outputFormat,
+  });
+  activeBridges.add(bridge);
+  const unsubscribe = client.onNotification(bridge.notificationHandler);
+  let resolveAbort: () => void = () => {};
+  const abortPromise = new Promise<void>((resolve) => {
+    resolveAbort = resolve;
+  });
+  const cleanupAbortSignal = wireAbortSignal(options?.abortSignal, () => {
+    bridge.signalDone();
+    resolveAbort();
+    void client.interruptSession().catch(() => {});
+  });
+
+  try {
+    await Promise.race([
+      client.addUserMessage({
+        text: prompt,
+        images: options?.images,
+        files: options?.files,
+        outputFormat: options?.outputFormat,
+      }),
+      donePromise,
+      abortPromise,
+    ]);
+    throwIfAborted(options?.abortSignal);
+
+    for await (const msg of bridge.messages()) {
+      throwIfAborted(options?.abortSignal);
+      yield msg;
+    }
+    throwIfAborted(options?.abortSignal);
+  } finally {
+    cleanupAbortSignal();
+    unsubscribe();
+    activeBridges.delete(bridge);
   }
 }
 
@@ -169,6 +263,7 @@ export interface TransportCreationOptions extends Pick<
   ProcessTransportOptions,
   'execPath' | 'execArgs' | 'cwd' | 'env'
 > {
+  apiKey: string;
   transport?: DroidClientTransport;
 }
 
@@ -183,7 +278,7 @@ export async function createTransport(
     execPath: options.execPath,
     execArgs: options.execArgs,
     cwd: options.cwd,
-    env: options.env,
+    env: { ...options.env, FACTORY_API_KEY: options.apiKey },
   };
   const processTransport = new ProcessTransport(transportOptions);
   await processTransport.connect();
@@ -241,6 +336,7 @@ export async function closeQuietly(
 }
 
 export interface SessionInitOptions extends ToolSelectionOverrides {
+  apiKey: string;
   cwd?: string;
   machineId?: string;
   modelId?: string;
@@ -250,10 +346,14 @@ export interface SessionInitOptions extends ToolSelectionOverrides {
   specModeModelId?: string;
   specModeReasoningEffort?: ReasoningEffort;
   mcpServers?: DroidMcpServerConfig[];
+  sessionSource?: SessionSource;
   tags?: SessionTag[];
 }
 
-type ResolvedSessionInitOptions = Omit<SessionInitOptions, 'mcpServers'> & {
+type ResolvedSessionInitOptions = Omit<
+  SessionInitOptions,
+  'apiKey' | 'mcpServers'
+> & {
   mcpServers?: McpServerConfig[];
 };
 
@@ -287,6 +387,9 @@ export function buildInitParams(
     }),
     ...(options.disabledToolIds !== undefined && {
       disabledToolIds: options.disabledToolIds,
+    }),
+    ...(options.sessionSource !== undefined && {
+      sessionSource: options.sessionSource,
     }),
     tags: [...(options.tags ?? []), SDK_TAG],
   };
