@@ -20,6 +20,7 @@ const outputPath = join(tempDir, 'hello.txt');
 
 try {
   await run(`Create ${outputPath} with the text "Hello, World!"`, {
+    apiKey: process.env.FACTORY_API_KEY!,
     cwd: process.cwd(),
     permissionHandler(params) {
       const onlyCreatesExpectedFile = params.toolUses.every(

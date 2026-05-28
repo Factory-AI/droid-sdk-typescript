@@ -5,11 +5,7 @@ export {
   DaemonConnection,
   resolveWebSocketUrl,
 } from './connection.js';
-export {
-  ensureLocalDaemon,
-  resolveLocalAuthToken,
-  _resetDaemonStateForTesting,
-} from './local.js';
+export { ensureLocalDaemon } from './local.js';
 export { DaemonSession } from './session.js';
 export { WebSocketTransport } from './transport.js';
 export {

@@ -64,6 +64,7 @@ export interface CreateSessionOptions
 
 export interface ResumeSessionOptions extends Pick<
   CreateSessionOptions,
+  | 'apiKey'
   | 'execPath'
   | 'execArgs'
   | 'env'
@@ -353,7 +354,7 @@ export class DroidSession {
 }
 
 export async function createSession(
-  options: CreateSessionOptions = {}
+  options: CreateSessionOptions
 ): Promise<DroidSession> {
   const { client } = await createConfiguredClient(options);
   let cleanupInitAbortSignal = options.abortSignal?.aborted
@@ -402,7 +403,7 @@ export async function createSession(
  */
 export async function resumeSession(
   sessionId: string,
-  options: ResumeSessionOptions = {}
+  options: ResumeSessionOptions
 ): Promise<DroidSession> {
   const { client } = await createConfiguredClient(options);
   let sdkMcpServers: Awaited<ReturnType<typeof startSdkMcpServers>> | undefined;

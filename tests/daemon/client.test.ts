@@ -50,7 +50,7 @@ describe('DaemonClient', () => {
   beforeEach(async () => {
     transport = new InMemoryTransport();
     await transport.connect();
-    client = new DaemonClient({ transport, token: 'test-token' });
+    client = new DaemonClient({ transport, apiKey: 'test-token' });
   });
 
   afterEach(async () => {
@@ -85,7 +85,7 @@ describe('DaemonClient', () => {
       )!;
       expect(sent).toBeDefined();
       const params = sent['params'] as Record<string, unknown>;
-      expect(params['token']).toBe('test-token');
+      expect(params['apiKey']).toBe('test-token');
       expect(params['machineId']).toBe('default');
       expect(params['cwd']).toBe('.');
     });
@@ -125,7 +125,7 @@ describe('DaemonClient', () => {
       await loadPromise;
 
       const params = sent['params'] as Record<string, unknown>;
-      expect(params['token']).toBe('test-token');
+      expect(params['apiKey']).toBe('test-token');
       expect(params['sessionId']).toBe('existing-sess');
       expect(sent['method']).toBe('daemon.load_session');
     });

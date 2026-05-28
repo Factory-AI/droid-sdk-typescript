@@ -8,12 +8,14 @@ The daemon SDK connects to a running `droid daemon` process over WebSocket inste
 npm install @factory/droid-sdk
 ```
 
-Requires a running `droid daemon` (the SDK will auto-start one locally) and either `FACTORY_API_KEY` in your environment or `droid auth login` completed. For simpler use cases that don't need concurrent sessions, see the [SDK Usage Guide](./sdk-usage-guide.md) which covers exec mode (`run()`, `createSession()`).
+Requires a running `droid daemon` (the SDK will auto-start one locally) and a `FACTORY_API_KEY`. For simpler use cases that don't need concurrent sessions, see the [SDK Usage Guide](./sdk-usage-guide.md) which covers exec mode (`run()`, `createSession()`).
 
 ```ts
 import { connectDaemon, DroidMessageType } from '@factory/droid-sdk';
 
-const connection = await connectDaemon();
+const connection = await connectDaemon({
+  apiKey: process.env.FACTORY_API_KEY!,
+});
 const session = await connection.createSession({ cwd: process.cwd() });
 
 for await (const msg of session.stream('What files are in this directory?')) {
@@ -34,7 +36,7 @@ await connection.close();
 | --------- | -------------------------------------- | --------------------------------------------- |
 | Transport | Spawns `droid exec` subprocess (stdio) | WebSocket to `droid daemon`                   |
 | Sessions  | One per subprocess                     | Multiple per connection                       |
-| Auth      | Implicit (subprocess inherits env)     | Explicit (`apiKey` or stored credentials)     |
+| Auth      | Explicit (`apiKey`)                    | Explicit (`apiKey`)                           |
 | Use case  | Simple scripts, CI                     | Server-side integrations, long-lived services |
 
 Use daemon mode when you need multiple concurrent sessions, want to avoid subprocess overhead, or are building a server-side integration.
@@ -43,19 +45,13 @@ Use daemon mode when you need multiple concurrent sessions, want to avoid subpro
 
 ## Connect to Local Daemon
 
-The simplest form -- the SDK auto-discovers or spawns a local daemon and resolves credentials from `FACTORY_API_KEY` or stored login.
+The simplest form -- the SDK spawns a local daemon and authenticates with the provided API key.
 
 ```ts
 import { connectDaemon } from '@factory/droid-sdk';
 
-const connection = await connectDaemon();
-```
-
-### Explicit API Key
-
-```ts
 const connection = await connectDaemon({
-  apiKey: process.env.FACTORY_API_KEY,
+  apiKey: process.env.FACTORY_API_KEY!,
 });
 ```
 
@@ -99,6 +95,7 @@ const connection = await connectDaemon({
 
 ```ts
 const connection = await connectDaemon({
+  apiKey: process.env.FACTORY_API_KEY!,
   maxRetries: 3, // Retry connect+authenticate cycle up to 3 times
 });
 ```
@@ -114,7 +111,9 @@ import {
   ReasoningEffort,
 } from '@factory/droid-sdk';
 
-const connection = await connectDaemon();
+const connection = await connectDaemon({
+  apiKey: process.env.FACTORY_API_KEY!,
+});
 
 const session = await connection.createSession({
   cwd: '/path/to/project',
@@ -228,7 +227,9 @@ A single daemon connection supports multiple sessions running simultaneously. Th
 ```ts
 import { connectDaemon, DroidMessageType } from '@factory/droid-sdk';
 
-const connection = await connectDaemon();
+const connection = await connectDaemon({
+  apiKey: process.env.FACTORY_API_KEY!,
+});
 
 const [session1, session2] = await Promise.all([
   connection.createSession({ cwd: '/project-a' }),
@@ -370,7 +371,9 @@ const server = createSdkMcpServer({
   ],
 });
 
-const connection = await connectDaemon();
+const connection = await connectDaemon({
+  apiKey: process.env.FACTORY_API_KEY!,
+});
 const session = await connection.createSession({
   cwd: process.cwd(),
   mcpServers: [server],
@@ -422,7 +425,9 @@ import {
 } from '@factory/droid-sdk';
 
 try {
-  const connection = await connectDaemon();
+  const connection = await connectDaemon({
+    apiKey: process.env.FACTORY_API_KEY!,
+  });
   const session = await connection.resumeSession('nonexistent-id');
 } catch (error) {
   if (error instanceof SessionNotFoundError) {
@@ -446,7 +451,9 @@ Always close sessions and connections when done.
 ```ts
 import { connectDaemon } from '@factory/droid-sdk';
 
-const connection = await connectDaemon();
+const connection = await connectDaemon({
+  apiKey: process.env.FACTORY_API_KEY!,
+});
 
 try {
   const session = await connection.createSession({ cwd: process.cwd() });
@@ -468,15 +475,14 @@ try {
 
 ### `ConnectDaemonOptions`
 
-| Field          | Type               | Description                                                            |
-| :------------- | :----------------- | :--------------------------------------------------------------------- |
-| `machine`      | `SDKMachineConfig` | Machine target. Defaults to local daemon.                              |
-| `url`          | `string`           | Direct WebSocket URL. Overrides machine resolution.                    |
-| `apiKey`       | `string`           | Factory API key for authentication.                                    |
-| `token`        | `string`           | WorkOS JWT access token for authentication.                            |
-| `maxRetries`   | `number`           | Retry budget for connect+authenticate cycle.                           |
-| `daemonPort`   | `number`           | WebSocket port override. Default: `37643`.                             |
-| `relayBaseUrl` | `string`           | Relay URL for computer connections. Default: `wss://relay.factory.ai`. |
+| Field          | Type               | Required | Description                                                            |
+| :------------- | :----------------- | :------- | :--------------------------------------------------------------------- |
+| `apiKey`       | `string`           | **Yes**  | Factory API key for authentication.                                    |
+| `machine`      | `SDKMachineConfig` | No       | Machine target. Defaults to local daemon.                              |
+| `url`          | `string`           | No       | Direct WebSocket URL. Overrides machine resolution.                    |
+| `maxRetries`   | `number`           | No       | Retry budget for connect+authenticate cycle.                           |
+| `daemonPort`   | `number`           | No       | WebSocket port override. Default: `37643`.                             |
+| `relayBaseUrl` | `string`           | No       | Relay URL for computer connections. Default: `wss://relay.factory.ai`. |
 
 ### `SDKMachineConfig`
 
@@ -488,23 +494,22 @@ try {
 
 ### `DaemonSessionOptions`
 
-| Field                     | Type                      | Description                                    |
-| :------------------------ | :------------------------ | :--------------------------------------------- |
-| `cwd`                     | `string`                  | Working directory for the session.             |
-| `modelId`                 | `string`                  | LLM model identifier.                          |
-| `autonomyLevel`           | `AutonomyLevel`           | `Off` \| `Low` \| `Medium` \| `High`.          |
-| `interactionMode`         | `DroidInteractionMode`    | `Auto` \| `Spec` \| `AGI`.                     |
-| `reasoningEffort`         | `ReasoningEffort`         | `Off` \| `Low` \| `Medium` \| `High` \| `Max`. |
-| `specModeModelId`         | `string`                  | Override model for spec mode.                  |
-| `specModeReasoningEffort` | `ReasoningEffort`         | Override reasoning effort for spec mode.       |
-| `mcpServers`              | `DroidMcpServerConfig[]`  | MCP server configurations.                     |
-| `enabledToolIds`          | `string[]`                | Tool allowlist.                                |
-| `disabledToolIds`         | `string[]`                | Tool denylist.                                 |
-| `tags`                    | `SessionTag[]`            | Session tags for categorization.               |
-| `permissionHandler`       | `PermissionHandler`       | Tool confirmation callback.                    |
-| `askUserHandler`          | `AskUserHandler`          | Structured user-input callback.                |
-| `title`                   | `string`                  | Session title.                                 |
-| `sessionSource`           | `Record<string, unknown>` | Attribution metadata.                          |
+| Field                     | Type                     | Description                                    |
+| :------------------------ | :----------------------- | :--------------------------------------------- |
+| `cwd`                     | `string`                 | Working directory for the session.             |
+| `modelId`                 | `string`                 | LLM model identifier.                          |
+| `autonomyLevel`           | `AutonomyLevel`          | `Off` \| `Low` \| `Medium` \| `High`.          |
+| `interactionMode`         | `DroidInteractionMode`   | `Auto` \| `Spec` \| `AGI`.                     |
+| `reasoningEffort`         | `ReasoningEffort`        | `Off` \| `Low` \| `Medium` \| `High` \| `Max`. |
+| `specModeModelId`         | `string`                 | Override model for spec mode.                  |
+| `specModeReasoningEffort` | `ReasoningEffort`        | Override reasoning effort for spec mode.       |
+| `mcpServers`              | `DroidMcpServerConfig[]` | MCP server configurations.                     |
+| `enabledToolIds`          | `string[]`               | Tool allowlist.                                |
+| `disabledToolIds`         | `string[]`               | Tool denylist.                                 |
+| `tags`                    | `SessionTag[]`           | Session tags for categorization.               |
+| `permissionHandler`       | `PermissionHandler`      | Tool confirmation callback.                    |
+| `askUserHandler`          | `AskUserHandler`         | Structured user-input callback.                |
+| `sessionSource`           | `SessionSource`          | Attribution metadata.                          |
 
 ### `DaemonResumeOptions`
 

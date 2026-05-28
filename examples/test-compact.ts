@@ -13,7 +13,10 @@
 import { createSession, DroidMessageType } from '@factory/droid-sdk';
 
 async function main(): Promise<void> {
-  const session = await createSession({ cwd: process.cwd() });
+  const session = await createSession({
+    apiKey: process.env.FACTORY_API_KEY!,
+    cwd: process.cwd(),
+  });
   try {
     console.log(`Session created: ${session.sessionId}\n`);
 

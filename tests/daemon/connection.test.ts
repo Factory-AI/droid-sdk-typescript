@@ -4,12 +4,16 @@ import { resolveWebSocketUrl, MachineType } from '../../src/daemon/index.js';
 
 describe('resolveWebSocketUrl', () => {
   it('uses url option directly when provided', () => {
-    const url = resolveWebSocketUrl({ url: 'wss://custom.host:1234' });
+    const url = resolveWebSocketUrl({
+      apiKey: 'k',
+      url: 'wss://custom.host:1234',
+    });
     expect(url).toBe('wss://custom.host:1234');
   });
 
   it('resolves ephemeral machine to sandbox WebSocket URL', () => {
     const url = resolveWebSocketUrl({
+      apiKey: 'k',
       machine: {
         type: MachineType.Ephemeral,
         sandboxId: 'abc123',
@@ -21,6 +25,7 @@ describe('resolveWebSocketUrl', () => {
 
   it('uses custom daemonPort for ephemeral machines', () => {
     const url = resolveWebSocketUrl({
+      apiKey: 'k',
       machine: {
         type: MachineType.Ephemeral,
         sandboxId: 'abc123',
@@ -33,6 +38,7 @@ describe('resolveWebSocketUrl', () => {
 
   it('resolves computer machine to relay URL', () => {
     const url = resolveWebSocketUrl({
+      apiKey: 'k',
       machine: {
         type: MachineType.Computer,
         computerId: 'my-desktop',
@@ -43,6 +49,7 @@ describe('resolveWebSocketUrl', () => {
 
   it('uses custom relayBaseUrl for computer machines', () => {
     const url = resolveWebSocketUrl({
+      apiKey: 'k',
       machine: {
         type: MachineType.Computer,
         computerId: 'my-desktop',
@@ -56,6 +63,7 @@ describe('resolveWebSocketUrl', () => {
 
   it('prefers url over machine when both provided', () => {
     const url = resolveWebSocketUrl({
+      apiKey: 'k',
       url: 'wss://override.host',
       machine: {
         type: MachineType.Ephemeral,
@@ -67,24 +75,26 @@ describe('resolveWebSocketUrl', () => {
   });
 
   it('defaults to local daemon URL when no machine or url is provided', () => {
-    const url = resolveWebSocketUrl({});
+    const url = resolveWebSocketUrl({ apiKey: 'k' });
     expect(url).toBe('ws://127.0.0.1:37643');
   });
 
   it('resolves MachineType.Local to localhost', () => {
     const url = resolveWebSocketUrl({
+      apiKey: 'k',
       machine: { type: MachineType.Local },
     });
     expect(url).toBe('ws://127.0.0.1:37643');
   });
 
   it('uses _localPort for local daemon when provided', () => {
-    const url = resolveWebSocketUrl({ _localPort: 55555 });
+    const url = resolveWebSocketUrl({ apiKey: 'k', _localPort: 55555 });
     expect(url).toBe('ws://127.0.0.1:55555');
   });
 
   it('uses custom daemonPort for local machine', () => {
     const url = resolveWebSocketUrl({
+      apiKey: 'k',
       machine: { type: MachineType.Local },
       daemonPort: 41723,
     });

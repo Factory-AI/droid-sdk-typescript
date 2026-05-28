@@ -22,6 +22,7 @@ async function main(): Promise<void> {
   console.log(`Sending prompt: "${prompt}"\n`);
 
   const result = await run(prompt, {
+    apiKey: process.env.FACTORY_API_KEY!,
     cwd: process.cwd(),
   });
 

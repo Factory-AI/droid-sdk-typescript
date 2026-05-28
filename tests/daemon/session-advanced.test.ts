@@ -40,7 +40,7 @@ describe('DaemonSession — advanced scenarios', () => {
   beforeEach(async () => {
     transport = new InMemoryTransport();
     await transport.connect();
-    client = new DaemonClient({ transport, token: 'test-token' });
+    client = new DaemonClient({ transport, apiKey: 'test-token' });
     await initializeClient(transport, client, SESSION_ID);
 
     wireTransportSend(transport, ({ method, id }) => {

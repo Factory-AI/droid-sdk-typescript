@@ -28,17 +28,14 @@ export type SDKMachineConfig =
   | { type: MachineType.Computer; computerId: string };
 
 export interface ConnectDaemonOptions {
+  /** Factory API key for authentication. */
+  apiKey: string;
+
   /** Machine to connect to. Defaults to local daemon if omitted. */
   machine?: SDKMachineConfig;
 
   /** Direct WebSocket URL. Overrides machine-based URL resolution. */
   url?: string;
-
-  /** Factory API key for authentication. */
-  apiKey?: string;
-
-  /** WorkOS JWT access token for authentication. */
-  token?: string;
 
   /** Connection retry budget for the connect+authenticate cycle. */
   maxRetries?: number;

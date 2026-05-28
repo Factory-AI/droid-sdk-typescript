@@ -7,13 +7,16 @@
 
 import { createSession, DroidMessageType } from '@factory/droid-sdk';
 
-const session = await createSession({ cwd: process.cwd() });
+const session = await createSession({
+  apiKey: process.env.FACTORY_API_KEY!,
+  cwd: process.cwd(),
+});
 let deltaCount = 0;
 
 try {
-  for await (const msg of session.stream(
-    'Write a long history of computing.'
-  )) {
+  for await (const msg of session.stream('Write a long history of computing.', {
+    includePartialMessages: true,
+  })) {
     if (msg.type !== DroidMessageType.AssistantTextDelta) {
       continue;
     }

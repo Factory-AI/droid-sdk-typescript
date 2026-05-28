@@ -240,7 +240,10 @@ describe('createTransport', () => {
     const customTransport = new InMemoryTransport();
     await customTransport.connect();
 
-    const result = await createTransport({ transport: customTransport });
+    const result = await createTransport({
+      apiKey: 'test-key',
+      transport: customTransport,
+    });
 
     expect(result).toBe(customTransport);
     expect(result.isConnected).toBe(true);
@@ -249,7 +252,10 @@ describe('createTransport', () => {
   it('returns the exact same transport instance that was provided', async () => {
     const customTransport = new InMemoryTransport();
 
-    const result = await createTransport({ transport: customTransport });
+    const result = await createTransport({
+      apiKey: 'test-key',
+      transport: customTransport,
+    });
 
     expect(result).toStrictEqual(customTransport);
   });

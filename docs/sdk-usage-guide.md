@@ -12,6 +12,7 @@ Requires Node.js 18+ and the `droid` CLI on your PATH. This guide covers **exec 
 import { run } from '@factory/droid-sdk';
 
 const result = await run('What files are in this directory?', {
+  apiKey: process.env.FACTORY_API_KEY!,
   cwd: process.cwd(),
 });
 console.log(result.text);
@@ -26,7 +27,10 @@ Send a prompt, get a result, done. The session is created and closed automatical
 ```ts
 import { run } from '@factory/droid-sdk';
 
-const result = await run('What is 2 + 2?', { cwd: process.cwd() });
+const result = await run('What is 2 + 2?', {
+  apiKey: process.env.FACTORY_API_KEY!,
+  cwd: process.cwd(),
+});
 console.log(result.text);
 ```
 
@@ -38,6 +42,7 @@ Force the response to match a JSON schema. The validated object is available on 
 import { OutputFormatType, run } from '@factory/droid-sdk';
 
 const result = await run('Pick a number between 1 and 42.', {
+  apiKey: process.env.FACTORY_API_KEY!,
   cwd: process.cwd(),
   outputFormat: {
     type: OutputFormatType.JsonSchema,
@@ -59,7 +64,10 @@ Create a session once, then call `stream()` multiple times. Context is preserved
 ```ts
 import { createSession, DroidMessageType } from '@factory/droid-sdk';
 
-const session = await createSession({ cwd: process.cwd() });
+const session = await createSession({
+  apiKey: process.env.FACTORY_API_KEY!,
+  cwd: process.cwd(),
+});
 
 for await (const msg of session.stream('Remember the word "mango".')) {
   // consume first turn
@@ -79,7 +87,9 @@ Reconnect to a previously created session by its ID.
 ```ts
 import { resumeSession, DroidMessageType } from '@factory/droid-sdk';
 
-const session = await resumeSession('existing-session-id');
+const session = await resumeSession('existing-session-id', {
+  apiKey: process.env.FACTORY_API_KEY!,
+});
 
 for await (const msg of session.stream('Continue where we left off.')) {
   if (msg.type === DroidMessageType.Assistant) console.log(msg.text);
@@ -95,7 +105,10 @@ await session.close();
 ```ts
 import { createSession, DroidMessageType } from '@factory/droid-sdk';
 
-const session = await createSession({ cwd: process.cwd() });
+const session = await createSession({
+  apiKey: process.env.FACTORY_API_KEY!,
+  cwd: process.cwd(),
+});
 
 for await (const msg of session.stream(
   'List files in the current directory.'
@@ -126,7 +139,10 @@ Enable `includePartialMessages` to get token-by-token deltas, thinking blocks, a
 ```ts
 import { createSession, DroidMessageType } from '@factory/droid-sdk';
 
-const session = await createSession({ cwd: process.cwd() });
+const session = await createSession({
+  apiKey: process.env.FACTORY_API_KEY!,
+  cwd: process.cwd(),
+});
 
 for await (const msg of session.stream('Explain recursion.', {
   includePartialMessages: true,
@@ -147,7 +163,10 @@ Use `session.interrupt()` to stop the current turn server-side, or pass an `Abor
 import { createSession, DroidMessageType } from '@factory/droid-sdk';
 
 // Interrupt after receiving some output
-const session = await createSession({ cwd: process.cwd() });
+const session = await createSession({
+  apiKey: process.env.FACTORY_API_KEY!,
+  cwd: process.cwd(),
+});
 for await (const msg of session.stream('Write a long essay.')) {
   if (msg.type === DroidMessageType.Assistant) {
     await session.interrupt();
@@ -156,7 +175,10 @@ for await (const msg of session.stream('Write a long essay.')) {
 await session.close();
 
 // Or cancel with AbortSignal
-const session2 = await createSession({ cwd: process.cwd() });
+const session2 = await createSession({
+  apiKey: process.env.FACTORY_API_KEY!,
+  cwd: process.cwd(),
+});
 const controller = new AbortController();
 setTimeout(() => controller.abort(), 2000);
 
@@ -200,6 +222,7 @@ const server = createSdkMcpServer({
 });
 
 const session = await createSession({
+  apiKey: process.env.FACTORY_API_KEY!,
   cwd: process.cwd(),
   mcpServers: [server],
   permissionHandler: () => ToolConfirmationOutcome.ProceedOnce,
@@ -220,6 +243,7 @@ Control what Droid can do without asking for permission. Set at session creation
 import { createSession, AutonomyLevel } from '@factory/droid-sdk';
 
 const session = await createSession({
+  apiKey: process.env.FACTORY_API_KEY!,
   cwd: process.cwd(),
   autonomyLevel: AutonomyLevel.High, // Off | Low | Medium | High
 });
@@ -237,6 +261,7 @@ Restrict which tools Droid can use. Accepts tool IDs like `'Read'`, `'Execute'`,
 import { createSession } from '@factory/droid-sdk';
 
 const session = await createSession({
+  apiKey: process.env.FACTORY_API_KEY!,
   cwd: process.cwd(),
   enabledToolIds: ['Read', 'Grep'],
   disabledToolIds: ['Execute'],
@@ -259,6 +284,7 @@ import {
 } from '@factory/droid-sdk';
 
 await run('Create hello.txt with "Hello, World!"', {
+  apiKey: process.env.FACTORY_API_KEY!,
   cwd: process.cwd(),
   permissionHandler(params) {
     const safe = params.toolUses.every(
@@ -284,6 +310,7 @@ import {
 } from '@factory/droid-sdk';
 
 const session = await createSession({
+  apiKey: process.env.FACTORY_API_KEY!,
   cwd: process.cwd(),
   interactionMode: DroidInteractionMode.Spec,
   permissionHandler(params) {
@@ -309,7 +336,10 @@ Send images or documents alongside your prompt. Images must be base64-encoded.
 import { readFileSync } from 'node:fs';
 import { createSession, DroidMessageType } from '@factory/droid-sdk';
 
-const session = await createSession({ cwd: process.cwd() });
+const session = await createSession({
+  apiKey: process.env.FACTORY_API_KEY!,
+  cwd: process.cwd(),
+});
 
 for await (const msg of session.stream('Describe this image.', {
   images: [
@@ -337,12 +367,17 @@ import {
   resumeSession,
 } from '@factory/droid-sdk';
 
-const session = await createSession({ cwd: process.cwd() });
+const session = await createSession({
+  apiKey: process.env.FACTORY_API_KEY!,
+  cwd: process.cwd(),
+});
 for await (const msg of session.stream('Remember: the password is "banana".')) {
 }
 
 const { newSessionId } = await session.forkSession();
-const fork = await resumeSession(newSessionId);
+const fork = await resumeSession(newSessionId, {
+  apiKey: process.env.FACTORY_API_KEY!,
+});
 
 for await (const msg of fork.stream('What is the password?')) {
   if (msg.type === DroidMessageType.Assistant) console.log(msg.text);
@@ -359,7 +394,10 @@ Summarize and remove old messages to free up context window space.
 ```ts
 import { createSession } from '@factory/droid-sdk';
 
-const session = await createSession({ cwd: process.cwd() });
+const session = await createSession({
+  apiKey: process.env.FACTORY_API_KEY!,
+  cwd: process.cwd(),
+});
 
 // ... after many turns ...
 const result = await session.compactSession();
@@ -428,6 +466,7 @@ Choose which model to use and how much reasoning effort to apply. Configurable a
 import { createSession, ReasoningEffort } from '@factory/droid-sdk';
 
 const session = await createSession({
+  apiKey: process.env.FACTORY_API_KEY!,
   cwd: process.cwd(),
   modelId: 'claude-sonnet-4-20250514',
   reasoningEffort: ReasoningEffort.High,
@@ -448,7 +487,10 @@ Observe file hooks (pre/post tool execution hooks) as they run during a session.
 ```ts
 import { createSession, DroidMessageType } from '@factory/droid-sdk';
 
-const session = await createSession({ cwd: process.cwd() });
+const session = await createSession({
+  apiKey: process.env.FACTORY_API_KEY!,
+  cwd: process.cwd(),
+});
 
 for await (const msg of session.stream('Create a new file.')) {
   if (msg.type === DroidMessageType.Hook) {
@@ -471,6 +513,7 @@ Programmatically answer questions that Droid asks the user during execution.
 import { createSession, DroidMessageType } from '@factory/droid-sdk';
 
 const session = await createSession({
+  apiKey: process.env.FACTORY_API_KEY!,
   cwd: process.cwd(),
   askUserHandler(params) {
     return {
@@ -498,7 +541,10 @@ Add, remove, toggle, and list MCP servers at runtime within an active session.
 ```ts
 import { createSession, McpServerType } from '@factory/droid-sdk';
 
-const session = await createSession({ cwd: process.cwd() });
+const session = await createSession({
+  apiKey: process.env.FACTORY_API_KEY!,
+  cwd: process.cwd(),
+});
 
 await session.addMcpServer({
   name: 'my-server',
@@ -519,7 +565,10 @@ Query current context window usage to understand how much capacity remains.
 ```ts
 import { createSession } from '@factory/droid-sdk';
 
-const session = await createSession({ cwd: process.cwd() });
+const session = await createSession({
+  apiKey: process.env.FACTORY_API_KEY!,
+  cwd: process.cwd(),
+});
 for await (const msg of session.stream('Hello')) {
 }
 
@@ -538,7 +587,10 @@ Monitor token consumption in real-time via stream events, or read the final tota
 ```ts
 import { createSession, DroidMessageType } from '@factory/droid-sdk';
 
-const session = await createSession({ cwd: process.cwd() });
+const session = await createSession({
+  apiKey: process.env.FACTORY_API_KEY!,
+  cwd: process.cwd(),
+});
 
 for await (const msg of session.stream('Summarize this project.', {
   includePartialMessages: true,
@@ -563,7 +615,10 @@ List all available skills in the current session.
 ```ts
 import { createSession } from '@factory/droid-sdk';
 
-const session = await createSession({ cwd: process.cwd() });
+const session = await createSession({
+  apiKey: process.env.FACTORY_API_KEY!,
+  cwd: process.cwd(),
+});
 const { skills } = await session.listSkills();
 
 for (const skill of skills) {
@@ -580,7 +635,10 @@ Subscribe to raw protocol notifications for custom event handling beyond the str
 ```ts
 import { createSession, SessionNotificationType } from '@factory/droid-sdk';
 
-const session = await createSession({ cwd: process.cwd() });
+const session = await createSession({
+  apiKey: process.env.FACTORY_API_KEY!,
+  cwd: process.cwd(),
+});
 
 const unsubscribe = session.onNotification(
   (notification) => {
@@ -609,7 +667,9 @@ import {
 } from '@factory/droid-sdk';
 
 try {
-  const session = await resumeSession('nonexistent-id');
+  const session = await resumeSession('nonexistent-id', {
+    apiKey: process.env.FACTORY_API_KEY!,
+  });
 } catch (error) {
   if (error instanceof SessionNotFoundError) {
     console.log(`Session not found: ${error.sessionId}`);

@@ -14,7 +14,7 @@ import type {
 } from '../types.js';
 import { isRecord } from '../utils.js';
 import { DaemonClient } from './client.js';
-import { ensureLocalDaemon, resolveLocalAuthToken } from './local.js';
+import { ensureLocalDaemon } from './local.js';
 import { DaemonSession } from './session.js';
 import { WebSocketTransport } from './transport.js';
 import {
@@ -286,8 +286,7 @@ async function authenticate(
     id: requestId,
     method: DAEMON_AUTHENTICATE_METHOD,
     params: {
-      ...(options.apiKey ? { apiKey: options.apiKey } : {}),
-      ...(options.token ? { token: options.token } : {}),
+      apiKey: options.apiKey,
       caller: SDK_CALLER,
     },
   };
@@ -335,14 +334,14 @@ async function authenticate(
 export class DaemonConnection {
   private readonly _transport: WebSocketTransport;
   private readonly _multiplexer: SharedTransportMultiplexer;
-  private readonly _authToken: string;
+  private readonly _apiKey: string;
   private _closed = false;
 
   /** @internal */
-  constructor(transport: WebSocketTransport, authToken: string) {
+  constructor(transport: WebSocketTransport, apiKey: string) {
     this._transport = transport;
     this._multiplexer = new SharedTransportMultiplexer(transport);
-    this._authToken = authToken;
+    this._apiKey = apiKey;
   }
 
   async createSession(
@@ -353,7 +352,7 @@ export class DaemonConnection {
     const view = this._multiplexer.createView();
     const client = new DaemonClient({
       transport: view,
-      token: this._authToken,
+      apiKey: this._apiKey,
     });
     if (options.permissionHandler) {
       client.setPermissionHandler(options.permissionHandler);
@@ -395,7 +394,7 @@ export class DaemonConnection {
     const view = this._multiplexer.createView();
     const client = new DaemonClient({
       transport: view,
-      token: this._authToken,
+      apiKey: this._apiKey,
     });
     if (options.permissionHandler) {
       client.setPermissionHandler(options.permissionHandler);
@@ -432,7 +431,7 @@ export class DaemonConnection {
     const view = this._multiplexer.createView();
     const client = new DaemonClient({
       transport: view,
-      token: this._authToken,
+      apiKey: this._apiKey,
     });
     try {
       await client.loadSession({ sessionId });
@@ -460,34 +459,17 @@ export class DaemonConnection {
 }
 
 export async function connectDaemon(
-  options: ConnectDaemonOptions = {}
+  options: ConnectDaemonOptions
 ): Promise<DaemonConnection> {
   const isLocal =
     !options.url &&
     (!options.machine || options.machine.type === MachineType.Local);
 
-  // For local connections, spawn/discover the daemon and resolve auth token
+  // For local connections, spawn/discover the daemon
   let resolvedOptions: ResolvedConnectOptions = options;
   if (isLocal) {
     const { port } = await ensureLocalDaemon();
     resolvedOptions = { ...options, _localPort: port };
-
-    // Auto-resolve auth: FACTORY_API_KEY env var > stored credentials
-    if (!options.apiKey && !options.token) {
-      const envApiKey = process.env.FACTORY_API_KEY?.trim();
-      if (envApiKey) {
-        resolvedOptions = { ...resolvedOptions, apiKey: envApiKey };
-      } else {
-        const token = await resolveLocalAuthToken();
-        if (!token) {
-          throw new ConnectionError(
-            'No stored credentials found. Run `droid auth login` first, ' +
-              'or set the FACTORY_API_KEY environment variable.'
-          );
-        }
-        resolvedOptions = { ...resolvedOptions, token };
-      }
-    }
   }
 
   const url = resolveWebSocketUrl(resolvedOptions);
@@ -495,8 +477,7 @@ export async function connectDaemon(
 
   const transport = new WebSocketTransport(wsConfig);
 
-  // Resolve the auth token string used for session-level auth params
-  const authToken = resolvedOptions.apiKey ?? resolvedOptions.token ?? '';
+  const apiKey = resolvedOptions.apiKey;
 
   try {
     // Connect with optional retry budget
@@ -510,7 +491,7 @@ export async function connectDaemon(
         try {
           await transport.connect(url);
           await authenticate(transport, resolvedOptions);
-          return new DaemonConnection(transport, authToken);
+          return new DaemonConnection(transport, apiKey);
         } catch (error) {
           lastError = error instanceof Error ? error : new Error(String(error));
           try {
@@ -530,7 +511,7 @@ export async function connectDaemon(
     // Single attempt
     await transport.connect(url);
     await authenticate(transport, resolvedOptions);
-    return new DaemonConnection(transport, authToken);
+    return new DaemonConnection(transport, apiKey);
   } catch (error) {
     try {
       await transport.close();

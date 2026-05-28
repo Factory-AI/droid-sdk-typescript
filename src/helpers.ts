@@ -170,6 +170,7 @@ export interface TransportCreationOptions extends Pick<
   ProcessTransportOptions,
   'execPath' | 'execArgs' | 'cwd' | 'env'
 > {
+  apiKey: string;
   transport?: DroidClientTransport;
 }
 
@@ -184,7 +185,7 @@ export async function createTransport(
     execPath: options.execPath,
     execArgs: options.execArgs,
     cwd: options.cwd,
-    env: options.env,
+    env: { ...options.env, FACTORY_API_KEY: options.apiKey },
   };
   const processTransport = new ProcessTransport(transportOptions);
   await processTransport.connect();
@@ -242,6 +243,7 @@ export async function closeQuietly(
 }
 
 export interface SessionInitOptions extends ToolSelectionOverrides {
+  apiKey: string;
   cwd?: string;
   machineId?: string;
   modelId?: string;
@@ -255,7 +257,10 @@ export interface SessionInitOptions extends ToolSelectionOverrides {
   tags?: SessionTag[];
 }
 
-type ResolvedSessionInitOptions = Omit<SessionInitOptions, 'mcpServers'> & {
+type ResolvedSessionInitOptions = Omit<
+  SessionInitOptions,
+  'apiKey' | 'mcpServers'
+> & {
   mcpServers?: McpServerConfig[];
 };
 

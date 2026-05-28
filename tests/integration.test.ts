@@ -220,7 +220,11 @@ describe('Full session stream lifecycle (VAL-CROSS-001)', () => {
       },
     });
 
-    const session = await createSession({ cwd: '/tmp', transport });
+    const session = await createSession({
+      apiKey: 'test-key',
+      cwd: '/tmp',
+      transport,
+    });
     const messages: DroidMessage[] = [];
 
     for await (const msg of session.stream('Fix the bug', {
@@ -346,7 +350,11 @@ describe('Full session lifecycle (VAL-CROSS-002)', () => {
       },
     });
 
-    const session = await createSession({ cwd: '/tmp', transport });
+    const session = await createSession({
+      apiKey: 'test-key',
+      cwd: '/tmp',
+      transport,
+    });
     expect(session.sessionId).toBe('sess-multi-turn');
 
     const streamMessages: DroidMessage[] = [];
@@ -459,7 +467,11 @@ describe('Full session lifecycle (VAL-CROSS-002)', () => {
       },
     });
 
-    const session = await createSession({ cwd: '/tmp', transport });
+    const session = await createSession({
+      apiKey: 'test-key',
+      cwd: '/tmp',
+      transport,
+    });
 
     const turn1Msgs: DroidMessage[] = [];
     for await (const msg of session.stream('turn 1', {
@@ -538,7 +550,10 @@ describe('Full session lifecycle (VAL-CROSS-002)', () => {
       },
     });
 
-    const session = await resumeSession('sess-resume', { transport });
+    const session = await resumeSession('sess-resume', {
+      apiKey: 'test-key',
+      transport,
+    });
     expect(session.sessionId).toBe('sess-resume');
 
     const sentMethods = transport.sentMessages.map(
@@ -661,6 +676,7 @@ describe('Permission handler integration (VAL-CROSS-003)', () => {
     });
 
     const session = await createSession({
+      apiKey: 'test-key',
       transport,
       permissionHandler: (params) => {
         permissionRequests.push(params);
@@ -811,6 +827,7 @@ describe('Permission handler integration (VAL-CROSS-003)', () => {
     });
 
     const session = await createSession({
+      apiKey: 'test-key',
       transport,
       permissionHandler: (params) => {
         handlerCalls.push(params);
@@ -903,6 +920,7 @@ describe('Permission handler integration (VAL-CROSS-003)', () => {
     let handlerCalled = false;
 
     const session = await createSession({
+      apiKey: 'test-key',
       cwd: '/tmp',
       transport,
       permissionHandler: () => {
@@ -995,6 +1013,7 @@ describe('Permission handler integration (VAL-CROSS-003)', () => {
     });
 
     const session = await createSession({
+      apiKey: 'test-key',
       cwd: '/tmp',
       transport,
       permissionHandler: () => {
@@ -1085,6 +1104,7 @@ describe('Ask-user handler integration (VAL-CROSS-004)', () => {
     });
 
     const session = await createSession({
+      apiKey: 'test-key',
       transport,
       askUserHandler: (params) => {
         askUserRequests.push(params);
@@ -1201,6 +1221,7 @@ describe('Ask-user handler integration (VAL-CROSS-004)', () => {
     });
 
     const session = await createSession({
+      apiKey: 'test-key',
       cwd: '/tmp',
       transport,
       askUserHandler: () => {
@@ -1273,7 +1294,11 @@ describe('Interrupt during active streaming (VAL-CROSS-005)', () => {
       },
     });
 
-    const session = await createSession({ cwd: '/tmp', transport });
+    const session = await createSession({
+      apiKey: 'test-key',
+      cwd: '/tmp',
+      transport,
+    });
 
     const messages: DroidMessage[] = [];
     let didInterrupt = false;
@@ -1380,7 +1405,11 @@ describe('Interrupt during active streaming (VAL-CROSS-005)', () => {
       },
     });
 
-    const session = await createSession({ cwd: '/tmp', transport });
+    const session = await createSession({
+      apiKey: 'test-key',
+      cwd: '/tmp',
+      transport,
+    });
 
     const msgs1: DroidMessage[] = [];
     for await (const msg of session.stream('first', {
@@ -1485,7 +1514,11 @@ describe('Interrupt during active streaming (VAL-CROSS-005)', () => {
       },
     });
 
-    const session = await createSession({ cwd: '/tmp', transport });
+    const session = await createSession({
+      apiKey: 'test-key',
+      cwd: '/tmp',
+      transport,
+    });
 
     const messages: DroidMessage[] = [];
     let didInterrupt = false;
@@ -1552,7 +1585,7 @@ describe('Transport errors during supported session APIs (VAL-CROSS-006)', () =>
     let caughtError: Error | null = null;
 
     try {
-      await createSession({ transport });
+      await createSession({ apiKey: 'test-key', transport });
     } catch (err) {
       caughtError = err as Error;
     }
@@ -1586,7 +1619,7 @@ describe('Transport errors during supported session APIs (VAL-CROSS-006)', () =>
     });
 
     let caughtError: Error | null = null;
-    const session = await createSession({ transport });
+    const session = await createSession({ apiKey: 'test-key', transport });
 
     try {
       for await (const _msg of session.stream('Do something', {
@@ -1628,7 +1661,7 @@ describe('Transport errors during supported session APIs (VAL-CROSS-006)', () =>
     let caughtError: Error | null = null;
 
     try {
-      await createSession({ cwd: '/tmp', transport });
+      await createSession({ apiKey: 'test-key', cwd: '/tmp', transport });
     } catch (err) {
       caughtError = err as Error;
     }
@@ -1658,7 +1691,7 @@ describe('Transport errors during supported session APIs (VAL-CROSS-006)', () =>
     let caughtError: Error | null = null;
 
     try {
-      await createSession({ cwd: '/tmp', transport });
+      await createSession({ apiKey: 'test-key', cwd: '/tmp', transport });
     } catch (err) {
       caughtError = err as Error;
     }
@@ -1685,7 +1718,11 @@ describe('Transport errors during supported session APIs (VAL-CROSS-006)', () =>
       },
     });
 
-    const session = await createSession({ cwd: '/tmp', transport });
+    const session = await createSession({
+      apiKey: 'test-key',
+      cwd: '/tmp',
+      transport,
+    });
 
     let caughtError: Error | null = null;
     try {
@@ -1776,7 +1813,11 @@ describe('Settings update notification flow (VAL-CROSS-007)', () => {
       },
     });
 
-    const session = await createSession({ cwd: '/tmp', transport });
+    const session = await createSession({
+      apiKey: 'test-key',
+      cwd: '/tmp',
+      transport,
+    });
 
     const messages: DroidMessage[] = [];
     for await (const msg of session.stream('do work', {
@@ -1893,6 +1934,7 @@ describe('Settings update notification flow (VAL-CROSS-007)', () => {
     });
 
     const session = await createSession({
+      apiKey: 'test-key',
       transport,
       permissionHandler: (params) => {
         receivedDetails = params;
@@ -1982,6 +2024,7 @@ describe('Settings update notification flow (VAL-CROSS-007)', () => {
     });
 
     const session = await createSession({
+      apiKey: 'test-key',
       transport,
       askUserHandler: () => {
         handlerCalled = true;
@@ -2058,7 +2101,7 @@ describe('Settings update notification flow (VAL-CROSS-007)', () => {
       },
     });
 
-    const session = await createSession({ transport });
+    const session = await createSession({ apiKey: 'test-key', transport });
     const messages: DroidMessage[] = [];
 
     for await (const msg of session.stream('Do something', {

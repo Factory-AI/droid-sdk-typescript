@@ -131,6 +131,7 @@ async function group1() {
 
   await test('1.1 One-shot run()', async () => {
     const r = await run('Reply with exactly one word: HELLO', {
+      apiKey: API_KEY!,
       cwd: CWD,
       execPath: EXEC_PATH,
     });
@@ -149,6 +150,7 @@ async function group1() {
 
   await test('1.2 Structured output', async () => {
     const r = await run('Pick a number between 1 and 100.', {
+      apiKey: API_KEY!,
       cwd: CWD,
       execPath: EXEC_PATH,
       outputFormat: {
@@ -166,7 +168,11 @@ async function group1() {
   });
 
   await test('1.3 Multi-turn context', async () => {
-    const session = await createSession({ cwd: CWD, execPath: EXEC_PATH });
+    const session = await createSession({
+      apiKey: API_KEY!,
+      cwd: CWD,
+      execPath: EXEC_PATH,
+    });
     try {
       await consumeStream(
         session,
@@ -186,7 +192,11 @@ async function group1() {
   });
 
   await test('1.4 Partial message streaming', async () => {
-    const session = await createSession({ cwd: CWD, execPath: EXEC_PATH });
+    const session = await createSession({
+      apiKey: API_KEY!,
+      cwd: CWD,
+      execPath: EXEC_PATH,
+    });
     try {
       let deltaCount = 0;
       for await (const msg of session.stream('Say hello.', {
@@ -201,7 +211,11 @@ async function group1() {
   });
 
   await test('1.5 AbortSignal cancellation', async () => {
-    const session = await createSession({ cwd: CWD, execPath: EXEC_PATH });
+    const session = await createSession({
+      apiKey: API_KEY!,
+      cwd: CWD,
+      execPath: EXEC_PATH,
+    });
     try {
       const controller = new AbortController();
       setTimeout(() => controller.abort(), 3000);
@@ -222,7 +236,11 @@ async function group1() {
   });
 
   await test('1.6 session.interrupt()', async () => {
-    const session = await createSession({ cwd: CWD, execPath: EXEC_PATH });
+    const session = await createSession({
+      apiKey: API_KEY!,
+      cwd: CWD,
+      execPath: EXEC_PATH,
+    });
     try {
       let gotText = false;
       for await (const msg of session.stream(
@@ -243,6 +261,7 @@ async function group1() {
     const r = await run(
       'Read the file package.json and tell me the package name.',
       {
+        apiKey: API_KEY!,
         cwd: CWD,
         execPath: EXEC_PATH,
         permissionHandler() {
@@ -267,6 +286,7 @@ async function group1() {
       ],
     });
     const session = await createSession({
+      apiKey: API_KEY!,
       cwd: CWD,
       execPath: EXEC_PATH,
       mcpServers: [server],
@@ -306,7 +326,11 @@ async function group2() {
   setGroup('Group 2: Exec Mode — Session Lifecycle');
 
   await test('2.1 Fork session', async () => {
-    const session = await createSession({ cwd: CWD, execPath: EXEC_PATH });
+    const session = await createSession({
+      apiKey: API_KEY!,
+      cwd: CWD,
+      execPath: EXEC_PATH,
+    });
     try {
       await consumeStream(session, 'Remember: the secret number is 7777.');
       const { newSessionId } = await session.forkSession();
@@ -314,7 +338,10 @@ async function group2() {
         typeof newSessionId === 'string' && newSessionId.length > 0,
         'forkSession returned no ID'
       );
-      const fork = await resumeSession(newSessionId, { execPath: EXEC_PATH });
+      const fork = await resumeSession(newSessionId, {
+        apiKey: API_KEY!,
+        execPath: EXEC_PATH,
+      });
       try {
         const text = await consumeStream(
           fork,
@@ -333,7 +360,11 @@ async function group2() {
   });
 
   await test('2.2 Compact session', async () => {
-    const session = await createSession({ cwd: CWD, execPath: EXEC_PATH });
+    const session = await createSession({
+      apiKey: API_KEY!,
+      cwd: CWD,
+      execPath: EXEC_PATH,
+    });
     try {
       await consumeStream(session, 'Tell me a short joke.');
       await consumeStream(session, 'Tell me another joke.');
@@ -349,7 +380,11 @@ async function group2() {
   });
 
   await test('2.3 Resume session', async () => {
-    const session = await createSession({ cwd: CWD, execPath: EXEC_PATH });
+    const session = await createSession({
+      apiKey: API_KEY!,
+      cwd: CWD,
+      execPath: EXEC_PATH,
+    });
     let sessionId: string;
     try {
       await consumeStream(session, 'Remember: the password is MANGO.');
@@ -357,7 +392,10 @@ async function group2() {
     } finally {
       await session.close();
     }
-    const resumed = await resumeSession(sessionId, { execPath: EXEC_PATH });
+    const resumed = await resumeSession(sessionId, {
+      apiKey: API_KEY!,
+      execPath: EXEC_PATH,
+    });
     try {
       const text = await consumeStream(
         resumed,
@@ -373,7 +411,11 @@ async function group2() {
   });
 
   await test('2.4 Context stats', async () => {
-    const session = await createSession({ cwd: CWD, execPath: EXEC_PATH });
+    const session = await createSession({
+      apiKey: API_KEY!,
+      cwd: CWD,
+      execPath: EXEC_PATH,
+    });
     try {
       await consumeStream(session, 'Hello.');
       const stats = await session.getContextStats();
@@ -397,7 +439,11 @@ async function group3() {
   setGroup('Group 3: Exec Mode — Settings & Tools');
 
   await test('3.1 Update settings mid-session', async () => {
-    const session = await createSession({ cwd: CWD, execPath: EXEC_PATH });
+    const session = await createSession({
+      apiKey: API_KEY!,
+      cwd: CWD,
+      execPath: EXEC_PATH,
+    });
     try {
       await session.updateSettings({ reasoningEffort: ReasoningEffort.Low });
       await consumeStream(session, 'Say ok.');
@@ -408,6 +454,7 @@ async function group3() {
 
   await test('3.2 Disabled tool IDs', async () => {
     const session = await createSession({
+      apiKey: API_KEY!,
       cwd: CWD,
       execPath: EXEC_PATH,
       disabledToolIds: ['Execute'],
@@ -424,7 +471,11 @@ async function group3() {
   });
 
   await test('3.3 List MCP servers', async () => {
-    const session = await createSession({ cwd: CWD, execPath: EXEC_PATH });
+    const session = await createSession({
+      apiKey: API_KEY!,
+      cwd: CWD,
+      execPath: EXEC_PATH,
+    });
     try {
       const result = await session.listMcpServers();
       assert(result != null, 'listMcpServers returned null');
@@ -435,7 +486,11 @@ async function group3() {
   });
 
   await test('3.4 List skills', async () => {
-    const session = await createSession({ cwd: CWD, execPath: EXEC_PATH });
+    const session = await createSession({
+      apiKey: API_KEY!,
+      cwd: CWD,
+      execPath: EXEC_PATH,
+    });
     try {
       const result = await session.listSkills();
       assert(result != null, 'listSkills returned null');
@@ -454,7 +509,7 @@ async function checkDaemonAvailable(): Promise<boolean> {
   if (daemonAvailable !== null) return daemonAvailable;
   try {
     _resetDaemonStateForTesting();
-    const conn = await connectDaemon({ apiKey: API_KEY });
+    const conn = await connectDaemon({ apiKey: API_KEY! });
     await conn.close();
     daemonAvailable = true;
   } catch {
@@ -486,7 +541,7 @@ async function group4() {
 
   await test('4.1 Zero-config connect', async () => {
     _resetDaemonStateForTesting();
-    const conn = await connectDaemon({ apiKey: API_KEY });
+    const conn = await connectDaemon({ apiKey: API_KEY! });
     try {
       assert(conn != null, 'connection is null');
     } finally {
@@ -495,7 +550,7 @@ async function group4() {
   });
 
   await test('4.2 Create session + stream', async () => {
-    const conn = await connectDaemon({ apiKey: API_KEY });
+    const conn = await connectDaemon({ apiKey: API_KEY! });
     try {
       const session = await conn.createSession({ cwd: CWD });
       let gotResult = false;
@@ -510,7 +565,7 @@ async function group4() {
   });
 
   await test('4.3 Multi-turn context', async () => {
-    const conn = await connectDaemon({ apiKey: API_KEY });
+    const conn = await connectDaemon({ apiKey: API_KEY! });
     try {
       const session = await conn.createSession({ cwd: CWD });
       await consumeStream(session, 'Remember: the color is PURPLE.');
@@ -529,7 +584,7 @@ async function group4() {
   });
 
   await test('4.4 Partial message streaming', async () => {
-    const conn = await connectDaemon({ apiKey: API_KEY });
+    const conn = await connectDaemon({ apiKey: API_KEY! });
     try {
       const session = await conn.createSession({ cwd: CWD });
       let deltaCount = 0;
@@ -546,7 +601,7 @@ async function group4() {
   });
 
   await test('4.5 send() fire-and-forget', async () => {
-    const conn = await connectDaemon({ apiKey: API_KEY });
+    const conn = await connectDaemon({ apiKey: API_KEY! });
     try {
       const session = await conn.createSession({ cwd: CWD });
       await session.send('Say hello.');
@@ -558,7 +613,7 @@ async function group4() {
   });
 
   await test('4.6 AbortSignal cancellation', async () => {
-    const conn = await connectDaemon({ apiKey: API_KEY });
+    const conn = await connectDaemon({ apiKey: API_KEY! });
     try {
       const session = await conn.createSession({ cwd: CWD });
       const controller = new AbortController();
@@ -580,7 +635,7 @@ async function group4() {
   });
 
   await test('4.7 session.interrupt()', async () => {
-    const conn = await connectDaemon({ apiKey: API_KEY });
+    const conn = await connectDaemon({ apiKey: API_KEY! });
     try {
       const session = await conn.createSession({ cwd: CWD });
       let gotText = false;
@@ -611,7 +666,7 @@ async function group4() {
         ),
       ],
     });
-    const conn = await connectDaemon({ apiKey: API_KEY });
+    const conn = await connectDaemon({ apiKey: API_KEY! });
     try {
       const session = await conn.createSession({
         cwd: CWD,
@@ -652,7 +707,7 @@ async function group5() {
   }
 
   await test('5.1 Resume session', async () => {
-    const conn = await connectDaemon({ apiKey: API_KEY });
+    const conn = await connectDaemon({ apiKey: API_KEY! });
     try {
       const session = await conn.createSession({ cwd: CWD });
       await consumeStream(session, 'Remember: the animal is TIGER.');
@@ -672,7 +727,7 @@ async function group5() {
   });
 
   await test('5.2 connection.interruptSession()', async () => {
-    const conn = await connectDaemon({ apiKey: API_KEY });
+    const conn = await connectDaemon({ apiKey: API_KEY! });
     try {
       const session = await conn.createSession({ cwd: CWD });
       const streamPromise = (async () => {
@@ -691,7 +746,7 @@ async function group5() {
   });
 
   await test('5.3 Permission handler (daemon)', async () => {
-    const conn = await connectDaemon({ apiKey: API_KEY });
+    const conn = await connectDaemon({ apiKey: API_KEY! });
     try {
       const session = await conn.createSession({
         cwd: CWD,
@@ -707,7 +762,7 @@ async function group5() {
   });
 
   await test('5.4 Ask-user handler (daemon)', async () => {
-    const conn = await connectDaemon({ apiKey: API_KEY });
+    const conn = await connectDaemon({ apiKey: API_KEY! });
     try {
       const session = await conn.createSession({
         cwd: CWD,
@@ -747,7 +802,7 @@ async function group6() {
   }
 
   await test('6.1 Two concurrent sessions', async () => {
-    const conn = await connectDaemon({ apiKey: API_KEY });
+    const conn = await connectDaemon({ apiKey: API_KEY! });
     try {
       const [s1, s2] = await Promise.all([
         conn.createSession({ cwd: CWD }),
@@ -767,7 +822,7 @@ async function group6() {
   }, 120_000);
 
   await test('6.2 Three concurrent sessions', async () => {
-    const conn = await connectDaemon({ apiKey: API_KEY });
+    const conn = await connectDaemon({ apiKey: API_KEY! });
     try {
       const sessions = await Promise.all([
         conn.createSession({ cwd: CWD }),
@@ -787,7 +842,7 @@ async function group6() {
   }, 120_000);
 
   await test('6.3 Sequential rapid sessions', async () => {
-    const conn = await connectDaemon({ apiKey: API_KEY });
+    const conn = await connectDaemon({ apiKey: API_KEY! });
     try {
       for (let i = 0; i < 5; i++) {
         const s = await conn.createSession({ cwd: CWD });
@@ -802,13 +857,13 @@ async function group6() {
   await test('6.4 Rapid connect/disconnect', async () => {
     for (let i = 0; i < 3; i++) {
       _resetDaemonStateForTesting();
-      const conn = await connectDaemon({ apiKey: API_KEY });
+      const conn = await connectDaemon({ apiKey: API_KEY! });
       await conn.close();
     }
   });
 
   await test('6.5 Sequential streams on same session', async () => {
-    const conn = await connectDaemon({ apiKey: API_KEY });
+    const conn = await connectDaemon({ apiKey: API_KEY! });
     try {
       const session = await conn.createSession({ cwd: CWD });
       const t1 = await consumeStream(session, 'Say: FIRST');
@@ -831,6 +886,7 @@ async function group7() {
     let caught = false;
     try {
       await resumeSession('nonexistent-session-id-12345', {
+        apiKey: API_KEY!,
         execPath: EXEC_PATH,
       });
     } catch (err: any) {
@@ -849,7 +905,7 @@ async function group7() {
 
   if (daemonOk) {
     await test('7.2 SessionNotFoundError (daemon)', async () => {
-      const conn = await connectDaemon({ apiKey: API_KEY });
+      const conn = await connectDaemon({ apiKey: API_KEY! });
       try {
         let caught = false;
         try {
@@ -881,7 +937,11 @@ async function group7() {
   });
 
   await test('7.4 Stream after close (exec)', async () => {
-    const session = await createSession({ cwd: CWD, execPath: EXEC_PATH });
+    const session = await createSession({
+      apiKey: API_KEY!,
+      cwd: CWD,
+      execPath: EXEC_PATH,
+    });
     await session.close();
     let caught = false;
     try {
@@ -895,7 +955,11 @@ async function group7() {
   });
 
   await test('7.5 Double close (exec)', async () => {
-    const session = await createSession({ cwd: CWD, execPath: EXEC_PATH });
+    const session = await createSession({
+      apiKey: API_KEY!,
+      cwd: CWD,
+      execPath: EXEC_PATH,
+    });
     await session.close();
     // Second close should not throw
     await session.close();
@@ -926,6 +990,7 @@ async function group8() {
       ],
     });
     const session = await createSession({
+      apiKey: API_KEY!,
       cwd: CWD,
       execPath: EXEC_PATH,
       mcpServers: [server],
@@ -964,6 +1029,7 @@ async function group8() {
       ],
     });
     const session = await createSession({
+      apiKey: API_KEY!,
       cwd: CWD,
       execPath: EXEC_PATH,
       mcpServers: [server],
@@ -1006,6 +1072,7 @@ async function group8() {
       ],
     });
     const session = await createSession({
+      apiKey: API_KEY!,
       cwd: CWD,
       execPath: EXEC_PATH,
       mcpServers: [server],
@@ -1051,6 +1118,7 @@ async function group8() {
       ],
     });
     const session = await createSession({
+      apiKey: API_KEY!,
       cwd: CWD,
       execPath: EXEC_PATH,
       mcpServers: [server],

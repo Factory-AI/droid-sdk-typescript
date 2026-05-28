@@ -53,7 +53,9 @@ async function main(): Promise<void> {
     const { connectDaemon, DroidMessageType } =
       await import('../../src/index.js');
 
-    const connection = await connectDaemon();
+    const connection = await connectDaemon({
+      apiKey: process.env.FACTORY_API_KEY!,
+    });
     const session = await connection.createSession({ cwd: process.cwd() });
 
     let gotResult = false;
@@ -77,7 +79,7 @@ async function main(): Promise<void> {
     const { connectDaemon } = await import('../../src/index.js');
 
     const connection = await connectDaemon({
-      apiKey: process.env.FACTORY_API_KEY,
+      apiKey: process.env.FACTORY_API_KEY!,
     });
     assert(connection != null, 'connection should not be null');
     await connection.close();
@@ -92,7 +94,7 @@ async function main(): Promise<void> {
     const { port } = await ensureLocalDaemon();
     const connection = await connectDaemon({
       url: `ws://127.0.0.1:${port}`,
-      apiKey: process.env.FACTORY_API_KEY,
+      apiKey: process.env.FACTORY_API_KEY!,
     });
     assert(connection != null, 'connection should not be null');
     await connection.close();
@@ -104,7 +106,9 @@ async function main(): Promise<void> {
     const { connectDaemon, AutonomyLevel, ReasoningEffort } =
       await import('../../src/index.js');
 
-    const connection = await connectDaemon();
+    const connection = await connectDaemon({
+      apiKey: process.env.FACTORY_API_KEY!,
+    });
     const session = await connection.createSession({
       cwd: process.cwd(),
       autonomyLevel: AutonomyLevel.High,
@@ -121,7 +125,9 @@ async function main(): Promise<void> {
     const { connectDaemon, DroidMessageType } =
       await import('../../src/index.js');
 
-    const connection = await connectDaemon();
+    const connection = await connectDaemon({
+      apiKey: process.env.FACTORY_API_KEY!,
+    });
     const session = await connection.createSession({ cwd: process.cwd() });
 
     const seen = new Set<string>();
@@ -156,7 +162,9 @@ async function main(): Promise<void> {
     const { connectDaemon, DroidMessageType } =
       await import('../../src/index.js');
 
-    const connection = await connectDaemon();
+    const connection = await connectDaemon({
+      apiKey: process.env.FACTORY_API_KEY!,
+    });
     const session = await connection.createSession({ cwd: process.cwd() });
 
     let deltaCount = 0;
@@ -179,7 +187,9 @@ async function main(): Promise<void> {
   await test('send() returns after daemon ACK', async () => {
     const { connectDaemon } = await import('../../src/index.js');
 
-    const connection = await connectDaemon();
+    const connection = await connectDaemon({
+      apiKey: process.env.FACTORY_API_KEY!,
+    });
     const session = await connection.createSession({ cwd: process.cwd() });
 
     await session.send('Say hello.');
@@ -197,7 +207,9 @@ async function main(): Promise<void> {
     const { connectDaemon, DroidMessageType } =
       await import('../../src/index.js');
 
-    const connection = await connectDaemon();
+    const connection = await connectDaemon({
+      apiKey: process.env.FACTORY_API_KEY!,
+    });
     const session = await connection.createSession({ cwd: process.cwd() });
 
     for await (const _msg of session.stream('Remember: the secret is 42.')) {
@@ -221,7 +233,9 @@ async function main(): Promise<void> {
     const { connectDaemon, DroidMessageType } =
       await import('../../src/index.js');
 
-    const connection = await connectDaemon();
+    const connection = await connectDaemon({
+      apiKey: process.env.FACTORY_API_KEY!,
+    });
 
     const [session1, session2] = await Promise.all([
       connection.createSession({ cwd: process.cwd() }),
@@ -259,7 +273,9 @@ async function main(): Promise<void> {
   await test('AbortSignal interrupts stream', async () => {
     const { connectDaemon } = await import('../../src/index.js');
 
-    const connection = await connectDaemon();
+    const connection = await connectDaemon({
+      apiKey: process.env.FACTORY_API_KEY!,
+    });
     const session = await connection.createSession({ cwd: process.cwd() });
 
     const controller = new AbortController();
@@ -292,7 +308,9 @@ async function main(): Promise<void> {
     const { connectDaemon, ToolConfirmationOutcome } =
       await import('../../src/index.js');
 
-    const connection = await connectDaemon();
+    const connection = await connectDaemon({
+      apiKey: process.env.FACTORY_API_KEY!,
+    });
 
     let handlerCalled = false;
     const session = await connection.createSession({
@@ -340,7 +358,9 @@ async function main(): Promise<void> {
       ],
     });
 
-    const connection = await connectDaemon();
+    const connection = await connectDaemon({
+      apiKey: process.env.FACTORY_API_KEY!,
+    });
     const session = await connection.createSession({
       cwd: process.cwd(),
       mcpServers: [server],
@@ -364,7 +384,9 @@ async function main(): Promise<void> {
     const { connectDaemon, SessionNotFoundError } =
       await import('../../src/index.js');
 
-    const connection = await connectDaemon();
+    const connection = await connectDaemon({
+      apiKey: process.env.FACTORY_API_KEY!,
+    });
 
     let caught = false;
     try {
@@ -392,7 +414,9 @@ async function main(): Promise<void> {
     const { connectDaemon, DroidMessageType } =
       await import('../../src/index.js');
 
-    const connection = await connectDaemon();
+    const connection = await connectDaemon({
+      apiKey: process.env.FACTORY_API_KEY!,
+    });
     try {
       const session = await connection.createSession({ cwd: process.cwd() });
       try {

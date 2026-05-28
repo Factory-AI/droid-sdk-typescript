@@ -111,7 +111,6 @@ export {
   DaemonConnection,
   resolveWebSocketUrl,
   ensureLocalDaemon,
-  resolveLocalAuthToken,
 } from './daemon/index.js';
 export type { DaemonClientOptions } from './daemon/index.js';
 export { DaemonSession } from './daemon/index.js';

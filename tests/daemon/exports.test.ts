@@ -38,10 +38,6 @@ describe('daemon public API exports', () => {
     expect(typeof sdk.ensureLocalDaemon).toBe('function');
   });
 
-  it('exports resolveLocalAuthToken function', () => {
-    expect(typeof sdk.resolveLocalAuthToken).toBe('function');
-  });
-
   it('DaemonSessionOptions does not include title', () => {
     // Compile-time type check: title was removed because it could
     // never reach the daemon (not in InitializeSessionRequestParams,

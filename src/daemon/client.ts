@@ -59,12 +59,12 @@ export type DaemonClientAskUserHandler = AskUserHandler;
 
 export interface DaemonClientOptions {
   transport: DroidClientTransport;
-  token: string;
+  apiKey: string;
 }
 
 export class DaemonClient {
   private readonly _engine: ProtocolEngine;
-  private readonly _token: string;
+  private readonly _apiKey: string;
   private _sessionId: string | null = null;
   private _closed = false;
 
@@ -73,7 +73,7 @@ export class DaemonClient {
   private _askUserHandler: DaemonClientAskUserHandler | null = null;
 
   constructor(options: DaemonClientOptions) {
-    this._token = options.token;
+    this._apiKey = options.apiKey;
     this._engine = new ProtocolEngine({
       transport: options.transport,
       serverRequestMethodMap: DAEMON_SERVER_REQUEST_METHODS,
@@ -113,7 +113,7 @@ export class DaemonClient {
 
     const result = await this._rpc(
       DaemonMethod.INITIALIZE_SESSION,
-      { ...params, token: this._token },
+      { ...params, apiKey: this._apiKey },
       InitializeSessionResultSchema,
       SESSION_INIT_TIMEOUT
     );
@@ -128,7 +128,7 @@ export class DaemonClient {
 
     const result = await this._rpc(
       DaemonMethod.LOAD_SESSION,
-      { ...params, token: this._token },
+      { ...params, apiKey: this._apiKey },
       LoadSessionResultSchema,
       SESSION_INIT_TIMEOUT
     );

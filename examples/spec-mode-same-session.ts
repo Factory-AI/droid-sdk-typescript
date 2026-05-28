@@ -22,6 +22,7 @@ const outputPath = join(tempDir, 'hello.txt');
 
 try {
   const session = await createSession({
+    apiKey: process.env.FACTORY_API_KEY!,
     cwd: process.cwd(),
     interactionMode: DroidInteractionMode.Spec,
     specModeReasoningEffort: ReasoningEffort.High,

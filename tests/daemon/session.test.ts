@@ -40,7 +40,7 @@ describe('DaemonSession', () => {
   beforeEach(async () => {
     transport = new InMemoryTransport();
     await transport.connect();
-    client = new DaemonClient({ transport, token: 'test-token' });
+    client = new DaemonClient({ transport, apiKey: 'test-token' });
     await initializeClient(transport, client, SESSION_ID);
 
     // Auto-respond to protocol requests to prevent timeout

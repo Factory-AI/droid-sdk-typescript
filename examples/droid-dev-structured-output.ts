@@ -25,6 +25,7 @@ async function main(): Promise<void> {
       'Return only valid JSON and do not include markdown fences.',
     ].join(' '),
     {
+      apiKey: process.env.FACTORY_API_KEY!,
       execPath,
       cwd: process.cwd(),
     }
