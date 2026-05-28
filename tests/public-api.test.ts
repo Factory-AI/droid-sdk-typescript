@@ -10,6 +10,8 @@ import {
   ProtocolEngine,
   createSession,
   listSessions,
+  listMachineTemplates,
+  getMachineTemplate,
   resumeSession,
   run,
 } from '../src/index.js';
@@ -21,6 +23,8 @@ describe('public API barrel', () => {
     expect(createSession).toBeTypeOf('function');
     expect(resumeSession).toBeTypeOf('function');
     expect(listSessions).toBeTypeOf('function');
+    expect(listMachineTemplates).toBeTypeOf('function');
+    expect(getMachineTemplate).toBeTypeOf('function');
     expect('query' in publicApi).toBe(false);
     expect(DroidSession.prototype.stream).toBeTypeOf('function');
     expect('DroidTurn' in publicApi).toBe(false);

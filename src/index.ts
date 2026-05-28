@@ -104,6 +104,21 @@ export type {
 
 export { listSessions } from './session-discovery.js';
 
+// Factory REST API
+export { listMachineTemplates, getMachineTemplate } from './api.js';
+export {
+  MachineTemplateBuildStatusSchema,
+  MachineTemplateSchema,
+  MachineTemplateListResponseSchema,
+} from './api-types.js';
+export type {
+  MachineTemplate,
+  MachineTemplateBuildStatus,
+  ListMachineTemplatesOptions,
+  GetMachineTemplateOptions,
+  MachineTemplateListResponse,
+} from './api-types.js';
+
 // Daemon mode
 export {
   DaemonClient,
