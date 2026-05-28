@@ -1,14 +1,16 @@
 import { DroidClient } from './client.js';
 import { ConnectionError } from './errors.js';
 import {
-  MessageBridge,
   buildInitParams,
   closeQuietly,
   createConfiguredClient,
+  streamFromClient,
   wireAbortSignal,
 } from './helpers.js';
 import type {
   HandlerOptions,
+  MessageBridge,
+  MessageOptions,
   SessionInitOptions,
   TransportCreationOptions,
 } from './helpers.js';
@@ -38,7 +40,6 @@ import type {
   ListSkillsResult,
   LoadSessionRequestParams,
   LoadSessionResult,
-  OutputFormat,
   RemoveMcpServerRequestParams,
   RemoveMcpServerResult,
   ToggleMcpServerRequestParams,
@@ -47,7 +48,6 @@ import type {
   UpdateSessionSettingsResult,
 } from './schemas/client.js';
 import { DroidInteractionMode } from './schemas/enums.js';
-import type { Base64ImageSource, DocumentSource } from './schemas/messages.js';
 import type {
   DroidResultMessage,
   DroidStreamEvent,
@@ -76,29 +76,7 @@ export interface ResumeSessionOptions extends Pick<
   mcpServers?: DroidMcpServerConfig[];
 }
 
-export interface MessageOptions {
-  images?: Base64ImageSource[];
-  files?: DocumentSource[];
-  outputFormat?: OutputFormat;
-  includePartialMessages?: boolean;
-  abortSignal?: AbortSignal;
-}
-
-function getAbortError(signal: AbortSignal): Error {
-  if (signal.reason instanceof Error) {
-    return signal.reason;
-  }
-
-  return new Error(
-    typeof signal.reason === 'string' ? signal.reason : 'Operation aborted'
-  );
-}
-
-function throwIfAborted(signal: AbortSignal | undefined): void {
-  if (signal?.aborted) {
-    throw getAbortError(signal);
-  }
-}
+export type { MessageOptions } from './helpers.js';
 
 /** Create instances via {@link createSession} or {@link resumeSession}. */
 export class DroidSession {
@@ -154,54 +132,13 @@ export class DroidSession {
     options?: MessageOptions
   ): AsyncGenerator<DroidStreamEvent, void, undefined> {
     this._ensureNotClosed();
-    throwIfAborted(options?.abortSignal);
-
-    const startedAt = Date.now();
-    let resolveDone: () => void = () => {};
-    const donePromise = new Promise<void>((resolve) => {
-      resolveDone = resolve;
-    });
-    const bridge = new MessageBridge(resolveDone, {
-      includePartialMessages: options?.includePartialMessages,
-      sessionId: this._sessionId,
-      startedAt,
-      outputFormat: options?.outputFormat,
-    });
-    this._activeBridges.add(bridge);
-    const unsubscribe = this._client.onNotification(bridge.notificationHandler);
-    let resolveAbort: () => void = () => {};
-    const abortPromise = new Promise<void>((resolve) => {
-      resolveAbort = resolve;
-    });
-    const cleanupAbortSignal = wireAbortSignal(options?.abortSignal, () => {
-      bridge.signalDone();
-      resolveAbort();
-      void this._client.interruptSession().catch(() => {});
-    });
-
-    try {
-      await Promise.race([
-        this._client.addUserMessage({
-          text: prompt,
-          images: options?.images,
-          files: options?.files,
-          outputFormat: options?.outputFormat,
-        }),
-        donePromise,
-        abortPromise,
-      ]);
-      throwIfAborted(options?.abortSignal);
-
-      for await (const msg of bridge.messages()) {
-        throwIfAborted(options?.abortSignal);
-        yield msg;
-      }
-      throwIfAborted(options?.abortSignal);
-    } finally {
-      cleanupAbortSignal();
-      unsubscribe();
-      this._activeBridges.delete(bridge);
-    }
+    yield* streamFromClient(
+      this._client,
+      this._sessionId,
+      this._activeBridges,
+      prompt,
+      options
+    );
   }
 
   async interrupt(): Promise<void> {
