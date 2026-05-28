@@ -419,7 +419,10 @@ import {
   AutonomyLevel,
 } from '@factory/droid-sdk';
 
-const transport = new ProcessTransport({ cwd: process.cwd() });
+const transport = new ProcessTransport({
+  cwd: process.cwd(),
+  env: { FACTORY_API_KEY: process.env.FACTORY_API_KEY! },
+});
 await transport.connect();
 const client = new DroidClient({ transport });
 
@@ -699,6 +702,7 @@ The package also exports its full Zod schema surface from `src/schemas/index.ts`
 
 | Field                     | Type                     | Description                                                 |
 | :------------------------ | :----------------------- | :---------------------------------------------------------- |
+| `apiKey`                  | `string`                 | **Required.** Factory API key for authentication            |
 | `cwd`                     | `string`                 | Working directory for the session                           |
 | `machineId`               | `string`                 | Machine identifier for initialization                       |
 | `modelId`                 | `string`                 | LLM model identifier                                        |
@@ -711,6 +715,7 @@ The package also exports its full Zod schema surface from `src/schemas/index.ts`
 | `enabledToolIds`          | `string[]`               | Tool allowlist                                              |
 | `disabledToolIds`         | `string[]`               | Tool denylist                                               |
 | `tags`                    | `SessionTag[]`           | Session tags for categorization                             |
+| `sessionSource`           | `SessionSource`          | Attribution metadata (e.g., integration origin)             |
 | `permissionHandler`       | `PermissionHandler`      | Tool confirmation callback                                  |
 | `askUserHandler`          | `AskUserHandler`         | Structured user-input callback                              |
 | `execPath`                | `string`                 | Path to `droid` executable (default: `"droid"`)             |

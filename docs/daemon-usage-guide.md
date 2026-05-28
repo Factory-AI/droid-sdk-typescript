@@ -62,7 +62,7 @@ import { connectDaemon, MachineType } from '@factory/droid-sdk';
 
 // Ephemeral sandbox (e2b)
 const connection = await connectDaemon({
-  apiKey: process.env.FACTORY_API_KEY,
+  apiKey: process.env.FACTORY_API_KEY!,
   machine: {
     type: MachineType.Ephemeral,
     sandboxId: 'sandbox-abc123',
@@ -72,7 +72,7 @@ const connection = await connectDaemon({
 
 // Computer relay
 const connection2 = await connectDaemon({
-  apiKey: process.env.FACTORY_API_KEY,
+  apiKey: process.env.FACTORY_API_KEY!,
   machine: {
     type: MachineType.Computer,
     computerId: 'comp-abc123',
@@ -87,7 +87,7 @@ Skip machine-based resolution and connect to a specific WebSocket endpoint.
 ```ts
 const connection = await connectDaemon({
   url: 'ws://127.0.0.1:37643',
-  apiKey: process.env.FACTORY_API_KEY,
+  apiKey: process.env.FACTORY_API_KEY!,
 });
 ```
 
@@ -225,7 +225,11 @@ await session.close();
 A single daemon connection supports multiple sessions running simultaneously. The SDK routes notifications to the correct session automatically.
 
 ```ts
-import { connectDaemon, DroidMessageType } from '@factory/droid-sdk';
+import {
+  connectDaemon,
+  DaemonSession,
+  DroidMessageType,
+} from '@factory/droid-sdk';
 
 const connection = await connectDaemon({
   apiKey: process.env.FACTORY_API_KEY!,
@@ -246,7 +250,10 @@ await session1.close();
 await session2.close();
 await connection.close();
 
-async function collectResult(session, prompt) {
+async function collectResult(
+  session: DaemonSession,
+  prompt: string
+): Promise<string> {
   let text = '';
   for await (const msg of session.stream(prompt)) {
     if (msg.type === DroidMessageType.Result) text = msg.result;
