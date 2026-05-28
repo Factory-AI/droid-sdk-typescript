@@ -1,12 +1,18 @@
 import {
+  ComputerListResponseSchema,
+  ComputerSchema,
   CreateSandboxResponseSchema,
   MachineTemplateListResponseSchema,
   MachineTemplateSchema,
 } from './api-types.js';
 import type {
+  Computer,
+  ComputerListResponse,
   CreateSandboxOptions,
   CreateSandboxResponse,
+  GetComputerOptions,
   GetMachineTemplateOptions,
+  ListComputersOptions,
   ListMachineTemplatesOptions,
   MachineTemplate,
   MachineTemplateListResponse,
@@ -130,6 +136,36 @@ export async function createSandbox(
     body: {},
   });
   const parsed = CreateSandboxResponseSchema.safeParse(body);
+  if (!parsed.success) {
+    throw new ProtocolError(
+      `Unexpected response format from Factory API: ${parsed.error.message}`
+    );
+  }
+  return parsed.data;
+}
+
+export async function listComputers(
+  options: ListComputersOptions
+): Promise<ComputerListResponse> {
+  const path = '/api/v0/computers';
+
+  const body = await factoryFetch(path, options.apiKey, options.baseUrl);
+  const parsed = ComputerListResponseSchema.safeParse(body);
+  if (!parsed.success) {
+    throw new ProtocolError(
+      `Unexpected response format from Factory API: ${parsed.error.message}`
+    );
+  }
+  return parsed.data;
+}
+
+export async function getComputer(
+  options: GetComputerOptions
+): Promise<Computer> {
+  const path = `/api/v0/computers/${encodeURIComponent(options.computerId)}`;
+
+  const body = await factoryFetch(path, options.apiKey, options.baseUrl);
+  const parsed = ComputerSchema.safeParse(body);
   if (!parsed.success) {
     throw new ProtocolError(
       `Unexpected response format from Factory API: ${parsed.error.message}`

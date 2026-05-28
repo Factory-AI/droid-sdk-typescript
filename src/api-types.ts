@@ -73,3 +73,35 @@ export interface CreateSandboxOptions {
   baseUrl?: string;
   workspaceId: string;
 }
+
+export const ComputerSchema = z
+  .object({
+    id: z.string(),
+    name: z.string(),
+    hostname: z.string().optional(),
+    providerType: z.enum(['byom', 'e2b']),
+    status: z.enum(['provisioning', 'active', 'error']).optional(),
+    createdAt: z.number().int(),
+    relayClientUrl: z.string().optional(),
+    remoteUser: z.string().optional(),
+  })
+  .passthrough();
+
+export type Computer = z.infer<typeof ComputerSchema>;
+
+export const ComputerListResponseSchema = z.object({
+  computers: z.array(ComputerSchema),
+});
+
+export type ComputerListResponse = z.infer<typeof ComputerListResponseSchema>;
+
+export interface ListComputersOptions {
+  apiKey: string;
+  baseUrl?: string;
+}
+
+export interface GetComputerOptions {
+  apiKey: string;
+  baseUrl?: string;
+  computerId: string;
+}

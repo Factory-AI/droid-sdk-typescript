@@ -105,14 +105,26 @@ export type {
 export { listSessions } from './session-discovery.js';
 
 // Factory REST API
-export { listMachineTemplates, getMachineTemplate, createSandbox } from './api.js';
 export {
+  listMachineTemplates,
+  getMachineTemplate,
+  createSandbox,
+  listComputers,
+  getComputer,
+} from './api.js';
+export {
+  ComputerSchema,
+  ComputerListResponseSchema,
   MachineTemplateBuildStatusSchema,
   MachineTemplateSchema,
   MachineTemplateListResponseSchema,
   CreateSandboxResponseSchema,
 } from './api-types.js';
 export type {
+  Computer,
+  ComputerListResponse,
+  ListComputersOptions,
+  GetComputerOptions,
   MachineTemplate,
   MachineTemplateBuildStatus,
   ListMachineTemplatesOptions,

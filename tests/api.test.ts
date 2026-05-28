@@ -4,6 +4,8 @@ import {
   listMachineTemplates,
   getMachineTemplate,
   createSandbox,
+  listComputers,
+  getComputer,
 } from '../src/api.js';
 import { ConnectionError, ProtocolError } from '../src/errors.js';
 
@@ -401,6 +403,215 @@ describe('createSandbox', () => {
 
     await expect(
       createSandbox({ apiKey: 'fk-test-key', workspaceId: 'ws-001' })
+    ).rejects.toThrow(ConnectionError);
+  });
+});
+
+const MOCK_COMPUTER = {
+  id: 'comp-001',
+  name: 'my-dev-box',
+  hostname: 'dev-box.local',
+  providerType: 'e2b' as const,
+  status: 'active' as const,
+  createdAt: 1700000000000,
+  relayClientUrl: 'wss://relay.factory.ai/v0/computer/comp-001/client',
+  remoteUser: 'factory-user',
+};
+
+const MOCK_COMPUTER_LIST_RESPONSE = {
+  computers: [MOCK_COMPUTER],
+};
+
+describe('listComputers', () => {
+  let originalFetch: typeof globalThis.fetch;
+
+  beforeEach(() => {
+    originalFetch = globalThis.fetch;
+  });
+
+  afterEach(() => {
+    globalThis.fetch = originalFetch;
+  });
+
+  it('calls the correct URL with auth header', async () => {
+    const fetchMock = mockFetch(200, MOCK_COMPUTER_LIST_RESPONSE);
+    globalThis.fetch = fetchMock;
+
+    await listComputers({ apiKey: 'fk-test-key' });
+
+    expect(fetchMock).toHaveBeenCalledOnce();
+    const [url, init] = fetchMock.mock.calls[0]!;
+    expect(url).toBe('https://api.factory.ai/api/v0/computers');
+    expect(init.headers['Authorization']).toBe('Bearer fk-test-key');
+    expect(init.method).toBe('GET');
+  });
+
+  it('uses custom baseUrl', async () => {
+    const fetchMock = mockFetch(200, MOCK_COMPUTER_LIST_RESPONSE);
+    globalThis.fetch = fetchMock;
+
+    await listComputers({
+      apiKey: 'fk-test-key',
+      baseUrl: 'https://custom.factory.ai',
+    });
+
+    const [url] = fetchMock.mock.calls[0]!;
+    expect(url).toBe('https://custom.factory.ai/api/v0/computers');
+  });
+
+  it('parses response correctly', async () => {
+    globalThis.fetch = mockFetch(200, MOCK_COMPUTER_LIST_RESPONSE);
+
+    const result = await listComputers({ apiKey: 'fk-test-key' });
+
+    expect(result.computers).toHaveLength(1);
+    expect(result.computers[0]!.id).toBe('comp-001');
+    expect(result.computers[0]!.name).toBe('my-dev-box');
+    expect(result.computers[0]!.status).toBe('active');
+    expect(result.computers[0]!.providerType).toBe('e2b');
+  });
+
+  it('handles empty computer list', async () => {
+    globalThis.fetch = mockFetch(200, { computers: [] });
+
+    const result = await listComputers({ apiKey: 'fk-test-key' });
+
+    expect(result.computers).toHaveLength(0);
+  });
+
+  it('throws ProtocolError on 401', async () => {
+    globalThis.fetch = mockFetch(401, { error: 'Unauthorized' });
+
+    await expect(
+      listComputers({ apiKey: 'fk-bad-key' })
+    ).rejects.toThrow(ProtocolError);
+  });
+
+  it('throws ProtocolError on unexpected response shape', async () => {
+    globalThis.fetch = mockFetch(200, { unexpected: 'data' });
+
+    await expect(
+      listComputers({ apiKey: 'fk-test-key' })
+    ).rejects.toThrow(/Unexpected response format/);
+  });
+
+  it('throws ConnectionError on network failure', async () => {
+    globalThis.fetch = mockFetch(0, null, {
+      throwError: new TypeError('fetch failed'),
+    });
+
+    await expect(
+      listComputers({ apiKey: 'fk-test-key' })
+    ).rejects.toThrow(ConnectionError);
+  });
+});
+
+describe('getComputer', () => {
+  let originalFetch: typeof globalThis.fetch;
+
+  beforeEach(() => {
+    originalFetch = globalThis.fetch;
+  });
+
+  afterEach(() => {
+    globalThis.fetch = originalFetch;
+  });
+
+  it('calls the correct URL with computerId', async () => {
+    const fetchMock = mockFetch(200, MOCK_COMPUTER);
+    globalThis.fetch = fetchMock;
+
+    await getComputer({ apiKey: 'fk-test-key', computerId: 'comp-001' });
+
+    expect(fetchMock).toHaveBeenCalledOnce();
+    const [url, init] = fetchMock.mock.calls[0]!;
+    expect(url).toBe('https://api.factory.ai/api/v0/computers/comp-001');
+    expect(init.headers['Authorization']).toBe('Bearer fk-test-key');
+  });
+
+  it('encodes computerId in URL', async () => {
+    const fetchMock = mockFetch(200, {
+      ...MOCK_COMPUTER,
+      id: 'comp/special',
+    });
+    globalThis.fetch = fetchMock;
+
+    await getComputer({
+      apiKey: 'fk-test-key',
+      computerId: 'comp/special',
+    });
+
+    const [url] = fetchMock.mock.calls[0]!;
+    expect(url).toBe(
+      'https://api.factory.ai/api/v0/computers/comp%2Fspecial'
+    );
+  });
+
+  it('parses response correctly', async () => {
+    globalThis.fetch = mockFetch(200, MOCK_COMPUTER);
+
+    const result = await getComputer({
+      apiKey: 'fk-test-key',
+      computerId: 'comp-001',
+    });
+
+    expect(result.id).toBe('comp-001');
+    expect(result.name).toBe('my-dev-box');
+    expect(result.hostname).toBe('dev-box.local');
+    expect(result.providerType).toBe('e2b');
+    expect(result.status).toBe('active');
+    expect(result.createdAt).toBe(1700000000000);
+  });
+
+  it('handles computer without optional fields', async () => {
+    globalThis.fetch = mockFetch(200, {
+      id: 'comp-002',
+      name: 'minimal',
+      providerType: 'byom',
+      createdAt: 1700000000000,
+    });
+
+    const result = await getComputer({
+      apiKey: 'fk-test-key',
+      computerId: 'comp-002',
+    });
+
+    expect(result.id).toBe('comp-002');
+    expect(result.hostname).toBeUndefined();
+    expect(result.status).toBeUndefined();
+  });
+
+  it('throws ProtocolError on 401', async () => {
+    globalThis.fetch = mockFetch(401, { error: 'Unauthorized' });
+
+    await expect(
+      getComputer({ apiKey: 'fk-bad-key', computerId: 'comp-001' })
+    ).rejects.toThrow(ProtocolError);
+  });
+
+  it('throws ProtocolError on 404', async () => {
+    globalThis.fetch = mockFetch(404, { error: 'Computer not found' });
+
+    await expect(
+      getComputer({ apiKey: 'fk-test-key', computerId: 'nonexistent' })
+    ).rejects.toThrow('Computer not found');
+  });
+
+  it('throws ProtocolError on unexpected response shape', async () => {
+    globalThis.fetch = mockFetch(200, { unexpected: 'data' });
+
+    await expect(
+      getComputer({ apiKey: 'fk-test-key', computerId: 'comp-001' })
+    ).rejects.toThrow(/Unexpected response format/);
+  });
+
+  it('throws ConnectionError on network failure', async () => {
+    globalThis.fetch = mockFetch(0, null, {
+      throwError: new TypeError('fetch failed'),
+    });
+
+    await expect(
+      getComputer({ apiKey: 'fk-test-key', computerId: 'comp-001' })
     ).rejects.toThrow(ConnectionError);
   });
 });
