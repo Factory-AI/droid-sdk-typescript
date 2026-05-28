@@ -42,10 +42,6 @@ async function factoryFetch(
     );
   }
 
-  if (response.status === 204) {
-    return undefined;
-  }
-
   let body: unknown;
   try {
     body = await response.json();
@@ -102,8 +98,7 @@ export async function getMachineTemplate(
   const parsed = MachineTemplateSchema.safeParse(body);
   if (!parsed.success) {
     throw new ProtocolError(
-      `Machine template not found: ${options.templateId}`,
-      { code: 404 }
+      `Unexpected response format from Factory API: ${parsed.error.message}`
     );
   }
   return parsed.data;
