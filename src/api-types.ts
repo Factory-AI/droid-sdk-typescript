@@ -61,3 +61,15 @@ export interface GetMachineTemplateOptions {
   baseUrl?: string;
   templateId: string;
 }
+
+export const CreateSandboxResponseSchema = z.object({
+  sandboxId: z.string(),
+});
+
+export type CreateSandboxResponse = z.infer<typeof CreateSandboxResponseSchema>;
+
+export interface CreateSandboxOptions {
+  apiKey: string;
+  baseUrl?: string;
+  workspaceId: string;
+}

@@ -1,8 +1,11 @@
 import {
+  CreateSandboxResponseSchema,
   MachineTemplateListResponseSchema,
   MachineTemplateSchema,
 } from './api-types.js';
 import type {
+  CreateSandboxOptions,
+  CreateSandboxResponse,
   GetMachineTemplateOptions,
   ListMachineTemplatesOptions,
   MachineTemplate,
@@ -12,6 +15,11 @@ import { ConnectionError, ProtocolError } from './errors.js';
 import { isRecord } from './utils.js';
 
 const DEFAULT_BASE_URL = 'https://api.factory.ai';
+
+interface FetchOptions {
+  method?: 'GET' | 'POST';
+  body?: Record<string, unknown>;
+}
 
 function extractErrorMessage(body: unknown, status: number): string {
   if (isRecord(body) && typeof body['error'] === 'string') {
@@ -23,18 +31,26 @@ function extractErrorMessage(body: unknown, status: number): string {
 async function factoryFetch(
   path: string,
   apiKey: string,
-  baseUrl?: string
+  baseUrl?: string,
+  options?: FetchOptions
 ): Promise<unknown> {
   const url = `${baseUrl ?? DEFAULT_BASE_URL}${path}`;
+  const method = options?.method ?? 'GET';
+  const headers: Record<string, string> = {
+    Authorization: `Bearer ${apiKey}`,
+    Accept: 'application/json',
+  };
+  if (options?.body) {
+    headers['Content-Type'] = 'application/json';
+  }
+
   let response: Response;
 
   try {
     response = await fetch(url, {
-      method: 'GET',
-      headers: {
-        Authorization: `Bearer ${apiKey}`,
-        Accept: 'application/json',
-      },
+      method,
+      headers,
+      ...(options?.body ? { body: JSON.stringify(options.body) } : {}),
     });
   } catch (error) {
     throw new ConnectionError(
@@ -96,6 +112,24 @@ export async function getMachineTemplate(
 
   const body = await factoryFetch(path, options.apiKey, options.baseUrl);
   const parsed = MachineTemplateSchema.safeParse(body);
+  if (!parsed.success) {
+    throw new ProtocolError(
+      `Unexpected response format from Factory API: ${parsed.error.message}`
+    );
+  }
+  return parsed.data;
+}
+
+export async function createSandbox(
+  options: CreateSandboxOptions
+): Promise<CreateSandboxResponse> {
+  const path = `/api/workspaces/${encodeURIComponent(options.workspaceId)}/sandbox/create`;
+
+  const body = await factoryFetch(path, options.apiKey, options.baseUrl, {
+    method: 'POST',
+    body: {},
+  });
+  const parsed = CreateSandboxResponseSchema.safeParse(body);
   if (!parsed.success) {
     throw new ProtocolError(
       `Unexpected response format from Factory API: ${parsed.error.message}`

@@ -105,11 +105,12 @@ export type {
 export { listSessions } from './session-discovery.js';
 
 // Factory REST API
-export { listMachineTemplates, getMachineTemplate } from './api.js';
+export { listMachineTemplates, getMachineTemplate, createSandbox } from './api.js';
 export {
   MachineTemplateBuildStatusSchema,
   MachineTemplateSchema,
   MachineTemplateListResponseSchema,
+  CreateSandboxResponseSchema,
 } from './api-types.js';
 export type {
   MachineTemplate,
@@ -117,6 +118,8 @@ export type {
   ListMachineTemplatesOptions,
   GetMachineTemplateOptions,
   MachineTemplateListResponse,
+  CreateSandboxOptions,
+  CreateSandboxResponse,
 } from './api-types.js';
 
 // Daemon mode

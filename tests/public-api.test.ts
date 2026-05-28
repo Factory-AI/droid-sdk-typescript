@@ -8,6 +8,7 @@ import {
   ProcessExitError,
   ProcessTransport,
   ProtocolEngine,
+  createSandbox,
   createSession,
   listSessions,
   listMachineTemplates,
@@ -25,6 +26,7 @@ describe('public API barrel', () => {
     expect(listSessions).toBeTypeOf('function');
     expect(listMachineTemplates).toBeTypeOf('function');
     expect(getMachineTemplate).toBeTypeOf('function');
+    expect(createSandbox).toBeTypeOf('function');
     expect('query' in publicApi).toBe(false);
     expect(DroidSession.prototype.stream).toBeTypeOf('function');
     expect('DroidTurn' in publicApi).toBe(false);

@@ -24,7 +24,7 @@ export enum MachineType {
 
 export type SDKMachineConfig =
   | { type: MachineType.Local }
-  | { type: MachineType.Ephemeral; sandboxId: string; workspaceId: string }
+  | { type: MachineType.Ephemeral; workspaceId: string; sandboxId?: string }
   | { type: MachineType.Computer; computerId: string };
 
 export interface ConnectDaemonOptions {
@@ -45,6 +45,9 @@ export interface ConnectDaemonOptions {
 
   /** Factory relay base URL for computer connections. Default: wss://relay.factory.ai */
   relayBaseUrl?: string;
+
+  /** Factory API base URL for sandbox provisioning. Default: https://api.factory.ai */
+  baseUrl?: string;
 }
 
 export interface DaemonSessionOptions extends ToolSelectionOverrides {

@@ -1,3 +1,4 @@
+import { createSandbox } from '../api.js';
 import { ConnectionError } from '../errors.js';
 import { buildInitParams } from '../helpers.js';
 import { startSdkMcpServers } from '../mcp.js';
@@ -459,6 +460,9 @@ export class DaemonConnection {
   }
 }
 
+/** Default retry budget for auto-provisioned ephemeral sandboxes. */
+const EPHEMERAL_AUTO_PROVISION_MAX_RETRIES = 30;
+
 export async function connectDaemon(
   options: ConnectDaemonOptions
 ): Promise<DaemonConnection> {
@@ -473,6 +477,26 @@ export async function connectDaemon(
     resolvedOptions = { ...options, _localPort: port };
   }
 
+  // For ephemeral without sandboxId, auto-provision the sandbox
+  const machine = resolvedOptions.machine;
+  let autoProvisioned = false;
+  if (
+    !resolvedOptions.url &&
+    machine?.type === MachineType.Ephemeral &&
+    !machine.sandboxId
+  ) {
+    const { sandboxId } = await createSandbox({
+      apiKey: resolvedOptions.apiKey,
+      baseUrl: resolvedOptions.baseUrl,
+      workspaceId: machine.workspaceId,
+    });
+    resolvedOptions = {
+      ...resolvedOptions,
+      machine: { ...machine, sandboxId },
+    };
+    autoProvisioned = true;
+  }
+
   const url = resolveWebSocketUrl(resolvedOptions);
   const wsConfig = getWebSocketConfig(resolvedOptions.machine);
 
@@ -480,15 +504,19 @@ export async function connectDaemon(
 
   const apiKey = resolvedOptions.apiKey;
 
+  // Use a higher default retry budget for auto-provisioned sandboxes,
+  // since fresh e2b sandboxes can take up to ~60s before the daemon
+  // is ready to accept WebSocket connections.
+  const maxRetries =
+    resolvedOptions.maxRetries ??
+    (autoProvisioned ? EPHEMERAL_AUTO_PROVISION_MAX_RETRIES : 0);
+
   try {
     // Connect with optional retry budget
-    if (
-      resolvedOptions.maxRetries !== undefined &&
-      resolvedOptions.maxRetries > 0
-    ) {
+    if (maxRetries > 0) {
       let lastError: Error | undefined;
 
-      for (let attempt = 0; attempt <= resolvedOptions.maxRetries; attempt++) {
+      for (let attempt = 0; attempt <= maxRetries; attempt++) {
         try {
           await transport.connect(url);
           await authenticate(transport, resolvedOptions);
@@ -500,7 +528,7 @@ export async function connectDaemon(
           } catch {
             // Best-effort cleanup between retries
           }
-          if (attempt < resolvedOptions.maxRetries) {
+          if (attempt < maxRetries) {
             await new Promise<void>((resolve) => setTimeout(resolve, 2_000));
           }
         }

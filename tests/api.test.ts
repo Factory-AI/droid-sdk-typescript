@@ -1,6 +1,10 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 
-import { listMachineTemplates, getMachineTemplate } from '../src/api.js';
+import {
+  listMachineTemplates,
+  getMachineTemplate,
+  createSandbox,
+} from '../src/api.js';
 import { ConnectionError, ProtocolError } from '../src/errors.js';
 
 const MOCK_TEMPLATE = {
@@ -278,6 +282,125 @@ describe('getMachineTemplate', () => {
 
     await expect(
       getMachineTemplate({ apiKey: 'fk-test-key', templateId: 'tmpl-001' })
+    ).rejects.toThrow(ConnectionError);
+  });
+});
+
+describe('createSandbox', () => {
+  let originalFetch: typeof globalThis.fetch;
+
+  beforeEach(() => {
+    originalFetch = globalThis.fetch;
+  });
+
+  afterEach(() => {
+    globalThis.fetch = originalFetch;
+  });
+
+  it('calls the correct URL with POST method', async () => {
+    const fetchMock = mockFetch(200, { sandboxId: 'sb-abc123' });
+    globalThis.fetch = fetchMock;
+
+    await createSandbox({
+      apiKey: 'fk-test-key',
+      workspaceId: 'ws-001',
+    });
+
+    expect(fetchMock).toHaveBeenCalledOnce();
+    const [url, init] = fetchMock.mock.calls[0] as [string, RequestInit];
+    expect(url).toBe(
+      'https://api.factory.ai/api/workspaces/ws-001/sandbox/create'
+    );
+    expect(init.method).toBe('POST');
+    expect(init.headers).toEqual(
+      expect.objectContaining({
+        Authorization: 'Bearer fk-test-key',
+        'Content-Type': 'application/json',
+      })
+    );
+  });
+
+  it('returns the sandboxId', async () => {
+    globalThis.fetch = mockFetch(200, { sandboxId: 'sb-abc123' });
+
+    const result = await createSandbox({
+      apiKey: 'fk-test-key',
+      workspaceId: 'ws-001',
+    });
+
+    expect(result.sandboxId).toBe('sb-abc123');
+  });
+
+  it('encodes workspaceId in the URL', async () => {
+    const fetchMock = mockFetch(200, { sandboxId: 'sb-abc123' });
+    globalThis.fetch = fetchMock;
+
+    await createSandbox({
+      apiKey: 'fk-test-key',
+      workspaceId: 'id/with/slashes',
+    });
+
+    const [url] = fetchMock.mock.calls[0] as [string];
+    expect(url).toContain('id%2Fwith%2Fslashes');
+  });
+
+  it('uses custom baseUrl', async () => {
+    const fetchMock = mockFetch(200, { sandboxId: 'sb-abc123' });
+    globalThis.fetch = fetchMock;
+
+    await createSandbox({
+      apiKey: 'fk-test-key',
+      workspaceId: 'ws-001',
+      baseUrl: 'https://api.eu.factory.ai',
+    });
+
+    const [url] = fetchMock.mock.calls[0] as [string];
+    expect(url.startsWith('https://api.eu.factory.ai/')).toBe(true);
+  });
+
+  it('throws ProtocolError on 401', async () => {
+    globalThis.fetch = mockFetch(401, { error: 'Unauthorized' });
+
+    await expect(
+      createSandbox({ apiKey: 'bad-key', workspaceId: 'ws-001' })
+    ).rejects.toThrow(/Invalid or expired API key/);
+  });
+
+  it('throws ProtocolError on 403 (feature not enabled)', async () => {
+    globalThis.fetch = mockFetch(403, {
+      error: 'Cloud Machines not enabled for this organization',
+    });
+
+    await expect(
+      createSandbox({ apiKey: 'fk-test-key', workspaceId: 'ws-001' })
+    ).rejects.toThrow(ProtocolError);
+  });
+
+  it('throws ProtocolError on 429 (rate limit)', async () => {
+    globalThis.fetch = mockFetch(429, {
+      error: 'Rate limit exceeded',
+    });
+
+    await expect(
+      createSandbox({ apiKey: 'fk-test-key', workspaceId: 'ws-001' })
+    ).rejects.toThrow('Rate limit exceeded');
+  });
+
+  it('throws ProtocolError on unexpected response shape', async () => {
+    globalThis.fetch = mockFetch(200, { unexpected: 'data' });
+
+    await expect(
+      createSandbox({ apiKey: 'fk-test-key', workspaceId: 'ws-001' })
+    ).rejects.toThrow(/Unexpected response format/);
+  });
+
+  it('throws ConnectionError on network failure', async () => {
+    globalThis.fetch = mockFetch(0, null, {
+      throwError: new TypeError('fetch failed'),
+    });
+
+    await expect(
+      createSandbox({ apiKey: 'fk-test-key', workspaceId: 'ws-001' })
     ).rejects.toThrow(ConnectionError);
   });
 });
