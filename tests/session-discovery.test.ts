@@ -2,7 +2,7 @@ import * as fs from 'node:fs';
 import * as os from 'node:os';
 import * as path from 'node:path';
 
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { DecompSessionType } from '../src/schemas/enums.js';
 import {
@@ -395,5 +395,74 @@ describe('listSessions', () => {
     const result = await listSessions({ sessionsDir, cwd });
     expect(result).toHaveLength(1);
     expect(result[0]!.id).toBe('real');
+  });
+
+  it('delegates to remote API when apiKey is provided', async () => {
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      status: 200,
+      json: () =>
+        Promise.resolve({
+          sessions: [
+            {
+              sessionId: 'remote-001',
+              title: 'Remote session',
+              status: 'idle',
+              messageCount: 5,
+              createdAt: 1700000000000,
+              updatedAt: 1700000060000,
+              computerId: 'comp-001',
+            },
+          ],
+          pagination: { hasMore: false, nextCursor: null },
+        }),
+    });
+    const originalFetch = globalThis.fetch;
+    globalThis.fetch = fetchMock;
+
+    try {
+      const result = await listSessions({ apiKey: 'fk-test-key' });
+
+      expect(fetchMock).toHaveBeenCalledOnce();
+      const [url] = fetchMock.mock.calls[0]!;
+      expect(url).toBe('https://api.factory.ai/api/v0/sessions');
+
+      expect(result).toHaveLength(1);
+      expect(result[0]!.id).toBe('remote-001');
+      expect(result[0]!.title).toBe('Remote session');
+      expect(result[0]!.messageCount).toBe(5);
+      expect(result[0]!.modifiedTime).toEqual(new Date(1700000060000));
+      expect(result[0]!.createdTime).toEqual(new Date(1700000000000));
+    } finally {
+      globalThis.fetch = originalFetch;
+    }
+  });
+
+  it('passes computerId and numSessions to remote API', async () => {
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      status: 200,
+      json: () =>
+        Promise.resolve({
+          sessions: [],
+          pagination: { hasMore: false, nextCursor: null },
+        }),
+    });
+    const originalFetch = globalThis.fetch;
+    globalThis.fetch = fetchMock;
+
+    try {
+      await listSessions({
+        apiKey: 'fk-test-key',
+        computerId: 'comp-001',
+        numSessions: 5,
+      });
+
+      const [url] = fetchMock.mock.calls[0]!;
+      expect(url).toContain('computerId=comp-001');
+      expect(url).toContain('limit=5');
+    } finally {
+      globalThis.fetch = originalFetch;
+    }
   });
 });

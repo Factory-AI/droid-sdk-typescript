@@ -13,6 +13,7 @@ import {
   refreshComputer,
   getComputerMetrics,
   retryInstallDeps,
+  listRemoteSessions,
 } from '../src/api.js';
 import { ConnectionError, ProtocolError } from '../src/errors.js';
 
@@ -1248,6 +1249,159 @@ describe('retryInstallDeps', () => {
 
     await expect(
       retryInstallDeps({ apiKey: 'fk-test-key', computerId: 'comp-001' })
+    ).rejects.toThrow(ConnectionError);
+  });
+});
+
+const MOCK_REMOTE_SESSION = {
+  sessionId: 'sess-001',
+  title: 'Fix tests',
+  status: 'running' as const,
+  messageCount: 12,
+  createdAt: 1700000000000,
+  updatedAt: 1700000060000,
+  computerId: 'comp-001',
+};
+
+const MOCK_SESSION_LIST_RESPONSE = {
+  sessions: [MOCK_REMOTE_SESSION],
+  pagination: { hasMore: false, nextCursor: null },
+};
+
+describe('listRemoteSessions', () => {
+  let originalFetch: typeof globalThis.fetch;
+  beforeEach(() => {
+    originalFetch = globalThis.fetch;
+  });
+  afterEach(() => {
+    globalThis.fetch = originalFetch;
+  });
+
+  it('calls the correct URL with auth header', async () => {
+    const fetchMock = mockFetch(200, MOCK_SESSION_LIST_RESPONSE);
+    globalThis.fetch = fetchMock;
+
+    await listRemoteSessions({ apiKey: 'fk-test-key' });
+
+    expect(fetchMock).toHaveBeenCalledOnce();
+    const [url, init] = fetchMock.mock.calls[0]!;
+    expect(url).toBe('https://api.factory.ai/api/v0/sessions');
+    expect(init.method).toBe('GET');
+    expect(init.headers['Authorization']).toBe('Bearer fk-test-key');
+  });
+
+  it('passes computerId query parameter', async () => {
+    const fetchMock = mockFetch(200, MOCK_SESSION_LIST_RESPONSE);
+    globalThis.fetch = fetchMock;
+
+    await listRemoteSessions({
+      apiKey: 'fk-test-key',
+      computerId: 'comp-001',
+    });
+
+    const [url] = fetchMock.mock.calls[0]!;
+    expect(url).toBe(
+      'https://api.factory.ai/api/v0/sessions?computerId=comp-001'
+    );
+  });
+
+  it('passes limit and cursor query parameters', async () => {
+    const fetchMock = mockFetch(200, MOCK_SESSION_LIST_RESPONSE);
+    globalThis.fetch = fetchMock;
+
+    await listRemoteSessions({
+      apiKey: 'fk-test-key',
+      limit: 10,
+      cursor: 'abc123',
+    });
+
+    const [url] = fetchMock.mock.calls[0]!;
+    expect(url).toContain('limit=10');
+    expect(url).toContain('cursor=abc123');
+  });
+
+  it('parses response correctly', async () => {
+    globalThis.fetch = mockFetch(200, MOCK_SESSION_LIST_RESPONSE);
+
+    const result = await listRemoteSessions({ apiKey: 'fk-test-key' });
+
+    expect(result.sessions).toHaveLength(1);
+    expect(result.sessions[0]!.sessionId).toBe('sess-001');
+    expect(result.sessions[0]!.title).toBe('Fix tests');
+    expect(result.sessions[0]!.status).toBe('running');
+    expect(result.sessions[0]!.messageCount).toBe(12);
+    expect(result.sessions[0]!.computerId).toBe('comp-001');
+    expect(result.pagination.hasMore).toBe(false);
+  });
+
+  it('handles empty sessions list', async () => {
+    globalThis.fetch = mockFetch(200, {
+      sessions: [],
+      pagination: { hasMore: false, nextCursor: null },
+    });
+
+    const result = await listRemoteSessions({ apiKey: 'fk-test-key' });
+
+    expect(result.sessions).toHaveLength(0);
+  });
+
+  it('handles session without optional fields', async () => {
+    globalThis.fetch = mockFetch(200, {
+      sessions: [
+        {
+          sessionId: 'sess-002',
+          status: 'idle',
+          messageCount: 0,
+          createdAt: 1700000000000,
+          updatedAt: 1700000000000,
+        },
+      ],
+      pagination: { hasMore: false, nextCursor: null },
+    });
+
+    const result = await listRemoteSessions({ apiKey: 'fk-test-key' });
+
+    expect(result.sessions[0]!.title).toBeUndefined();
+    expect(result.sessions[0]!.computerId).toBeUndefined();
+    expect(result.sessions[0]!.completedAt).toBeUndefined();
+  });
+
+  it('uses custom baseUrl', async () => {
+    const fetchMock = mockFetch(200, MOCK_SESSION_LIST_RESPONSE);
+    globalThis.fetch = fetchMock;
+
+    await listRemoteSessions({
+      apiKey: 'fk-test-key',
+      baseUrl: 'https://custom.factory.ai',
+    });
+
+    const [url] = fetchMock.mock.calls[0]!;
+    expect(url).toBe('https://custom.factory.ai/api/v0/sessions');
+  });
+
+  it('throws ProtocolError on 401', async () => {
+    globalThis.fetch = mockFetch(401, { error: 'Unauthorized' });
+
+    await expect(
+      listRemoteSessions({ apiKey: 'fk-bad-key' })
+    ).rejects.toThrow(ProtocolError);
+  });
+
+  it('throws ProtocolError on unexpected response shape', async () => {
+    globalThis.fetch = mockFetch(200, { unexpected: true });
+
+    await expect(
+      listRemoteSessions({ apiKey: 'fk-test-key' })
+    ).rejects.toThrow(ProtocolError);
+  });
+
+  it('throws ConnectionError on network failure', async () => {
+    globalThis.fetch = mockFetch(0, null, {
+      throwError: new TypeError('fetch failed'),
+    });
+
+    await expect(
+      listRemoteSessions({ apiKey: 'fk-test-key' })
     ).rejects.toThrow(ConnectionError);
   });
 });

@@ -2,6 +2,7 @@ import * as fs from 'node:fs';
 import * as os from 'node:os';
 import * as path from 'node:path';
 
+import { listRemoteSessions } from './api.js';
 import {
   SessionSettingsFileSchema,
   SessionStartEventSchema,
@@ -342,6 +343,24 @@ export function getDefaultSessionsDir(): string {
 export async function listSessions(
   options: ListSessionsOptions = {}
 ): Promise<SessionMetadata[]> {
+  if (options.apiKey) {
+    const result = await listRemoteSessions({
+      apiKey: options.apiKey,
+      baseUrl: options.baseUrl,
+      computerId: options.computerId,
+      limit: options.numSessions,
+      cursor: options.cursor,
+    });
+    return result.sessions.map((s) => ({
+      id: s.sessionId,
+      title: s.title ?? '',
+      messageCount: s.messageCount,
+      modifiedTime: new Date(s.updatedAt),
+      createdTime: new Date(s.createdAt),
+      owner: '',
+    }));
+  }
+
   const sessionsDir = options.sessionsDir ?? getDefaultSessionsDir();
   const favorites = loadFavorites(sessionsDir);
 

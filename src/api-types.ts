@@ -178,4 +178,37 @@ export interface RetryInstallDepsOptions {
   computerId: string;
 }
 
+export const RemoteSessionSchema = z.object({
+  sessionId: z.string(),
+  title: z.string().optional(),
+  status: z.enum(['idle', 'pending', 'running']),
+  messageCount: z.number().int(),
+  createdAt: z.number().int(),
+  updatedAt: z.number().int(),
+  completedAt: z.number().int().optional(),
+  computerId: z.string().optional(),
+});
+
+export type RemoteSession = z.infer<typeof RemoteSessionSchema>;
+
+export const RemoteSessionListResponseSchema = z.object({
+  sessions: z.array(RemoteSessionSchema),
+  pagination: z.object({
+    hasMore: z.boolean(),
+    nextCursor: z.string().nullable(),
+  }),
+});
+
+export type RemoteSessionListResponse = z.infer<
+  typeof RemoteSessionListResponseSchema
+>;
+
+export interface ListRemoteSessionsOptions {
+  apiKey: string;
+  baseUrl?: string;
+  computerId?: string;
+  limit?: number;
+  cursor?: string;
+}
+
 

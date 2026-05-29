@@ -5,6 +5,7 @@ import {
   MachineTemplateListResponseSchema,
   MachineTemplateSchema,
   RefreshComputerResponseSchema,
+  RemoteSessionListResponseSchema,
 } from './api-types.js';
 import type {
   Computer,
@@ -18,10 +19,12 @@ import type {
   GetMachineTemplateOptions,
   ListComputersOptions,
   ListMachineTemplatesOptions,
+  ListRemoteSessionsOptions,
   MachineTemplate,
   MachineTemplateListResponse,
   RefreshComputerOptions,
   RefreshComputerResponse,
+  RemoteSessionListResponse,
   RestartComputerOptions,
   RetryInstallDepsOptions,
   UpdateComputerOptions,
@@ -301,6 +304,32 @@ export async function retryInstallDeps(
     method: 'POST',
   });
   const parsed = ComputerSchema.safeParse(body);
+  if (!parsed.success) {
+    throw new ProtocolError(
+      `Unexpected response format from Factory API: ${parsed.error.message}`
+    );
+  }
+  return parsed.data;
+}
+
+export async function listRemoteSessions(
+  options: ListRemoteSessionsOptions
+): Promise<RemoteSessionListResponse> {
+  const params = new URLSearchParams();
+  if (options.computerId != null) {
+    params.set('computerId', options.computerId);
+  }
+  if (options.limit != null) {
+    params.set('limit', String(options.limit));
+  }
+  if (options.cursor != null) {
+    params.set('cursor', options.cursor);
+  }
+  const query = params.toString();
+  const path = `/api/v0/sessions${query ? `?${query}` : ''}`;
+
+  const body = await factoryFetch(path, options.apiKey, options.baseUrl);
+  const parsed = RemoteSessionListResponseSchema.safeParse(body);
   if (!parsed.success) {
     throw new ProtocolError(
       `Unexpected response format from Factory API: ${parsed.error.message}`
