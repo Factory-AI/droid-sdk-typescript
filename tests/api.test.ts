@@ -3,9 +3,16 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import {
   listMachineTemplates,
   getMachineTemplate,
-  createSandbox,
   listComputers,
   getComputer,
+  createComputer,
+  getComputerByName,
+  updateComputer,
+  deleteComputer,
+  restartComputer,
+  refreshComputer,
+  getComputerMetrics,
+  retryInstallDeps,
 } from '../src/api.js';
 import { ConnectionError, ProtocolError } from '../src/errors.js';
 
@@ -288,125 +295,6 @@ describe('getMachineTemplate', () => {
   });
 });
 
-describe('createSandbox', () => {
-  let originalFetch: typeof globalThis.fetch;
-
-  beforeEach(() => {
-    originalFetch = globalThis.fetch;
-  });
-
-  afterEach(() => {
-    globalThis.fetch = originalFetch;
-  });
-
-  it('calls the correct URL with POST method', async () => {
-    const fetchMock = mockFetch(200, { sandboxId: 'sb-abc123' });
-    globalThis.fetch = fetchMock;
-
-    await createSandbox({
-      apiKey: 'fk-test-key',
-      workspaceId: 'ws-001',
-    });
-
-    expect(fetchMock).toHaveBeenCalledOnce();
-    const [url, init] = fetchMock.mock.calls[0] as [string, RequestInit];
-    expect(url).toBe(
-      'https://api.factory.ai/api/workspaces/ws-001/sandbox/create'
-    );
-    expect(init.method).toBe('POST');
-    expect(init.headers).toEqual(
-      expect.objectContaining({
-        Authorization: 'Bearer fk-test-key',
-        'Content-Type': 'application/json',
-      })
-    );
-  });
-
-  it('returns the sandboxId', async () => {
-    globalThis.fetch = mockFetch(200, { sandboxId: 'sb-abc123' });
-
-    const result = await createSandbox({
-      apiKey: 'fk-test-key',
-      workspaceId: 'ws-001',
-    });
-
-    expect(result.sandboxId).toBe('sb-abc123');
-  });
-
-  it('encodes workspaceId in the URL', async () => {
-    const fetchMock = mockFetch(200, { sandboxId: 'sb-abc123' });
-    globalThis.fetch = fetchMock;
-
-    await createSandbox({
-      apiKey: 'fk-test-key',
-      workspaceId: 'id/with/slashes',
-    });
-
-    const [url] = fetchMock.mock.calls[0] as [string];
-    expect(url).toContain('id%2Fwith%2Fslashes');
-  });
-
-  it('uses custom baseUrl', async () => {
-    const fetchMock = mockFetch(200, { sandboxId: 'sb-abc123' });
-    globalThis.fetch = fetchMock;
-
-    await createSandbox({
-      apiKey: 'fk-test-key',
-      workspaceId: 'ws-001',
-      baseUrl: 'https://api.eu.factory.ai',
-    });
-
-    const [url] = fetchMock.mock.calls[0] as [string];
-    expect(url.startsWith('https://api.eu.factory.ai/')).toBe(true);
-  });
-
-  it('throws ProtocolError on 401', async () => {
-    globalThis.fetch = mockFetch(401, { error: 'Unauthorized' });
-
-    await expect(
-      createSandbox({ apiKey: 'bad-key', workspaceId: 'ws-001' })
-    ).rejects.toThrow(/Invalid or expired API key/);
-  });
-
-  it('throws ProtocolError on 403 (feature not enabled)', async () => {
-    globalThis.fetch = mockFetch(403, {
-      error: 'Cloud Machines not enabled for this organization',
-    });
-
-    await expect(
-      createSandbox({ apiKey: 'fk-test-key', workspaceId: 'ws-001' })
-    ).rejects.toThrow(ProtocolError);
-  });
-
-  it('throws ProtocolError on 429 (rate limit)', async () => {
-    globalThis.fetch = mockFetch(429, {
-      error: 'Rate limit exceeded',
-    });
-
-    await expect(
-      createSandbox({ apiKey: 'fk-test-key', workspaceId: 'ws-001' })
-    ).rejects.toThrow('Rate limit exceeded');
-  });
-
-  it('throws ProtocolError on unexpected response shape', async () => {
-    globalThis.fetch = mockFetch(200, { unexpected: 'data' });
-
-    await expect(
-      createSandbox({ apiKey: 'fk-test-key', workspaceId: 'ws-001' })
-    ).rejects.toThrow(/Unexpected response format/);
-  });
-
-  it('throws ConnectionError on network failure', async () => {
-    globalThis.fetch = mockFetch(0, null, {
-      throwError: new TypeError('fetch failed'),
-    });
-
-    await expect(
-      createSandbox({ apiKey: 'fk-test-key', workspaceId: 'ws-001' })
-    ).rejects.toThrow(ConnectionError);
-  });
-});
-
 const MOCK_COMPUTER = {
   id: 'comp-001',
   name: 'my-dev-box',
@@ -612,6 +500,754 @@ describe('getComputer', () => {
 
     await expect(
       getComputer({ apiKey: 'fk-test-key', computerId: 'comp-001' })
+    ).rejects.toThrow(ConnectionError);
+  });
+});
+
+describe('createComputer', () => {
+  let originalFetch: typeof globalThis.fetch;
+  beforeEach(() => {
+    originalFetch = globalThis.fetch;
+  });
+  afterEach(() => {
+    globalThis.fetch = originalFetch;
+  });
+
+  it('calls the correct URL with POST and body', async () => {
+    const fetchMock = mockFetch(200, MOCK_COMPUTER);
+    globalThis.fetch = fetchMock;
+
+    await createComputer({
+      apiKey: 'fk-test-key',
+      name: 'my-dev-box',
+      remoteUser: 'factory-user',
+    });
+
+    expect(fetchMock).toHaveBeenCalledOnce();
+    const [url, init] = fetchMock.mock.calls[0]!;
+    expect(url).toBe('https://api.factory.ai/api/v0/computers');
+    expect(init.method).toBe('POST');
+    expect(init.headers['Authorization']).toBe('Bearer fk-test-key');
+    expect(init.headers['Content-Type']).toBe('application/json');
+    const body = JSON.parse(init.body);
+    expect(body.name).toBe('my-dev-box');
+    expect(body.remoteUser).toBe('factory-user');
+  });
+
+  it('passes optional fields in request body', async () => {
+    const fetchMock = mockFetch(200, MOCK_COMPUTER);
+    globalThis.fetch = fetchMock;
+
+    await createComputer({
+      apiKey: 'fk-test-key',
+      name: 'my-dev-box',
+      remoteUser: 'factory-user',
+      provider: 'e2b',
+      hostId: '11111111-1111-4111-8111-111111111111',
+      repos: ['https://github.com/org/repo'],
+      autoInstallDeps: true,
+      serviceAccountId: 'sa-001',
+    });
+
+    const [, init] = fetchMock.mock.calls[0]!;
+    const body = JSON.parse(init.body);
+    expect(body.provider).toBe('e2b');
+    expect(body.hostId).toBe('11111111-1111-4111-8111-111111111111');
+    expect(body.repos).toEqual(['https://github.com/org/repo']);
+    expect(body.autoInstallDeps).toBe(true);
+    expect(body.serviceAccountId).toBe('sa-001');
+  });
+
+  it('does not include undefined optional fields', async () => {
+    const fetchMock = mockFetch(200, MOCK_COMPUTER);
+    globalThis.fetch = fetchMock;
+
+    await createComputer({
+      apiKey: 'fk-test-key',
+      name: 'my-dev-box',
+      remoteUser: 'factory-user',
+    });
+
+    const [, init] = fetchMock.mock.calls[0]!;
+    const body = JSON.parse(init.body);
+    expect(body).not.toHaveProperty('provider');
+    expect(body).not.toHaveProperty('hostId');
+    expect(body).not.toHaveProperty('repos');
+    expect(body).not.toHaveProperty('autoInstallDeps');
+    expect(body).not.toHaveProperty('serviceAccountId');
+  });
+
+  it('parses response correctly', async () => {
+    globalThis.fetch = mockFetch(200, MOCK_COMPUTER);
+
+    const result = await createComputer({
+      apiKey: 'fk-test-key',
+      name: 'my-dev-box',
+      remoteUser: 'factory-user',
+    });
+
+    expect(result.id).toBe('comp-001');
+    expect(result.name).toBe('my-dev-box');
+    expect(result.providerType).toBe('e2b');
+  });
+
+  it('uses custom baseUrl', async () => {
+    const fetchMock = mockFetch(200, MOCK_COMPUTER);
+    globalThis.fetch = fetchMock;
+
+    await createComputer({
+      apiKey: 'fk-test-key',
+      baseUrl: 'https://custom.factory.ai',
+      name: 'my-dev-box',
+      remoteUser: 'factory-user',
+    });
+
+    const [url] = fetchMock.mock.calls[0]!;
+    expect(url).toBe('https://custom.factory.ai/api/v0/computers');
+  });
+
+  it('throws ProtocolError on 400', async () => {
+    globalThis.fetch = mockFetch(400, { error: 'Invalid computer name' });
+
+    await expect(
+      createComputer({
+        apiKey: 'fk-test-key',
+        name: '',
+        remoteUser: 'factory-user',
+      })
+    ).rejects.toThrow(ProtocolError);
+  });
+
+  it('throws ProtocolError on 401', async () => {
+    globalThis.fetch = mockFetch(401, { error: 'Unauthorized' });
+
+    await expect(
+      createComputer({
+        apiKey: 'fk-bad-key',
+        name: 'my-dev-box',
+        remoteUser: 'factory-user',
+      })
+    ).rejects.toThrow(ProtocolError);
+  });
+
+  it('throws ProtocolError on 402 compute limit exceeded', async () => {
+    globalThis.fetch = mockFetch(402, {
+      error: 'Compute limit exceeded',
+    });
+
+    await expect(
+      createComputer({
+        apiKey: 'fk-test-key',
+        name: 'my-dev-box',
+        remoteUser: 'factory-user',
+      })
+    ).rejects.toThrow(ProtocolError);
+  });
+
+  it('throws ProtocolError on unexpected response shape', async () => {
+    globalThis.fetch = mockFetch(200, { unexpected: true });
+
+    await expect(
+      createComputer({
+        apiKey: 'fk-test-key',
+        name: 'my-dev-box',
+        remoteUser: 'factory-user',
+      })
+    ).rejects.toThrow(ProtocolError);
+  });
+
+  it('throws ConnectionError on network failure', async () => {
+    globalThis.fetch = mockFetch(0, null, {
+      throwError: new TypeError('fetch failed'),
+    });
+
+    await expect(
+      createComputer({
+        apiKey: 'fk-test-key',
+        name: 'my-dev-box',
+        remoteUser: 'factory-user',
+      })
+    ).rejects.toThrow(ConnectionError);
+  });
+});
+
+describe('getComputerByName', () => {
+  let originalFetch: typeof globalThis.fetch;
+  beforeEach(() => {
+    originalFetch = globalThis.fetch;
+  });
+  afterEach(() => {
+    globalThis.fetch = originalFetch;
+  });
+
+  it('calls the correct URL with encoded name', async () => {
+    const fetchMock = mockFetch(200, MOCK_COMPUTER);
+    globalThis.fetch = fetchMock;
+
+    await getComputerByName({ apiKey: 'fk-test-key', name: 'my-dev-box' });
+
+    expect(fetchMock).toHaveBeenCalledOnce();
+    const [url, init] = fetchMock.mock.calls[0]!;
+    expect(url).toBe(
+      'https://api.factory.ai/api/v0/computers/name/my-dev-box'
+    );
+    expect(init.method).toBe('GET');
+    expect(init.headers['Authorization']).toBe('Bearer fk-test-key');
+  });
+
+  it('encodes special characters in name', async () => {
+    const fetchMock = mockFetch(200, {
+      ...MOCK_COMPUTER,
+      name: 'box/special',
+    });
+    globalThis.fetch = fetchMock;
+
+    await getComputerByName({
+      apiKey: 'fk-test-key',
+      name: 'box/special',
+    });
+
+    const [url] = fetchMock.mock.calls[0]!;
+    expect(url).toBe(
+      'https://api.factory.ai/api/v0/computers/name/box%2Fspecial'
+    );
+  });
+
+  it('parses response correctly', async () => {
+    globalThis.fetch = mockFetch(200, MOCK_COMPUTER);
+
+    const result = await getComputerByName({
+      apiKey: 'fk-test-key',
+      name: 'my-dev-box',
+    });
+
+    expect(result.id).toBe('comp-001');
+    expect(result.name).toBe('my-dev-box');
+  });
+
+  it('throws ProtocolError on 404', async () => {
+    globalThis.fetch = mockFetch(404, { error: 'Computer not found' });
+
+    await expect(
+      getComputerByName({ apiKey: 'fk-test-key', name: 'nonexistent' })
+    ).rejects.toThrow(ProtocolError);
+  });
+
+  it('throws ConnectionError on network failure', async () => {
+    globalThis.fetch = mockFetch(0, null, {
+      throwError: new TypeError('fetch failed'),
+    });
+
+    await expect(
+      getComputerByName({ apiKey: 'fk-test-key', name: 'my-dev-box' })
+    ).rejects.toThrow(ConnectionError);
+  });
+});
+
+describe('updateComputer', () => {
+  let originalFetch: typeof globalThis.fetch;
+  beforeEach(() => {
+    originalFetch = globalThis.fetch;
+  });
+  afterEach(() => {
+    globalThis.fetch = originalFetch;
+  });
+
+  it('calls the correct URL with PATCH and body', async () => {
+    const fetchMock = mockFetch(200, {
+      ...MOCK_COMPUTER,
+      name: 'renamed-box',
+    });
+    globalThis.fetch = fetchMock;
+
+    await updateComputer({
+      apiKey: 'fk-test-key',
+      computerId: 'comp-001',
+      name: 'renamed-box',
+    });
+
+    expect(fetchMock).toHaveBeenCalledOnce();
+    const [url, init] = fetchMock.mock.calls[0]!;
+    expect(url).toBe('https://api.factory.ai/api/v0/computers/comp-001');
+    expect(init.method).toBe('PATCH');
+    expect(init.headers['Content-Type']).toBe('application/json');
+    const body = JSON.parse(init.body);
+    expect(body.name).toBe('renamed-box');
+  });
+
+  it('sends only provided fields', async () => {
+    const fetchMock = mockFetch(200, MOCK_COMPUTER);
+    globalThis.fetch = fetchMock;
+
+    await updateComputer({
+      apiKey: 'fk-test-key',
+      computerId: 'comp-001',
+      remoteUser: 'new-user',
+    });
+
+    const [, init] = fetchMock.mock.calls[0]!;
+    const body = JSON.parse(init.body);
+    expect(body).not.toHaveProperty('name');
+    expect(body.remoteUser).toBe('new-user');
+  });
+
+  it('parses response correctly', async () => {
+    globalThis.fetch = mockFetch(200, {
+      ...MOCK_COMPUTER,
+      name: 'renamed-box',
+    });
+
+    const result = await updateComputer({
+      apiKey: 'fk-test-key',
+      computerId: 'comp-001',
+      name: 'renamed-box',
+    });
+
+    expect(result.name).toBe('renamed-box');
+  });
+
+  it('throws ProtocolError on 404', async () => {
+    globalThis.fetch = mockFetch(404, { error: 'Computer not found' });
+
+    await expect(
+      updateComputer({
+        apiKey: 'fk-test-key',
+        computerId: 'bad-id',
+        name: 'rename',
+      })
+    ).rejects.toThrow(ProtocolError);
+  });
+
+  it('throws ProtocolError on 409 name conflict', async () => {
+    globalThis.fetch = mockFetch(409, {
+      error: 'Computer name already exists',
+    });
+
+    await expect(
+      updateComputer({
+        apiKey: 'fk-test-key',
+        computerId: 'comp-001',
+        name: 'duplicate-name',
+      })
+    ).rejects.toThrow(ProtocolError);
+  });
+
+  it('throws ConnectionError on network failure', async () => {
+    globalThis.fetch = mockFetch(0, null, {
+      throwError: new TypeError('fetch failed'),
+    });
+
+    await expect(
+      updateComputer({
+        apiKey: 'fk-test-key',
+        computerId: 'comp-001',
+        name: 'rename',
+      })
+    ).rejects.toThrow(ConnectionError);
+  });
+});
+
+describe('deleteComputer', () => {
+  let originalFetch: typeof globalThis.fetch;
+  beforeEach(() => {
+    originalFetch = globalThis.fetch;
+  });
+  afterEach(() => {
+    globalThis.fetch = originalFetch;
+  });
+
+  it('calls the correct URL with DELETE', async () => {
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      status: 204,
+      json: () => Promise.resolve(undefined),
+    });
+    globalThis.fetch = fetchMock;
+
+    await deleteComputer({ apiKey: 'fk-test-key', computerId: 'comp-001' });
+
+    expect(fetchMock).toHaveBeenCalledOnce();
+    const [url, init] = fetchMock.mock.calls[0]!;
+    expect(url).toBe('https://api.factory.ai/api/v0/computers/comp-001');
+    expect(init.method).toBe('DELETE');
+    expect(init.headers['Authorization']).toBe('Bearer fk-test-key');
+  });
+
+  it('resolves without error on 204', async () => {
+    globalThis.fetch = vi.fn().mockResolvedValue({
+      ok: true,
+      status: 204,
+      json: () => Promise.resolve(undefined),
+    });
+
+    await expect(
+      deleteComputer({ apiKey: 'fk-test-key', computerId: 'comp-001' })
+    ).resolves.toBeUndefined();
+  });
+
+  it('throws ProtocolError on 404', async () => {
+    globalThis.fetch = mockFetch(404, { error: 'Computer not found' });
+
+    await expect(
+      deleteComputer({ apiKey: 'fk-test-key', computerId: 'bad-id' })
+    ).rejects.toThrow(ProtocolError);
+  });
+
+  it('throws ProtocolError on 401', async () => {
+    globalThis.fetch = mockFetch(401, { error: 'Unauthorized' });
+
+    await expect(
+      deleteComputer({ apiKey: 'fk-bad-key', computerId: 'comp-001' })
+    ).rejects.toThrow(ProtocolError);
+  });
+
+  it('throws ConnectionError on network failure', async () => {
+    globalThis.fetch = mockFetch(0, null, {
+      throwError: new TypeError('fetch failed'),
+    });
+
+    await expect(
+      deleteComputer({ apiKey: 'fk-test-key', computerId: 'comp-001' })
+    ).rejects.toThrow(ConnectionError);
+  });
+});
+
+describe('restartComputer', () => {
+  let originalFetch: typeof globalThis.fetch;
+  beforeEach(() => {
+    originalFetch = globalThis.fetch;
+  });
+  afterEach(() => {
+    globalThis.fetch = originalFetch;
+  });
+
+  it('calls the correct URL with POST', async () => {
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      status: 204,
+      json: () => Promise.resolve(undefined),
+    });
+    globalThis.fetch = fetchMock;
+
+    await restartComputer({
+      apiKey: 'fk-test-key',
+      computerId: 'comp-001',
+    });
+
+    expect(fetchMock).toHaveBeenCalledOnce();
+    const [url, init] = fetchMock.mock.calls[0]!;
+    expect(url).toBe(
+      'https://api.factory.ai/api/v0/computers/comp-001/restart'
+    );
+    expect(init.method).toBe('POST');
+  });
+
+  it('throws ProtocolError on 400 for BYOM computers', async () => {
+    globalThis.fetch = mockFetch(400, {
+      error: 'Cannot restart BYOM computer',
+    });
+
+    await expect(
+      restartComputer({ apiKey: 'fk-test-key', computerId: 'comp-byom' })
+    ).rejects.toThrow(ProtocolError);
+  });
+
+  it('throws ProtocolError on 402 compute limit exceeded', async () => {
+    globalThis.fetch = mockFetch(402, {
+      error: 'Compute limit exceeded',
+    });
+
+    await expect(
+      restartComputer({ apiKey: 'fk-test-key', computerId: 'comp-001' })
+    ).rejects.toThrow(ProtocolError);
+  });
+
+  it('throws ProtocolError on 404', async () => {
+    globalThis.fetch = mockFetch(404, { error: 'Computer not found' });
+
+    await expect(
+      restartComputer({ apiKey: 'fk-test-key', computerId: 'bad-id' })
+    ).rejects.toThrow(ProtocolError);
+  });
+
+  it('throws ConnectionError on network failure', async () => {
+    globalThis.fetch = mockFetch(0, null, {
+      throwError: new TypeError('fetch failed'),
+    });
+
+    await expect(
+      restartComputer({ apiKey: 'fk-test-key', computerId: 'comp-001' })
+    ).rejects.toThrow(ConnectionError);
+  });
+});
+
+describe('refreshComputer', () => {
+  let originalFetch: typeof globalThis.fetch;
+  beforeEach(() => {
+    originalFetch = globalThis.fetch;
+  });
+  afterEach(() => {
+    globalThis.fetch = originalFetch;
+  });
+
+  const MOCK_REFRESH_RESPONSE = { configured: 3 };
+
+  it('calls the correct URL with POST', async () => {
+    const fetchMock = mockFetch(200, MOCK_REFRESH_RESPONSE);
+    globalThis.fetch = fetchMock;
+
+    await refreshComputer({
+      apiKey: 'fk-test-key',
+      computerId: 'comp-001',
+    });
+
+    expect(fetchMock).toHaveBeenCalledOnce();
+    const [url, init] = fetchMock.mock.calls[0]!;
+    expect(url).toBe(
+      'https://api.factory.ai/api/v0/computers/comp-001/refresh'
+    );
+    expect(init.method).toBe('POST');
+  });
+
+  it('parses response correctly', async () => {
+    globalThis.fetch = mockFetch(200, MOCK_REFRESH_RESPONSE);
+
+    const result = await refreshComputer({
+      apiKey: 'fk-test-key',
+      computerId: 'comp-001',
+    });
+
+    expect(result.configured).toBe(3);
+  });
+
+  it('throws ProtocolError on 400 for BYOM computers', async () => {
+    globalThis.fetch = mockFetch(400, {
+      error: 'Cannot refresh BYOM computer',
+    });
+
+    await expect(
+      refreshComputer({ apiKey: 'fk-test-key', computerId: 'comp-byom' })
+    ).rejects.toThrow(ProtocolError);
+  });
+
+  it('throws ProtocolError on unexpected response shape', async () => {
+    globalThis.fetch = mockFetch(200, { unexpected: true });
+
+    await expect(
+      refreshComputer({ apiKey: 'fk-test-key', computerId: 'comp-001' })
+    ).rejects.toThrow(ProtocolError);
+  });
+
+  it('throws ConnectionError on network failure', async () => {
+    globalThis.fetch = mockFetch(0, null, {
+      throwError: new TypeError('fetch failed'),
+    });
+
+    await expect(
+      refreshComputer({ apiKey: 'fk-test-key', computerId: 'comp-001' })
+    ).rejects.toThrow(ConnectionError);
+  });
+});
+
+describe('getComputerMetrics', () => {
+  let originalFetch: typeof globalThis.fetch;
+  beforeEach(() => {
+    originalFetch = globalThis.fetch;
+  });
+  afterEach(() => {
+    globalThis.fetch = originalFetch;
+  });
+
+  const MOCK_METRICS = [
+    {
+      timestamp: '2024-01-15T12:00:00Z',
+      cpuUsedPct: 45.2,
+      cpuCount: 4,
+      memUsed: 4096,
+      memTotal: 8192,
+      diskUsed: 50000,
+      diskTotal: 100000,
+    },
+  ];
+
+  it('calls the correct URL', async () => {
+    const fetchMock = mockFetch(200, MOCK_METRICS);
+    globalThis.fetch = fetchMock;
+
+    await getComputerMetrics({
+      apiKey: 'fk-test-key',
+      computerId: 'comp-001',
+    });
+
+    expect(fetchMock).toHaveBeenCalledOnce();
+    const [url, init] = fetchMock.mock.calls[0]!;
+    expect(url).toBe(
+      'https://api.factory.ai/api/v0/computers/comp-001/metrics'
+    );
+    expect(init.method).toBe('GET');
+  });
+
+  it('passes start query parameter', async () => {
+    const fetchMock = mockFetch(200, MOCK_METRICS);
+    globalThis.fetch = fetchMock;
+
+    await getComputerMetrics({
+      apiKey: 'fk-test-key',
+      computerId: 'comp-001',
+      start: '2024-01-15T00:00:00Z',
+    });
+
+    const [url] = fetchMock.mock.calls[0]!;
+    expect(url).toBe(
+      'https://api.factory.ai/api/v0/computers/comp-001/metrics?start=2024-01-15T00%3A00%3A00Z'
+    );
+  });
+
+  it('parses response correctly', async () => {
+    globalThis.fetch = mockFetch(200, MOCK_METRICS);
+
+    const result = await getComputerMetrics({
+      apiKey: 'fk-test-key',
+      computerId: 'comp-001',
+    });
+
+    expect(result).toHaveLength(1);
+    expect(result[0]!.cpuUsedPct).toBe(45.2);
+    expect(result[0]!.cpuCount).toBe(4);
+    expect(result[0]!.memUsed).toBe(4096);
+    expect(result[0]!.memTotal).toBe(8192);
+  });
+
+  it('handles empty metrics array', async () => {
+    globalThis.fetch = mockFetch(200, []);
+
+    const result = await getComputerMetrics({
+      apiKey: 'fk-test-key',
+      computerId: 'comp-001',
+    });
+
+    expect(result).toHaveLength(0);
+  });
+
+  it('throws ProtocolError on 400 for BYOM computers', async () => {
+    globalThis.fetch = mockFetch(400, {
+      error: 'Metrics not available for BYOM computers',
+    });
+
+    await expect(
+      getComputerMetrics({
+        apiKey: 'fk-test-key',
+        computerId: 'comp-byom',
+      })
+    ).rejects.toThrow(ProtocolError);
+  });
+
+  it('throws ProtocolError on 404', async () => {
+    globalThis.fetch = mockFetch(404, { error: 'Computer not found' });
+
+    await expect(
+      getComputerMetrics({
+        apiKey: 'fk-test-key',
+        computerId: 'bad-id',
+      })
+    ).rejects.toThrow(ProtocolError);
+  });
+
+  it('throws ConnectionError on network failure', async () => {
+    globalThis.fetch = mockFetch(0, null, {
+      throwError: new TypeError('fetch failed'),
+    });
+
+    await expect(
+      getComputerMetrics({
+        apiKey: 'fk-test-key',
+        computerId: 'comp-001',
+      })
+    ).rejects.toThrow(ConnectionError);
+  });
+});
+
+describe('retryInstallDeps', () => {
+  let originalFetch: typeof globalThis.fetch;
+  beforeEach(() => {
+    originalFetch = globalThis.fetch;
+  });
+  afterEach(() => {
+    globalThis.fetch = originalFetch;
+  });
+
+  it('calls the correct URL with POST', async () => {
+    const fetchMock = mockFetch(200, MOCK_COMPUTER);
+    globalThis.fetch = fetchMock;
+
+    await retryInstallDeps({
+      apiKey: 'fk-test-key',
+      computerId: 'comp-001',
+    });
+
+    expect(fetchMock).toHaveBeenCalledOnce();
+    const [url, init] = fetchMock.mock.calls[0]!;
+    expect(url).toBe(
+      'https://api.factory.ai/api/v0/computers/comp-001/install-deps'
+    );
+    expect(init.method).toBe('POST');
+  });
+
+  it('parses response correctly', async () => {
+    globalThis.fetch = mockFetch(200, MOCK_COMPUTER);
+
+    const result = await retryInstallDeps({
+      apiKey: 'fk-test-key',
+      computerId: 'comp-001',
+    });
+
+    expect(result.id).toBe('comp-001');
+    expect(result.name).toBe('my-dev-box');
+  });
+
+  it('throws ProtocolError on 400 for BYOM computers', async () => {
+    globalThis.fetch = mockFetch(400, {
+      error: 'Cannot install deps on BYOM computer',
+    });
+
+    await expect(
+      retryInstallDeps({ apiKey: 'fk-test-key', computerId: 'comp-byom' })
+    ).rejects.toThrow(ProtocolError);
+  });
+
+  it('throws ProtocolError on 409 already running', async () => {
+    globalThis.fetch = mockFetch(409, {
+      error: 'Dependency installation already in progress',
+    });
+
+    await expect(
+      retryInstallDeps({ apiKey: 'fk-test-key', computerId: 'comp-001' })
+    ).rejects.toThrow(ProtocolError);
+  });
+
+  it('throws ProtocolError on 404', async () => {
+    globalThis.fetch = mockFetch(404, { error: 'Computer not found' });
+
+    await expect(
+      retryInstallDeps({ apiKey: 'fk-test-key', computerId: 'bad-id' })
+    ).rejects.toThrow(ProtocolError);
+  });
+
+  it('throws ProtocolError on unexpected response shape', async () => {
+    globalThis.fetch = mockFetch(200, { unexpected: true });
+
+    await expect(
+      retryInstallDeps({ apiKey: 'fk-test-key', computerId: 'comp-001' })
+    ).rejects.toThrow(ProtocolError);
+  });
+
+  it('throws ConnectionError on network failure', async () => {
+    globalThis.fetch = mockFetch(0, null, {
+      throwError: new TypeError('fetch failed'),
+    });
+
+    await expect(
+      retryInstallDeps({ apiKey: 'fk-test-key', computerId: 'comp-001' })
     ).rejects.toThrow(ConnectionError);
   });
 });

@@ -62,18 +62,6 @@ export interface GetMachineTemplateOptions {
   templateId: string;
 }
 
-export const CreateSandboxResponseSchema = z.object({
-  sandboxId: z.string(),
-});
-
-export type CreateSandboxResponse = z.infer<typeof CreateSandboxResponseSchema>;
-
-export interface CreateSandboxOptions {
-  apiKey: string;
-  baseUrl?: string;
-  workspaceId: string;
-}
-
 export const ComputerSchema = z
   .object({
     id: z.string(),
@@ -105,3 +93,89 @@ export interface GetComputerOptions {
   baseUrl?: string;
   computerId: string;
 }
+
+export interface CreateComputerOptions {
+  apiKey: string;
+  baseUrl?: string;
+  name: string;
+  remoteUser: string;
+  provider?: 'byom' | 'e2b';
+  hostId?: string;
+  repos?: string[];
+  autoInstallDeps?: boolean;
+  serviceAccountId?: string;
+}
+
+export interface GetComputerByNameOptions {
+  apiKey: string;
+  baseUrl?: string;
+  name: string;
+}
+
+export interface UpdateComputerOptions {
+  apiKey: string;
+  baseUrl?: string;
+  computerId: string;
+  name?: string;
+  remoteUser?: string;
+  hostId?: string;
+}
+
+export interface DeleteComputerOptions {
+  apiKey: string;
+  baseUrl?: string;
+  computerId: string;
+}
+
+export interface RestartComputerOptions {
+  apiKey: string;
+  baseUrl?: string;
+  computerId: string;
+}
+
+export interface RefreshComputerOptions {
+  apiKey: string;
+  baseUrl?: string;
+  computerId: string;
+}
+
+export const RefreshComputerResponseSchema = z.object({
+  configured: z.number().int(),
+});
+
+export type RefreshComputerResponse = z.infer<
+  typeof RefreshComputerResponseSchema
+>;
+
+export const ComputerMetricSchema = z.object({
+  timestamp: z.string(),
+  cpuUsedPct: z.number(),
+  cpuCount: z.number(),
+  memUsed: z.number(),
+  memTotal: z.number(),
+  diskUsed: z.number(),
+  diskTotal: z.number(),
+});
+
+export type ComputerMetric = z.infer<typeof ComputerMetricSchema>;
+
+export const ComputerMetricsResponseSchema = z.array(ComputerMetricSchema);
+
+export type ComputerMetricsResponse = z.infer<
+  typeof ComputerMetricsResponseSchema
+>;
+
+export interface GetComputerMetricsOptions {
+  apiKey: string;
+  baseUrl?: string;
+  computerId: string;
+  start?: string;
+}
+
+export interface RetryInstallDepsOptions {
+  apiKey: string;
+  baseUrl?: string;
+  computerId: string;
+}
+
+

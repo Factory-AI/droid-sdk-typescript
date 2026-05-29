@@ -24,7 +24,7 @@ export enum MachineType {
 
 export type SDKMachineConfig =
   | { type: MachineType.Local }
-  | { type: MachineType.Ephemeral; workspaceId: string; sandboxId?: string }
+  | { type: MachineType.Ephemeral; workspaceId: string; sandboxId: string }
   | { type: MachineType.Computer; computerId: string };
 
 export interface ConnectDaemonOptions {

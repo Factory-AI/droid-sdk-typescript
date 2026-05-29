@@ -1,6 +1,5 @@
-import { describe, expect, it, vi } from 'vitest';
+import { describe, expect, it } from 'vitest';
 
-import * as api from '../../src/api.js';
 import { resolveWebSocketUrl, MachineType } from '../../src/daemon/index.js';
 
 describe('resolveWebSocketUrl', () => {
@@ -115,95 +114,4 @@ describe('resolveWebSocketUrl', () => {
   });
 });
 
-describe('connectDaemon — auto-provisioning', () => {
-  it('calls createSandbox when ephemeral machine has no sandboxId', async () => {
-    const createSandboxSpy = vi
-      .spyOn(api, 'createSandbox')
-      .mockResolvedValue({ sandboxId: 'sb-auto-123' });
 
-    // connectDaemon will provision, then fail on WebSocket connect.
-    // We set connectionTimeoutMs low to avoid test timeout.
-    try {
-      const { connectDaemon } = await import(
-        '../../src/daemon/connection.js'
-      );
-      await connectDaemon({
-        apiKey: 'fk-test-key',
-        machine: {
-          type: MachineType.Ephemeral,
-          workspaceId: 'ws-test-001',
-        },
-        maxRetries: 0,
-      });
-    } catch {
-      // Expected — WebSocket connection will fail without a real server
-    }
-
-    expect(createSandboxSpy).toHaveBeenCalledOnce();
-    expect(createSandboxSpy).toHaveBeenCalledWith({
-      apiKey: 'fk-test-key',
-      baseUrl: undefined,
-      workspaceId: 'ws-test-001',
-    });
-
-    createSandboxSpy.mockRestore();
-  }, 15_000);
-
-  it('skips createSandbox when ephemeral machine has sandboxId', async () => {
-    const createSandboxSpy = vi
-      .spyOn(api, 'createSandbox')
-      .mockResolvedValue({ sandboxId: 'sb-should-not-call' });
-
-    try {
-      const { connectDaemon } = await import(
-        '../../src/daemon/connection.js'
-      );
-      await connectDaemon({
-        apiKey: 'fk-test-key',
-        machine: {
-          type: MachineType.Ephemeral,
-          workspaceId: 'ws-test-001',
-          sandboxId: 'sb-existing',
-        },
-        maxRetries: 0,
-      });
-    } catch {
-      // Expected — WebSocket connection will fail
-    }
-
-    expect(createSandboxSpy).not.toHaveBeenCalled();
-
-    createSandboxSpy.mockRestore();
-  }, 15_000);
-
-  it('forwards baseUrl to createSandbox', async () => {
-    const createSandboxSpy = vi
-      .spyOn(api, 'createSandbox')
-      .mockResolvedValue({ sandboxId: 'sb-auto-456' });
-
-    try {
-      const { connectDaemon } = await import(
-        '../../src/daemon/connection.js'
-      );
-      await connectDaemon({
-        apiKey: 'fk-test-key',
-        machine: {
-          type: MachineType.Ephemeral,
-          workspaceId: 'ws-test-002',
-        },
-        baseUrl: 'https://api.eu.factory.ai',
-        maxRetries: 0,
-      });
-    } catch {
-      // Expected — WebSocket connection will fail
-    }
-
-    expect(createSandboxSpy).toHaveBeenCalledWith({
-      apiKey: 'fk-test-key',
-      baseUrl: 'https://api.eu.factory.ai',
-      workspaceId: 'ws-test-002',
-    });
-
-    createSandboxSpy.mockRestore();
-  }, 15_000);
-});

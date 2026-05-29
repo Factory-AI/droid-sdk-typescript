@@ -1,21 +1,30 @@
 import {
   ComputerListResponseSchema,
+  ComputerMetricsResponseSchema,
   ComputerSchema,
-  CreateSandboxResponseSchema,
   MachineTemplateListResponseSchema,
   MachineTemplateSchema,
+  RefreshComputerResponseSchema,
 } from './api-types.js';
 import type {
   Computer,
   ComputerListResponse,
-  CreateSandboxOptions,
-  CreateSandboxResponse,
+  ComputerMetricsResponse,
+  CreateComputerOptions,
+  DeleteComputerOptions,
+  GetComputerByNameOptions,
+  GetComputerMetricsOptions,
   GetComputerOptions,
   GetMachineTemplateOptions,
   ListComputersOptions,
   ListMachineTemplatesOptions,
   MachineTemplate,
   MachineTemplateListResponse,
+  RefreshComputerOptions,
+  RefreshComputerResponse,
+  RestartComputerOptions,
+  RetryInstallDepsOptions,
+  UpdateComputerOptions,
 } from './api-types.js';
 import { ConnectionError, ProtocolError } from './errors.js';
 import { isRecord } from './utils.js';
@@ -23,7 +32,7 @@ import { isRecord } from './utils.js';
 const DEFAULT_BASE_URL = 'https://api.factory.ai';
 
 interface FetchOptions {
-  method?: 'GET' | 'POST';
+  method?: 'GET' | 'POST' | 'PATCH' | 'DELETE';
   body?: Record<string, unknown>;
 }
 
@@ -62,6 +71,10 @@ async function factoryFetch(
     throw new ConnectionError(
       `Failed to reach Factory API: ${error instanceof Error ? error.message : String(error)}`
     );
+  }
+
+  if (response.status === 204) {
+    return undefined;
   }
 
   let body: unknown;
@@ -126,24 +139,6 @@ export async function getMachineTemplate(
   return parsed.data;
 }
 
-export async function createSandbox(
-  options: CreateSandboxOptions
-): Promise<CreateSandboxResponse> {
-  const path = `/api/workspaces/${encodeURIComponent(options.workspaceId)}/sandbox/create`;
-
-  const body = await factoryFetch(path, options.apiKey, options.baseUrl, {
-    method: 'POST',
-    body: {},
-  });
-  const parsed = CreateSandboxResponseSchema.safeParse(body);
-  if (!parsed.success) {
-    throw new ProtocolError(
-      `Unexpected response format from Factory API: ${parsed.error.message}`
-    );
-  }
-  return parsed.data;
-}
-
 export async function listComputers(
   options: ListComputersOptions
 ): Promise<ComputerListResponse> {
@@ -165,6 +160,146 @@ export async function getComputer(
   const path = `/api/v0/computers/${encodeURIComponent(options.computerId)}`;
 
   const body = await factoryFetch(path, options.apiKey, options.baseUrl);
+  const parsed = ComputerSchema.safeParse(body);
+  if (!parsed.success) {
+    throw new ProtocolError(
+      `Unexpected response format from Factory API: ${parsed.error.message}`
+    );
+  }
+  return parsed.data;
+}
+
+export async function createComputer(
+  options: CreateComputerOptions
+): Promise<Computer> {
+  const path = '/api/v0/computers';
+  const reqBody: Record<string, unknown> = {
+    name: options.name,
+    remoteUser: options.remoteUser,
+  };
+  if (options.provider != null) reqBody['provider'] = options.provider;
+  if (options.hostId != null) reqBody['hostId'] = options.hostId;
+  if (options.repos != null) reqBody['repos'] = options.repos;
+  if (options.autoInstallDeps != null)
+    reqBody['autoInstallDeps'] = options.autoInstallDeps;
+  if (options.serviceAccountId != null)
+    reqBody['serviceAccountId'] = options.serviceAccountId;
+
+  const body = await factoryFetch(path, options.apiKey, options.baseUrl, {
+    method: 'POST',
+    body: reqBody,
+  });
+  const parsed = ComputerSchema.safeParse(body);
+  if (!parsed.success) {
+    throw new ProtocolError(
+      `Unexpected response format from Factory API: ${parsed.error.message}`
+    );
+  }
+  return parsed.data;
+}
+
+export async function getComputerByName(
+  options: GetComputerByNameOptions
+): Promise<Computer> {
+  const path = `/api/v0/computers/name/${encodeURIComponent(options.name)}`;
+
+  const body = await factoryFetch(path, options.apiKey, options.baseUrl);
+  const parsed = ComputerSchema.safeParse(body);
+  if (!parsed.success) {
+    throw new ProtocolError(
+      `Unexpected response format from Factory API: ${parsed.error.message}`
+    );
+  }
+  return parsed.data;
+}
+
+export async function updateComputer(
+  options: UpdateComputerOptions
+): Promise<Computer> {
+  const path = `/api/v0/computers/${encodeURIComponent(options.computerId)}`;
+  const reqBody: Record<string, unknown> = {};
+  if (options.name != null) reqBody['name'] = options.name;
+  if (options.remoteUser != null) reqBody['remoteUser'] = options.remoteUser;
+  if (options.hostId != null) reqBody['hostId'] = options.hostId;
+
+  const body = await factoryFetch(path, options.apiKey, options.baseUrl, {
+    method: 'PATCH',
+    body: reqBody,
+  });
+  const parsed = ComputerSchema.safeParse(body);
+  if (!parsed.success) {
+    throw new ProtocolError(
+      `Unexpected response format from Factory API: ${parsed.error.message}`
+    );
+  }
+  return parsed.data;
+}
+
+export async function deleteComputer(
+  options: DeleteComputerOptions
+): Promise<void> {
+  const path = `/api/v0/computers/${encodeURIComponent(options.computerId)}`;
+
+  await factoryFetch(path, options.apiKey, options.baseUrl, {
+    method: 'DELETE',
+  });
+}
+
+export async function restartComputer(
+  options: RestartComputerOptions
+): Promise<void> {
+  const path = `/api/v0/computers/${encodeURIComponent(options.computerId)}/restart`;
+
+  await factoryFetch(path, options.apiKey, options.baseUrl, {
+    method: 'POST',
+  });
+}
+
+export async function refreshComputer(
+  options: RefreshComputerOptions
+): Promise<RefreshComputerResponse> {
+  const path = `/api/v0/computers/${encodeURIComponent(options.computerId)}/refresh`;
+
+  const body = await factoryFetch(path, options.apiKey, options.baseUrl, {
+    method: 'POST',
+  });
+  const parsed = RefreshComputerResponseSchema.safeParse(body);
+  if (!parsed.success) {
+    throw new ProtocolError(
+      `Unexpected response format from Factory API: ${parsed.error.message}`
+    );
+  }
+  return parsed.data;
+}
+
+export async function getComputerMetrics(
+  options: GetComputerMetricsOptions
+): Promise<ComputerMetricsResponse> {
+  const params = new URLSearchParams();
+  if (options.start != null) {
+    params.set('start', options.start);
+  }
+  const query = params.toString();
+  const path = `/api/v0/computers/${encodeURIComponent(options.computerId)}/metrics${query ? `?${query}` : ''}`;
+
+  const body = await factoryFetch(path, options.apiKey, options.baseUrl);
+  const parsed = ComputerMetricsResponseSchema.safeParse(body);
+  if (!parsed.success) {
+    throw new ProtocolError(
+      `Unexpected response format from Factory API: ${parsed.error.message}`
+    );
+  }
+  return parsed.data;
+}
+
+export async function retryInstallDeps(
+  options: RetryInstallDepsOptions
+): Promise<Computer> {
+  const path = `/api/v0/computers/${encodeURIComponent(options.computerId)}/install-deps`;
+
+  const body = await factoryFetch(path, options.apiKey, options.baseUrl, {
+    method: 'POST',
+  });
   const parsed = ComputerSchema.safeParse(body);
   if (!parsed.success) {
     throw new ProtocolError(
