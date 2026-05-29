@@ -13,3 +13,8 @@ export * from './messages.js';
 export * from './model-settings.js';
 export * from './loop.js';
 export * from './selectable-list-item.js';
+export * from './custom-models.js';
+export * from './mcp.js';
+export * from './mission-decomposition.js';
+export * from './cli.js';
+export * from './client.js';
