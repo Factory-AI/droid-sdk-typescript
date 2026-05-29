@@ -638,9 +638,7 @@ describe('DaemonClient', () => {
           contextBudget: 200000,
           usedTokens: 1000,
           freeTokens: 199000,
-          categories: [
-            { name: 'messages', tokens: 800, colorKey: 'messages' },
-          ],
+          categories: [{ name: 'messages', tokens: 800, colorKey: 'messages' }],
         })
       );
       const result = await promise;
@@ -676,9 +674,9 @@ describe('DaemonClient', () => {
     });
 
     it('throws SessionError when no active session', async () => {
-      await expect(
-        client.renameSession({ title: 'x' })
-      ).rejects.toThrow(SessionError);
+      await expect(client.renameSession({ title: 'x' })).rejects.toThrow(
+        SessionError
+      );
     });
   });
 
@@ -706,9 +704,9 @@ describe('DaemonClient', () => {
     });
 
     it('throws SessionError when no active session', async () => {
-      await expect(
-        client.getRewindInfo({ messageId: 'x' })
-      ).rejects.toThrow(SessionError);
+      await expect(client.getRewindInfo({ messageId: 'x' })).rejects.toThrow(
+        SessionError
+      );
     });
   });
 

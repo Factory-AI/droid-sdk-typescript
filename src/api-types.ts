@@ -7,9 +7,7 @@ const EnvironmentVariableSchema = z.object({
 
 export const MachineTemplateBuildStatusSchema = z.object({
   status: z.enum(['building', 'success', 'failed']),
-  failureReason: z
-    .enum(['setup_script_error', 'system_error'])
-    .optional(),
+  failureReason: z.enum(['setup_script_error', 'system_error']).optional(),
   buildStartedAt: z.number().int().optional(),
   builtAt: z.number().int().optional(),
   logs: z.string().optional(),
@@ -29,9 +27,7 @@ export const MachineTemplateSchema = z.object({
   buildStatus: MachineTemplateBuildStatusSchema.optional(),
   lastUpdatedAt: z.number().int().nullable().optional(),
   environmentVariables: z.array(EnvironmentVariableSchema).optional(),
-  userEnvironmentVariablesByUser: z
-    .array(EnvironmentVariableSchema)
-    .optional(),
+  userEnvironmentVariablesByUser: z.array(EnvironmentVariableSchema).optional(),
   setupScript: z.string().optional(),
 });
 
@@ -210,5 +206,3 @@ export interface ListRemoteSessionsOptions {
   limit?: number;
   cursor?: string;
 }
-
-

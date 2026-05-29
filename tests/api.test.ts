@@ -69,9 +69,7 @@ describe('listMachineTemplates', () => {
 
     expect(fetchMock).toHaveBeenCalledOnce();
     const [url, init] = fetchMock.mock.calls[0] as [string, RequestInit];
-    expect(url).toBe(
-      'https://api.factory.ai/api/v0/machines/templates'
-    );
+    expect(url).toBe('https://api.factory.ai/api/v0/machines/templates');
     expect(init.headers).toEqual(
       expect.objectContaining({ Authorization: 'Bearer fk-test-key' })
     );
@@ -129,21 +127,21 @@ describe('listMachineTemplates', () => {
   it('throws ProtocolError on 401', async () => {
     globalThis.fetch = mockFetch(401, { error: 'Unauthorized' });
 
-    await expect(
-      listMachineTemplates({ apiKey: 'bad-key' })
-    ).rejects.toThrow(ProtocolError);
+    await expect(listMachineTemplates({ apiKey: 'bad-key' })).rejects.toThrow(
+      ProtocolError
+    );
 
-    await expect(
-      listMachineTemplates({ apiKey: 'bad-key' })
-    ).rejects.toThrow(/Invalid or expired API key/);
+    await expect(listMachineTemplates({ apiKey: 'bad-key' })).rejects.toThrow(
+      /Invalid or expired API key/
+    );
   });
 
   it('throws ProtocolError on 403', async () => {
     globalThis.fetch = mockFetch(403, { error: 'Forbidden' });
 
-    await expect(
-      listMachineTemplates({ apiKey: 'bad-key' })
-    ).rejects.toThrow(ProtocolError);
+    await expect(listMachineTemplates({ apiKey: 'bad-key' })).rejects.toThrow(
+      ProtocolError
+    );
   });
 
   it('throws ProtocolError on 500 with error message', async () => {
@@ -371,17 +369,17 @@ describe('listComputers', () => {
   it('throws ProtocolError on 401', async () => {
     globalThis.fetch = mockFetch(401, { error: 'Unauthorized' });
 
-    await expect(
-      listComputers({ apiKey: 'fk-bad-key' })
-    ).rejects.toThrow(ProtocolError);
+    await expect(listComputers({ apiKey: 'fk-bad-key' })).rejects.toThrow(
+      ProtocolError
+    );
   });
 
   it('throws ProtocolError on unexpected response shape', async () => {
     globalThis.fetch = mockFetch(200, { unexpected: 'data' });
 
-    await expect(
-      listComputers({ apiKey: 'fk-test-key' })
-    ).rejects.toThrow(/Unexpected response format/);
+    await expect(listComputers({ apiKey: 'fk-test-key' })).rejects.toThrow(
+      /Unexpected response format/
+    );
   });
 
   it('throws ConnectionError on network failure', async () => {
@@ -389,9 +387,9 @@ describe('listComputers', () => {
       throwError: new TypeError('fetch failed'),
     });
 
-    await expect(
-      listComputers({ apiKey: 'fk-test-key' })
-    ).rejects.toThrow(ConnectionError);
+    await expect(listComputers({ apiKey: 'fk-test-key' })).rejects.toThrow(
+      ConnectionError
+    );
   });
 });
 
@@ -431,9 +429,7 @@ describe('getComputer', () => {
     });
 
     const [url] = fetchMock.mock.calls[0]!;
-    expect(url).toBe(
-      'https://api.factory.ai/api/v0/computers/comp%2Fspecial'
-    );
+    expect(url).toBe('https://api.factory.ai/api/v0/computers/comp%2Fspecial');
   });
 
   it('parses response correctly', async () => {
@@ -689,9 +685,7 @@ describe('getComputerByName', () => {
 
     expect(fetchMock).toHaveBeenCalledOnce();
     const [url, init] = fetchMock.mock.calls[0]!;
-    expect(url).toBe(
-      'https://api.factory.ai/api/v0/computers/name/my-dev-box'
-    );
+    expect(url).toBe('https://api.factory.ai/api/v0/computers/name/my-dev-box');
     expect(init.method).toBe('GET');
     expect(init.headers['Authorization']).toBe('Bearer fk-test-key');
   });
@@ -1382,17 +1376,17 @@ describe('listRemoteSessions', () => {
   it('throws ProtocolError on 401', async () => {
     globalThis.fetch = mockFetch(401, { error: 'Unauthorized' });
 
-    await expect(
-      listRemoteSessions({ apiKey: 'fk-bad-key' })
-    ).rejects.toThrow(ProtocolError);
+    await expect(listRemoteSessions({ apiKey: 'fk-bad-key' })).rejects.toThrow(
+      ProtocolError
+    );
   });
 
   it('throws ProtocolError on unexpected response shape', async () => {
     globalThis.fetch = mockFetch(200, { unexpected: true });
 
-    await expect(
-      listRemoteSessions({ apiKey: 'fk-test-key' })
-    ).rejects.toThrow(ProtocolError);
+    await expect(listRemoteSessions({ apiKey: 'fk-test-key' })).rejects.toThrow(
+      ProtocolError
+    );
   });
 
   it('throws ConnectionError on network failure', async () => {
@@ -1400,8 +1394,8 @@ describe('listRemoteSessions', () => {
       throwError: new TypeError('fetch failed'),
     });
 
-    await expect(
-      listRemoteSessions({ apiKey: 'fk-test-key' })
-    ).rejects.toThrow(ConnectionError);
+    await expect(listRemoteSessions({ apiKey: 'fk-test-key' })).rejects.toThrow(
+      ConnectionError
+    );
   });
 });

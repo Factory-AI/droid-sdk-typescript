@@ -74,7 +74,4 @@ describe('resolveWebSocketUrl', () => {
     });
     expect(url).toBe('ws://127.0.0.1:41723');
   });
-
 });
-
-
