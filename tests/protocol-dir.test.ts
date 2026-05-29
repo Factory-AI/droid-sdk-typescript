@@ -10,6 +10,9 @@ import {
   JsonRpcErrorCode,
   JsonRpcMessageType,
   MessageContentBlockType,
+  MessageRole,
+  ReasoningEffort,
+  SessionPlatform,
 } from '../src/protocol/enums.js';
 import { HostIdSchema } from '../src/protocol/host.js';
 import {
@@ -18,7 +21,13 @@ import {
   JsonRpcMessageSchema,
 } from '../src/protocol/json-rpc.js';
 import { LoopStateSchema } from '../src/protocol/loop.js';
-import { ContentBlockSchema, ToolUseSchema } from '../src/protocol/messages.js';
+import {
+  ContentBlockSchema,
+  FactoryDroidMessageSchema,
+  ToolUseSchema,
+} from '../src/protocol/messages.js';
+import { MissionModelSettingsSchema } from '../src/protocol/model-settings.js';
+import { SessionSourceSchema } from '../src/protocol/session-source.js';
 import { SessionTagSchema, TokenUsageSchema } from '../src/protocol/session.js';
 
 const envelope = {
@@ -141,5 +150,47 @@ describe('protocol/host + session + loop', () => {
         isDue: false,
       })
     ).toThrow();
+  });
+});
+
+describe('protocol TIER-2', () => {
+  it('parses a FactoryDroidMessage with content blocks', () => {
+    const message = FactoryDroidMessageSchema.parse({
+      id: 'msg-1',
+      role: MessageRole.Assistant,
+      content: [{ type: MessageContentBlockType.Text, text: 'hello' }],
+      createdAt: 1,
+      updatedAt: 2,
+    });
+    expect(message.role).toBe(MessageRole.Assistant);
+    expect(message.content).toHaveLength(1);
+  });
+
+  it('rejects a FactoryDroidMessage missing required fields', () => {
+    expect(() =>
+      FactoryDroidMessageSchema.parse({ id: 'msg-1', role: MessageRole.User })
+    ).toThrow();
+  });
+
+  it('parses a discriminated SessionSource', () => {
+    const source = SessionSourceSchema.parse({
+      platform: SessionPlatform.Web,
+      delegationSessionId: 'deleg-1',
+    });
+    expect(source.platform).toBe(SessionPlatform.Web);
+  });
+
+  it('rejects a SessionSource with an unknown platform', () => {
+    expect(() => SessionSourceSchema.parse({ platform: 'nope' })).toThrow();
+  });
+
+  it('parses MissionModelSettings (all fields optional)', () => {
+    expect(MissionModelSettingsSchema.parse({})).toEqual({});
+    const settings = MissionModelSettingsSchema.parse({
+      workerModel: 'gpt-x',
+      workerReasoningEffort: ReasoningEffort.High,
+      skipScrutiny: true,
+    });
+    expect(settings.workerReasoningEffort).toBe(ReasoningEffort.High);
   });
 });
