@@ -82,12 +82,13 @@ async function factoryFetch(
     return undefined;
   }
 
+  const rawBody = await response.text();
   let body: unknown;
   try {
-    body = await response.json();
+    body = JSON.parse(rawBody);
   } catch {
     throw new ProtocolError(
-      `Factory API returned non-JSON response (status ${response.status})`
+      `Factory API returned non-JSON response (status ${response.status}): ${rawBody}`
     );
   }
 

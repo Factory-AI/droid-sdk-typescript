@@ -6,6 +6,8 @@ import noBarrelFiles from 'eslint-plugin-no-barrel-files';
 import unusedImports from 'eslint-plugin-unused-imports';
 import tseslint from 'typescript-eslint';
 
+import factoryRules from './eslint-rules/index.cjs';
+
 export default tseslint.config(
   eslint.configs.recommended,
   ...tseslint.configs.recommended,
@@ -16,6 +18,7 @@ export default tseslint.config(
       import: importPlugin,
       'no-barrel-files': noBarrelFiles,
       'eslint-comments': eslintComments,
+      local: factoryRules,
     },
     languageOptions: {
       parserOptions: {
@@ -104,17 +107,30 @@ export default tseslint.config(
       'import/no-cycle': 'error',
       'import/extensions': ['error', 'ignorePackages', { js: 'always', ts: 'never' }],
       'no-console': 'error',
+      'local/no-shell-injection': 'error',
+      'local/no-unsafe-json-parse': 'error',
+      eqeqeq: ['error', 'smart'],
+      'no-throw-literal': 'error',
+      'array-callback-return': 'error',
+      'no-unused-expressions': 'off',
+      '@typescript-eslint/no-unused-expressions': 'error',
+      'no-shadow': 'off',
+      '@typescript-eslint/no-shadow': 'error',
     },
   },
   {
     files: ['tests/**/*.ts'],
     plugins: {
       vitest,
+      local: factoryRules,
     },
     rules: {
       '@typescript-eslint/no-explicit-any': 'off',
       '@typescript-eslint/consistent-type-assertions': 'off',
       'no-console': 'off',
+      'local/vi-mock-absolute-paths': 'error',
+      'local/no-unstable-mock-module': 'error',
+      'local/vi-mock-import-actual': 'error',
       'vitest/expect-expect': [
         'error',
         { assertFunctionNames: ['expect', 'expect*', 'assert*'] },

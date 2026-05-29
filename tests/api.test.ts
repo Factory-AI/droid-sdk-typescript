@@ -46,6 +46,7 @@ function mockFetch(
       ok: status >= 200 && status < 300,
       status,
       json: () => Promise.resolve(body),
+      text: () => Promise.resolve(JSON.stringify(body)),
     });
   });
 }
@@ -178,7 +179,7 @@ describe('listMachineTemplates', () => {
     globalThis.fetch = vi.fn().mockResolvedValue({
       ok: true,
       status: 200,
-      json: () => Promise.reject(new SyntaxError('Unexpected token')),
+      text: () => Promise.resolve('<html>Not JSON</html>'),
     });
 
     await expect(
