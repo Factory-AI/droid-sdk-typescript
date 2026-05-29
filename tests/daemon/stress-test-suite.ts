@@ -65,12 +65,12 @@ async function test(
   try {
     await Promise.race([
       fn(),
-      new Promise<never>((_, reject) =>
+      new Promise<never>((_, reject) => {
         setTimeout(
           () => reject(new Error(`Timeout after ${timeoutMs}ms`)),
           timeoutMs
-        )
-      ),
+        );
+      }),
     ]);
     const dur = Date.now() - start;
     results.push({

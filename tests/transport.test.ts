@@ -471,7 +471,9 @@ describe('ProcessTransport', () => {
 
       transport.send({ first: true });
 
-      await new Promise((resolve) => setTimeout(resolve, 200));
+      await new Promise((resolve) => {
+        setTimeout(resolve, 200);
+      });
 
       try {
         transport.send({ second: true });
@@ -540,7 +542,9 @@ describe('ProcessTransport', () => {
 
       await transport.connect!();
 
-      await new Promise((resolve) => setTimeout(resolve, 300));
+      await new Promise((resolve) => {
+        setTimeout(resolve, 300);
+      });
       expect(messages.length).toBeGreaterThanOrEqual(1);
       expect(messages[0]).toEqual({ early: true });
 

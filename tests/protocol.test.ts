@@ -725,9 +725,12 @@ describe('ProtocolEngine', () => {
         })
       );
 
-      await new Promise((resolve) => setTimeout(resolve, 10));
+      await new Promise((resolve) => {
+        setTimeout(resolve, 10);
+      });
 
-      await engine2.close();
+      // The broken transport.send must not surface as an unhandled rejection.
+      await expect(engine2.close()).resolves.toBeUndefined();
     });
   });
 
@@ -1021,7 +1024,9 @@ describe('ProtocolEngine', () => {
       });
 
       // Give time for any async dispatch
-      await new Promise((r) => setTimeout(r, 50));
+      await new Promise((r) => {
+        setTimeout(r, 50);
+      });
       expect(permHandler).not.toHaveBeenCalled();
       expect(askHandler).not.toHaveBeenCalled();
 

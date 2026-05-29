@@ -1,4 +1,5 @@
 /** Re-exported for convenience. */
+// eslint-disable-next-line no-barrel-files/no-barrel-files
 export {
   DEFAULT_REQUEST_TIMEOUT,
   SESSION_INIT_TIMEOUT,

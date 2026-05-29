@@ -1,5 +1,8 @@
 import eslint from '@eslint/js';
+import vitest from '@vitest/eslint-plugin';
+import eslintComments from 'eslint-plugin-eslint-comments';
 import importPlugin from 'eslint-plugin-import';
+import noBarrelFiles from 'eslint-plugin-no-barrel-files';
 import unusedImports from 'eslint-plugin-unused-imports';
 import tseslint from 'typescript-eslint';
 
@@ -11,6 +14,8 @@ export default tseslint.config(
     plugins: {
       'unused-imports': unusedImports,
       import: importPlugin,
+      'no-barrel-files': noBarrelFiles,
+      'eslint-comments': eslintComments,
     },
     languageOptions: {
       parserOptions: {
@@ -36,7 +41,43 @@ export default tseslint.config(
       ],
       '@typescript-eslint/no-floating-promises': 'error',
       '@typescript-eslint/explicit-function-return-type': 'off',
-      '@typescript-eslint/no-empty-object-type': 'off',
+      '@typescript-eslint/no-empty-object-type': 'error',
+      '@typescript-eslint/no-require-imports': 'error',
+      'no-barrel-files/no-barrel-files': 'error',
+      'import/no-default-export': 'error',
+      'import/named': 'error',
+      'import/no-extraneous-dependencies': ['error', { devDependencies: true }],
+      'eslint-comments/no-unused-disable': 'error',
+      'no-void': ['error', { allowAsStatement: true }],
+      'default-case': 'error',
+      'no-constant-condition': ['error', { checkLoops: false }],
+      'no-param-reassign': ['error', { props: false }],
+      'no-promise-executor-return': 'error',
+      'prefer-promise-reject-errors': 'error',
+      'prefer-arrow-callback': ['error', { allowNamedFunctions: true }],
+      'no-restricted-syntax': [
+        'error',
+        {
+          selector: 'ForInStatement',
+          message:
+            'for..in loops iterate over the entire prototype chain, which is virtually never what you want. Use Object.{keys,values,entries}, and iterate over the resulting array.',
+        },
+        {
+          selector: 'LabeledStatement',
+          message:
+            'Labels are a form of GOTO; using them makes code confusing and hard to maintain and understand.',
+        },
+        {
+          selector: 'WithStatement',
+          message:
+            '`with` is disallowed in strict mode because it makes code impossible to predict and optimize.',
+        },
+        {
+          selector: 'ExportAllDeclaration',
+          message:
+            "Export all doesn't work well if imported in ESM due to how they are transpiled, and they can also lead to unexpected exposure of internal methods.",
+        },
+      ],
       'unused-imports/no-unused-imports': 'error',
       'import/order': [
         'error',
@@ -61,15 +102,24 @@ export default tseslint.config(
         },
       ],
       'import/no-cycle': 'error',
+      'import/extensions': ['error', 'ignorePackages', { js: 'always', ts: 'never' }],
       'no-console': 'error',
     },
   },
   {
     files: ['tests/**/*.ts'],
+    plugins: {
+      vitest,
+    },
     rules: {
       '@typescript-eslint/no-explicit-any': 'off',
       '@typescript-eslint/consistent-type-assertions': 'off',
       'no-console': 'off',
+      'vitest/expect-expect': [
+        'error',
+        { assertFunctionNames: ['expect', 'expect*', 'assert*'] },
+      ],
+      'vitest/valid-expect': ['error', { maxArgs: 2 }],
     },
   },
   {
@@ -77,6 +127,18 @@ export default tseslint.config(
     rules: {
       '@typescript-eslint/consistent-type-assertions': 'off',
       'no-console': 'off',
+    },
+  },
+  {
+    // Dedicated public-API barrels: their sole purpose is re-exporting the
+    // package surface, so the no-barrel-files rule does not apply.
+    files: [
+      'src/index.ts',
+      'src/schemas/index.ts',
+      'src/daemon/index.ts',
+    ],
+    rules: {
+      'no-barrel-files/no-barrel-files': 'off',
     },
   },
   {

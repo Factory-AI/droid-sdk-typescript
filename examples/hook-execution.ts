@@ -55,6 +55,9 @@ async function main(): Promise<void> {
         case DroidMessageType.Result:
           console.log('\n\n--- Turn complete ---');
           break;
+
+        default:
+          break;
       }
     }
   } finally {

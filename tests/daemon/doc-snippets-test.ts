@@ -20,12 +20,12 @@ async function test(
   try {
     await Promise.race([
       fn(),
-      new Promise<never>((_, reject) =>
+      new Promise<never>((_, reject) => {
         setTimeout(
           () => reject(new Error(`Timed out after ${timeoutMs}ms`)),
           timeoutMs
-        )
-      ),
+        );
+      }),
     ]);
     const ms = Date.now() - start;
     console.log(`  ${PASS} ${name} (${ms}ms)`);
@@ -148,6 +148,8 @@ async function main(): Promise<void> {
             `    Done in ${msg.durationMs}ms, turns: ${msg.numTurns}`
           );
           break;
+        default:
+          break;
       }
     }
     assert(seen.has('result'), 'should see result message');
@@ -196,7 +198,9 @@ async function main(): Promise<void> {
     console.log('    send() returned (fire-and-forget)');
 
     // Wait briefly so the daemon doesn't get confused by immediate close
-    await new Promise<void>((r) => setTimeout(r, 500));
+    await new Promise<void>((r) => {
+      setTimeout(r, 500);
+    });
     await session.close();
     await connection.close();
   });

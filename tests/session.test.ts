@@ -695,7 +695,7 @@ describe('DroidSession', () => {
 
       await session.close();
       await session.close();
-      await session.close();
+      await expect(session.close()).resolves.toBeUndefined();
     });
 
     it('requests graceful close so file hooks can receive SessionEnd', async () => {
@@ -1372,7 +1372,9 @@ describe('DroidSession', () => {
         })
       );
 
-      await new Promise((resolve) => setTimeout(resolve, 10));
+      await new Promise((resolve) => {
+        setTimeout(resolve, 10);
+      });
 
       expect(notifications.length).toBe(1);
 
@@ -1384,7 +1386,9 @@ describe('DroidSession', () => {
         })
       );
 
-      await new Promise((resolve) => setTimeout(resolve, 10));
+      await new Promise((resolve) => {
+        setTimeout(resolve, 10);
+      });
       expect(notifications.length).toBe(1);
 
       await session.close();
@@ -1980,7 +1984,9 @@ describe('DroidSession', () => {
 
       controller.abort();
 
-      await new Promise((resolve) => setTimeout(resolve, 10));
+      await new Promise((resolve) => {
+        setTimeout(resolve, 10);
+      });
 
       expect(transport.isConnected).toBe(false);
       await expectStreamToThrow(session, 'test');
@@ -2001,7 +2007,9 @@ describe('DroidSession', () => {
         abortSignal: controller.signal,
       });
 
-      await new Promise((resolve) => setTimeout(resolve, 10));
+      await new Promise((resolve) => {
+        setTimeout(resolve, 10);
+      });
 
       expect(transport.isConnected).toBe(false);
       await expectStreamToThrow(session, 'test');
@@ -2027,7 +2035,9 @@ describe('DroidSession', () => {
 
       controller.abort();
 
-      await new Promise((resolve) => setTimeout(resolve, 10));
+      await new Promise((resolve) => {
+        setTimeout(resolve, 10);
+      });
 
       expect(transport.isConnected).toBe(false);
       await expectStreamToThrow(session, 'test');
@@ -2048,7 +2058,9 @@ describe('DroidSession', () => {
         abortSignal: controller.signal,
       });
 
-      await new Promise((resolve) => setTimeout(resolve, 10));
+      await new Promise((resolve) => {
+        setTimeout(resolve, 10);
+      });
 
       expect(transport.isConnected).toBe(false);
       await expectStreamToThrow(session, 'test');

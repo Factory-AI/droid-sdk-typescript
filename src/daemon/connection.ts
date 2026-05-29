@@ -495,7 +495,9 @@ export async function connectDaemon(
             // Best-effort cleanup between retries
           }
           if (attempt < maxRetries) {
-            await new Promise<void>((resolve) => setTimeout(resolve, 2_000));
+            await new Promise<void>((resolve) => {
+              setTimeout(resolve, 2_000);
+            });
           }
         }
       }

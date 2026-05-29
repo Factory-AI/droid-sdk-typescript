@@ -76,6 +76,7 @@ export interface ResumeSessionOptions extends Pick<
   mcpServers?: DroidMcpServerConfig[];
 }
 
+// eslint-disable-next-line no-barrel-files/no-barrel-files
 export type { MessageOptions } from './helpers.js';
 
 /** Create instances via {@link createSession} or {@link resumeSession}. */
@@ -313,7 +314,9 @@ export async function createSession(
     cleanupInitAbortSignal();
     cleanupInitAbortSignal = () => {};
     session.setAbortSignalCleanup(
-      wireAbortSignal(options.abortSignal, () => void session.close())
+      wireAbortSignal(options.abortSignal, () => {
+        void session.close();
+      })
     );
 
     return session;
@@ -355,7 +358,9 @@ export async function resumeSession(
     const session = new DroidSession(client, sessionId, loadResult);
     session.addCleanup(sdkMcpServers.cleanup);
     session.setAbortSignalCleanup(
-      wireAbortSignal(options.abortSignal, () => void session.close())
+      wireAbortSignal(options.abortSignal, () => {
+        void session.close();
+      })
     );
 
     return session;

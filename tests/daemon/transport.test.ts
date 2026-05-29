@@ -55,13 +55,13 @@ describe('WebSocketTransport', () => {
   describe('close()', () => {
     it('is safe to call when not connected', async () => {
       const transport = new WebSocketTransport();
-      await transport.close(); // Should not throw
+      await expect(transport.close()).resolves.toBeUndefined();
     });
 
     it('is idempotent', async () => {
       const transport = new WebSocketTransport();
-      await transport.close();
-      await transport.close(); // Should not throw
+      await expect(transport.close()).resolves.toBeUndefined();
+      await expect(transport.close()).resolves.toBeUndefined();
     });
   });
 
@@ -69,15 +69,13 @@ describe('WebSocketTransport', () => {
     it('accepts message handler', () => {
       const transport = new WebSocketTransport();
       const handler = vi.fn();
-      transport.onMessage(handler);
-      // No error means it works
+      expect(() => transport.onMessage(handler)).not.toThrow();
     });
 
     it('accepts error handler', () => {
       const transport = new WebSocketTransport();
       const handler = vi.fn();
-      transport.onError(handler);
-      // No error means it works
+      expect(() => transport.onError(handler)).not.toThrow();
     });
   });
 });

@@ -300,7 +300,9 @@ describe('DaemonClient', () => {
         },
       });
 
-      await new Promise((r) => setTimeout(r, 10));
+      await new Promise((r) => {
+        setTimeout(r, 10);
+      });
       expect(notifications.length).toBeGreaterThan(0);
     });
 
@@ -321,7 +323,9 @@ describe('DaemonClient', () => {
         },
       });
 
-      await new Promise((r) => setTimeout(r, 10));
+      await new Promise((r) => {
+        setTimeout(r, 10);
+      });
       expect(notifications).toHaveLength(0);
     });
 
@@ -346,7 +350,9 @@ describe('DaemonClient', () => {
         },
       });
 
-      await new Promise((r) => setTimeout(r, 10));
+      await new Promise((r) => {
+        setTimeout(r, 10);
+      });
       expect(a.length).toBeGreaterThan(0);
       expect(b.length).toBeGreaterThan(0);
     });
@@ -354,7 +360,7 @@ describe('DaemonClient', () => {
     it('idempotent unsubscribe is safe', () => {
       const unsub = client.onNotification(() => {});
       unsub();
-      unsub(); // Should not throw
+      expect(() => unsub()).not.toThrow();
     });
   });
 
@@ -386,7 +392,9 @@ describe('DaemonClient', () => {
       );
       transport.injectMessage(permRequest);
 
-      await new Promise((r) => setTimeout(r, 50));
+      await new Promise((r) => {
+        setTimeout(r, 50);
+      });
 
       const response = transport.sentMessages.find(
         (m) => m['id'] === 'perm-1' && m['type'] === 'response'
@@ -430,7 +438,9 @@ describe('DaemonClient', () => {
       );
       transport.injectMessage(permRequest);
 
-      await new Promise((r) => setTimeout(r, 50));
+      await new Promise((r) => {
+        setTimeout(r, 50);
+      });
 
       const response = transport.sentMessages.find(
         (m) => m['id'] === 'perm-2' && m['type'] === 'response'
@@ -446,7 +456,9 @@ describe('DaemonClient', () => {
       await initializeClient(transport, client, 'perm-sess');
 
       client.setPermissionHandler(async () => {
-        await new Promise((r) => setTimeout(r, 5));
+        await new Promise((r) => {
+          setTimeout(r, 5);
+        });
         return ToolConfirmationOutcome.ProceedOnce;
       });
 
@@ -471,7 +483,9 @@ describe('DaemonClient', () => {
       );
       transport.injectMessage(permRequest);
 
-      await new Promise((r) => setTimeout(r, 100));
+      await new Promise((r) => {
+        setTimeout(r, 100);
+      });
 
       const response = transport.sentMessages.find(
         (m) => m['id'] === 'perm-3' && m['type'] === 'response'
@@ -498,7 +512,9 @@ describe('DaemonClient', () => {
       });
       transport.injectMessage(askRequest);
 
-      await new Promise((r) => setTimeout(r, 50));
+      await new Promise((r) => {
+        setTimeout(r, 50);
+      });
 
       const response = transport.sentMessages.find(
         (m) => m['id'] === 'ask-1' && m['type'] === 'response'
@@ -530,7 +546,9 @@ describe('DaemonClient', () => {
       });
       transport.injectMessage(askRequest);
 
-      await new Promise((r) => setTimeout(r, 50));
+      await new Promise((r) => {
+        setTimeout(r, 50);
+      });
 
       const response = transport.sentMessages.find(
         (m) => m['id'] === 'ask-2' && m['type'] === 'response'
@@ -961,7 +979,7 @@ describe('DaemonClient', () => {
   describe('close()', () => {
     it('is idempotent', async () => {
       await client.close();
-      await client.close(); // Should not throw
+      await expect(client.close()).resolves.toBeUndefined();
     });
 
     it('clears notification listeners', async () => {
@@ -980,7 +998,9 @@ describe('DaemonClient', () => {
       } catch {
         // Transport may be closed
       }
-      await new Promise((r) => setTimeout(r, 10));
+      await new Promise((r) => {
+        setTimeout(r, 10);
+      });
       expect(notifications).toHaveLength(0);
     });
 

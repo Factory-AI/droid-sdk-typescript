@@ -162,7 +162,9 @@ describe('DaemonConnection — lifecycle', () => {
         },
       });
 
-      await new Promise((r) => setTimeout(r, 50));
+      await new Promise((r) => {
+        setTimeout(r, 50);
+      });
       expect(handlerCalled).toBe(true);
 
       await session.close();
@@ -216,7 +218,9 @@ describe('DaemonConnection — lifecycle', () => {
         },
       });
 
-      await new Promise((r) => setTimeout(r, 50));
+      await new Promise((r) => {
+        setTimeout(r, 50);
+      });
       expect(handlerCalled).toBe(true);
 
       await session.close();
@@ -309,7 +313,7 @@ describe('DaemonConnection — lifecycle', () => {
 
       const session = await connection.createSession({ cwd: '/test' });
       // Verifies the cleanup callback path executes without throwing
-      await session.close();
+      await expect(session.close()).resolves.toBeUndefined();
     });
   });
 
@@ -408,7 +412,9 @@ describe('DaemonConnection — lifecycle', () => {
         },
       });
 
-      await new Promise((r) => setTimeout(r, 50));
+      await new Promise((r) => {
+        setTimeout(r, 50);
+      });
       expect(permCalled).toBe(true);
 
       await session.close();
@@ -479,7 +485,7 @@ describe('DaemonConnection — lifecycle', () => {
   describe('close', () => {
     it('is idempotent', async () => {
       await connection.close();
-      await connection.close(); // Should not throw
+      await expect(connection.close()).resolves.toBeUndefined();
     });
 
     it('makes subsequent createSession throw', async () => {
