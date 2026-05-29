@@ -55,11 +55,6 @@ export function resolveWebSocketUrl(
     return `ws://127.0.0.1:${port}`;
   }
 
-  if (machine.type === MachineType.Ephemeral) {
-    const port = options.daemonPort ?? DEFAULT_DAEMON_PORT;
-    return `wss://${port}-${machine.sandboxId}.e2b.app`;
-  }
-
   if (machine.type === MachineType.Computer) {
     const relayBase = options.relayBaseUrl ?? DEFAULT_RELAY_BASE_URL;
     return `${relayBase}/v0/computer/${machine.computerId}/client`;
@@ -480,15 +475,14 @@ export async function connectDaemon(
 
   const apiKey = resolvedOptions.apiKey;
 
+  const maxRetries = resolvedOptions.maxRetries ?? 0;
+
   try {
     // Connect with optional retry budget
-    if (
-      resolvedOptions.maxRetries !== undefined &&
-      resolvedOptions.maxRetries > 0
-    ) {
+    if (maxRetries > 0) {
       let lastError: Error | undefined;
 
-      for (let attempt = 0; attempt <= resolvedOptions.maxRetries; attempt++) {
+      for (let attempt = 0; attempt <= maxRetries; attempt++) {
         try {
           await transport.connect(url);
           await authenticate(transport, resolvedOptions);
@@ -500,7 +494,7 @@ export async function connectDaemon(
           } catch {
             // Best-effort cleanup between retries
           }
-          if (attempt < resolvedOptions.maxRetries) {
+          if (attempt < maxRetries) {
             await new Promise<void>((resolve) => setTimeout(resolve, 2_000));
           }
         }

@@ -11,31 +11,6 @@ describe('resolveWebSocketUrl', () => {
     expect(url).toBe('wss://custom.host:1234');
   });
 
-  it('resolves ephemeral machine to sandbox WebSocket URL', () => {
-    const url = resolveWebSocketUrl({
-      apiKey: 'k',
-      machine: {
-        type: MachineType.Ephemeral,
-        sandboxId: 'abc123',
-        workspaceId: 'ws-1',
-      },
-    });
-    expect(url).toBe('wss://37643-abc123.e2b.app');
-  });
-
-  it('uses custom daemonPort for ephemeral machines', () => {
-    const url = resolveWebSocketUrl({
-      apiKey: 'k',
-      machine: {
-        type: MachineType.Ephemeral,
-        sandboxId: 'abc123',
-        workspaceId: 'ws-1',
-      },
-      daemonPort: 41723,
-    });
-    expect(url).toBe('wss://41723-abc123.e2b.app');
-  });
-
   it('resolves computer machine to relay URL', () => {
     const url = resolveWebSocketUrl({
       apiKey: 'k',
@@ -66,9 +41,8 @@ describe('resolveWebSocketUrl', () => {
       apiKey: 'k',
       url: 'wss://override.host',
       machine: {
-        type: MachineType.Ephemeral,
-        sandboxId: 'abc123',
-        workspaceId: 'ws-1',
+        type: MachineType.Computer,
+        computerId: 'my-desktop',
       },
     });
     expect(url).toBe('wss://override.host');

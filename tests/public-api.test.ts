@@ -8,10 +8,20 @@ import {
   ProcessExitError,
   ProcessTransport,
   ProtocolEngine,
+  createComputer,
   createSession,
+  deleteComputer,
+  getComputerByName,
+  getComputerMetrics,
   listSessions,
+  listMachineTemplates,
+  getMachineTemplate,
+  refreshComputer,
+  restartComputer,
   resumeSession,
+  retryInstallDeps,
   run,
+  updateComputer,
 } from '../src/index.js';
 import * as publicApi from '../src/index.js';
 
@@ -21,6 +31,17 @@ describe('public API barrel', () => {
     expect(createSession).toBeTypeOf('function');
     expect(resumeSession).toBeTypeOf('function');
     expect(listSessions).toBeTypeOf('function');
+    expect(listMachineTemplates).toBeTypeOf('function');
+    expect(getMachineTemplate).toBeTypeOf('function');
+    expect(createComputer).toBeTypeOf('function');
+    expect(getComputerByName).toBeTypeOf('function');
+    expect(updateComputer).toBeTypeOf('function');
+    expect(deleteComputer).toBeTypeOf('function');
+    expect(restartComputer).toBeTypeOf('function');
+    expect(refreshComputer).toBeTypeOf('function');
+    expect(getComputerMetrics).toBeTypeOf('function');
+    expect(retryInstallDeps).toBeTypeOf('function');
+
     expect('query' in publicApi).toBe(false);
     expect(DroidSession.prototype.stream).toBeTypeOf('function');
     expect('DroidTurn' in publicApi).toBe(false);

@@ -1009,6 +1009,29 @@ export const GetContextStatsResultSchema = ContextStatsSchema;
 
 export type GetContextStatsResult = z.infer<typeof GetContextStatsResultSchema>;
 
+export const ContextBreakdownCategorySchema = z
+  .object({
+    name: z.string(),
+    tokens: z.number(),
+    colorKey: z.string(),
+  })
+  .passthrough();
+
+export const ContextBreakdownResultSchema = z
+  .object({
+    modelId: z.string(),
+    modelDisplayName: z.string(),
+    contextBudget: z.number(),
+    usedTokens: z.number(),
+    freeTokens: z.number(),
+    categories: z.array(ContextBreakdownCategorySchema),
+  })
+  .passthrough();
+
+export type ContextBreakdownResult = z.infer<
+  typeof ContextBreakdownResultSchema
+>;
+
 export const RenameSessionResultSchema = SuccessResultSchema;
 
 export type RenameSessionResult = z.infer<typeof RenameSessionResultSchema>;

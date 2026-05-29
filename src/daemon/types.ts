@@ -18,13 +18,11 @@ import type { ToolSelectionOverrides } from '../schemas/shared.js';
 
 export enum MachineType {
   Local = 'local',
-  Ephemeral = 'ephemeral',
   Computer = 'computer',
 }
 
 export type SDKMachineConfig =
   | { type: MachineType.Local }
-  | { type: MachineType.Ephemeral; sandboxId: string; workspaceId: string }
   | { type: MachineType.Computer; computerId: string };
 
 export interface ConnectDaemonOptions {
@@ -40,11 +38,14 @@ export interface ConnectDaemonOptions {
   /** Connection retry budget for the connect+authenticate cycle. */
   maxRetries?: number;
 
-  /** Daemon WebSocket port for ephemeral sandboxes. Default: 37643. */
+  /** Local daemon WebSocket port. Default: 37643. */
   daemonPort?: number;
 
   /** Factory relay base URL for computer connections. Default: wss://relay.factory.ai */
   relayBaseUrl?: string;
+
+  /** Factory API base URL. Default: https://api.factory.ai */
+  baseUrl?: string;
 }
 
 export interface DaemonSessionOptions extends ToolSelectionOverrides {

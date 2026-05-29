@@ -104,6 +104,62 @@ export type {
 
 export { listSessions } from './session-discovery.js';
 
+// Factory REST API
+export {
+  listMachineTemplates,
+  getMachineTemplate,
+  listComputers,
+  getComputer,
+  createComputer,
+  getComputerByName,
+  updateComputer,
+  deleteComputer,
+  restartComputer,
+  refreshComputer,
+  getComputerMetrics,
+  retryInstallDeps,
+  listRemoteSessions,
+} from './api.js';
+export {
+  ComputerSchema,
+  ComputerListResponseSchema,
+  ComputerMetricSchema,
+  ComputerMetricsResponseSchema,
+  MachineTemplateBuildStatusSchema,
+  MachineTemplateSchema,
+  MachineTemplateListResponseSchema,
+  RefreshComputerResponseSchema,
+  RemoteSessionSchema,
+  RemoteSessionListResponseSchema,
+} from './api-types.js';
+export type {
+  FactoryApiOptions,
+  ComputerApiOptions,
+  Computer,
+  ComputerListResponse,
+  ComputerMetric,
+  ComputerMetricsResponse,
+  CreateComputerOptions,
+  ListComputersOptions,
+  GetComputerOptions,
+  GetComputerByNameOptions,
+  GetComputerMetricsOptions,
+  UpdateComputerOptions,
+  DeleteComputerOptions,
+  RestartComputerOptions,
+  RefreshComputerOptions,
+  RefreshComputerResponse,
+  RetryInstallDepsOptions,
+  MachineTemplate,
+  MachineTemplateBuildStatus,
+  ListMachineTemplatesOptions,
+  GetMachineTemplateOptions,
+  MachineTemplateListResponse,
+  RemoteSession,
+  RemoteSessionListResponse,
+  ListRemoteSessionsOptions,
+} from './api-types.js';
+
 // Daemon mode
 export {
   DaemonClient,

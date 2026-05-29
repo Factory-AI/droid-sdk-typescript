@@ -11,24 +11,65 @@ import {
   type PermissionHandler,
 } from '../protocol.js';
 import type {
+  AddMcpServerRequestParams,
+  AddMcpServerResult,
   AddUserMessageRequestParams,
   AddUserMessageResult,
+  AuthenticateMcpServerRequestParams,
+  AuthenticateMcpServerResult,
   CloseSessionRequestParams,
   CloseSessionResult,
+  CompactSessionRequestParams,
+  CompactSessionResult,
+  ExecuteRewindRequestParams,
+  ExecuteRewindResult,
+  ContextBreakdownResult,
+  ForkSessionResult,
+  GetRewindInfoRequestParams,
+  GetRewindInfoResult,
   InitializeSessionRequestParams,
   InitializeSessionResult,
   InterruptSessionResult,
+  ListMcpServersResult,
+  ListMcpToolsResult,
+  ListSkillsResult,
   LoadSessionRequestParams,
   LoadSessionResult,
+  RemoveMcpServerRequestParams,
+  RemoveMcpServerResult,
+  RenameSessionRequestParams,
+  RenameSessionResult,
+  ToggleMcpServerRequestParams,
+  ToggleMcpServerResult,
+  UpdateSessionSettingsRequestParams,
+  UpdateSessionSettingsResult,
 } from '../schemas/client.js';
 import {
+  AddMcpServerResultSchema,
   AddUserMessageResultSchema,
+  AuthenticateMcpServerResultSchema,
   CloseSessionResultSchema,
+  CompactSessionResultSchema,
+  ExecuteRewindResultSchema,
+  ContextBreakdownResultSchema,
+  ForkSessionResultSchema,
+  GetRewindInfoResultSchema,
   InitializeSessionResultSchema,
   InterruptSessionResultSchema,
+  ListMcpServersResultSchema,
+  ListMcpToolsResultSchema,
+  ListSkillsResultSchema,
   LoadSessionResultSchema,
+  RemoveMcpServerResultSchema,
+  RenameSessionResultSchema,
+  ToggleMcpServerResultSchema,
+  UpdateSessionSettingsResultSchema,
 } from '../schemas/client.js';
-import { SESSION_INIT_TIMEOUT } from '../schemas/constants.js';
+import {
+  COMPACTION_TIMEOUT,
+  REWIND_TIMEOUT,
+  SESSION_INIT_TIMEOUT,
+} from '../schemas/constants.js';
 import {
   ServerRequestHandlerType,
   ToolConfirmationOutcome,
@@ -48,6 +89,20 @@ enum DaemonMethod {
   ADD_USER_MESSAGE = 'daemon.add_user_message',
   CLOSE_SESSION = 'daemon.close_session',
   INTERRUPT_SESSION = 'daemon.interrupt_session',
+  UPDATE_SESSION_SETTINGS = 'daemon.update_session_settings',
+  COMPACT_SESSION = 'daemon.compact_session',
+  FORK_SESSION = 'daemon.fork_session',
+  GET_CONTEXT_STATS = 'daemon.get_context_breakdown',
+  RENAME_SESSION = 'daemon.rename_session',
+  GET_REWIND_INFO = 'daemon.get_rewind_info',
+  EXECUTE_REWIND = 'daemon.execute_rewind',
+  ADD_MCP_SERVER = 'daemon.add_mcp_server',
+  REMOVE_MCP_SERVER = 'daemon.remove_mcp_server',
+  TOGGLE_MCP_SERVER = 'daemon.toggle_mcp_server',
+  LIST_MCP_SERVERS = 'daemon.list_mcp_servers',
+  LIST_MCP_TOOLS = 'daemon.list_mcp_tools',
+  AUTHENTICATE_MCP_SERVER = 'daemon.authenticate_mcp_server',
+  LIST_SKILLS = 'daemon.list_skills',
 }
 
 /** Maps daemon server-to-client request methods to handler types. */
@@ -170,6 +225,139 @@ export class DaemonClient {
       DaemonMethod.CLOSE_SESSION,
       params,
       CloseSessionResultSchema
+    );
+  }
+
+  async updateSessionSettings(
+    params: Partial<UpdateSessionSettingsRequestParams>
+  ): Promise<UpdateSessionSettingsResult> {
+    return this._sessionRpc(
+      DaemonMethod.UPDATE_SESSION_SETTINGS,
+      params,
+      UpdateSessionSettingsResultSchema
+    );
+  }
+
+  async compactSession(
+    params: CompactSessionRequestParams = {}
+  ): Promise<CompactSessionResult> {
+    return this._sessionRpc(
+      DaemonMethod.COMPACT_SESSION,
+      params,
+      CompactSessionResultSchema,
+      COMPACTION_TIMEOUT
+    );
+  }
+
+  async forkSession(): Promise<ForkSessionResult> {
+    return this._sessionRpc(
+      DaemonMethod.FORK_SESSION,
+      {},
+      ForkSessionResultSchema
+    );
+  }
+
+  async getContextBreakdown(): Promise<ContextBreakdownResult> {
+    return this._sessionRpc(
+      DaemonMethod.GET_CONTEXT_STATS,
+      {},
+      ContextBreakdownResultSchema
+    );
+  }
+
+  async renameSession(
+    params: RenameSessionRequestParams
+  ): Promise<RenameSessionResult> {
+    return this._sessionRpc(
+      DaemonMethod.RENAME_SESSION,
+      params,
+      RenameSessionResultSchema
+    );
+  }
+
+  async getRewindInfo(
+    params: GetRewindInfoRequestParams
+  ): Promise<GetRewindInfoResult> {
+    return this._sessionRpc(
+      DaemonMethod.GET_REWIND_INFO,
+      params,
+      GetRewindInfoResultSchema,
+      REWIND_TIMEOUT
+    );
+  }
+
+  async executeRewind(
+    params: ExecuteRewindRequestParams
+  ): Promise<ExecuteRewindResult> {
+    return this._sessionRpc(
+      DaemonMethod.EXECUTE_REWIND,
+      params,
+      ExecuteRewindResultSchema,
+      REWIND_TIMEOUT
+    );
+  }
+
+  async addMcpServer(
+    params: AddMcpServerRequestParams
+  ): Promise<AddMcpServerResult> {
+    return this._sessionRpc(
+      DaemonMethod.ADD_MCP_SERVER,
+      params,
+      AddMcpServerResultSchema
+    );
+  }
+
+  async removeMcpServer(
+    params: RemoveMcpServerRequestParams
+  ): Promise<RemoveMcpServerResult> {
+    return this._sessionRpc(
+      DaemonMethod.REMOVE_MCP_SERVER,
+      params,
+      RemoveMcpServerResultSchema
+    );
+  }
+
+  async toggleMcpServer(
+    params: ToggleMcpServerRequestParams
+  ): Promise<ToggleMcpServerResult> {
+    return this._sessionRpc(
+      DaemonMethod.TOGGLE_MCP_SERVER,
+      params,
+      ToggleMcpServerResultSchema
+    );
+  }
+
+  async listMcpServers(): Promise<ListMcpServersResult> {
+    return this._sessionRpc(
+      DaemonMethod.LIST_MCP_SERVERS,
+      {},
+      ListMcpServersResultSchema
+    );
+  }
+
+  async listMcpTools(): Promise<ListMcpToolsResult> {
+    return this._sessionRpc(
+      DaemonMethod.LIST_MCP_TOOLS,
+      {},
+      ListMcpToolsResultSchema
+    );
+  }
+
+  async authenticateMcpServer(
+    params: AuthenticateMcpServerRequestParams
+  ): Promise<AuthenticateMcpServerResult> {
+    return this._sessionRpc(
+      DaemonMethod.AUTHENTICATE_MCP_SERVER,
+      params,
+      AuthenticateMcpServerResultSchema
+    );
+  }
+
+  async listSkills(): Promise<ListSkillsResult> {
+    return this._sessionRpc(
+      DaemonMethod.LIST_SKILLS,
+      {},
+      ListSkillsResultSchema
     );
   }
 
