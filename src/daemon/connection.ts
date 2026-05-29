@@ -340,6 +340,10 @@ export class DaemonConnection {
     this._apiKey = apiKey;
   }
 
+  get isConnected(): boolean {
+    return this._transport.isConnected;
+  }
+
   async createSession(
     options: DaemonSessionOptions = {}
   ): Promise<DaemonSession> {
