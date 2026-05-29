@@ -118,6 +118,7 @@ export {
   refreshComputer,
   getComputerMetrics,
   retryInstallDeps,
+  listRemoteSessions,
 } from './api.js';
 export {
   ComputerSchema,
@@ -128,8 +129,12 @@ export {
   MachineTemplateSchema,
   MachineTemplateListResponseSchema,
   RefreshComputerResponseSchema,
+  RemoteSessionSchema,
+  RemoteSessionListResponseSchema,
 } from './api-types.js';
 export type {
+  FactoryApiOptions,
+  ComputerApiOptions,
   Computer,
   ComputerListResponse,
   ComputerMetric,
@@ -150,6 +155,9 @@ export type {
   ListMachineTemplatesOptions,
   GetMachineTemplateOptions,
   MachineTemplateListResponse,
+  RemoteSession,
+  RemoteSessionListResponse,
+  ListRemoteSessionsOptions,
 } from './api-types.js';
 
 // Daemon mode

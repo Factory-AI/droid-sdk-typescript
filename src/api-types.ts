@@ -45,16 +45,21 @@ export type MachineTemplateListResponse = z.infer<
   typeof MachineTemplateListResponseSchema
 >;
 
-export interface ListMachineTemplatesOptions {
+export interface FactoryApiOptions {
   apiKey: string;
   baseUrl?: string;
+}
+
+export interface ComputerApiOptions extends FactoryApiOptions {
+  computerId: string;
+}
+
+export interface ListMachineTemplatesOptions extends FactoryApiOptions {
   limit?: number;
   cursor?: string;
 }
 
-export interface GetMachineTemplateOptions {
-  apiKey: string;
-  baseUrl?: string;
+export interface GetMachineTemplateOptions extends FactoryApiOptions {
   templateId: string;
 }
 
@@ -79,20 +84,11 @@ export const ComputerListResponseSchema = z.object({
 
 export type ComputerListResponse = z.infer<typeof ComputerListResponseSchema>;
 
-export interface ListComputersOptions {
-  apiKey: string;
-  baseUrl?: string;
-}
+export interface ListComputersOptions extends FactoryApiOptions {}
 
-export interface GetComputerOptions {
-  apiKey: string;
-  baseUrl?: string;
-  computerId: string;
-}
+export interface GetComputerOptions extends ComputerApiOptions {}
 
-export interface CreateComputerOptions {
-  apiKey: string;
-  baseUrl?: string;
+export interface CreateComputerOptions extends FactoryApiOptions {
   name: string;
   remoteUser: string;
   provider?: 'byom' | 'e2b';
@@ -102,38 +98,21 @@ export interface CreateComputerOptions {
   serviceAccountId?: string;
 }
 
-export interface GetComputerByNameOptions {
-  apiKey: string;
-  baseUrl?: string;
+export interface GetComputerByNameOptions extends FactoryApiOptions {
   name: string;
 }
 
-export interface UpdateComputerOptions {
-  apiKey: string;
-  baseUrl?: string;
-  computerId: string;
+export interface UpdateComputerOptions extends ComputerApiOptions {
   name?: string;
   remoteUser?: string;
   hostId?: string;
 }
 
-export interface DeleteComputerOptions {
-  apiKey: string;
-  baseUrl?: string;
-  computerId: string;
-}
+export interface DeleteComputerOptions extends ComputerApiOptions {}
 
-export interface RestartComputerOptions {
-  apiKey: string;
-  baseUrl?: string;
-  computerId: string;
-}
+export interface RestartComputerOptions extends ComputerApiOptions {}
 
-export interface RefreshComputerOptions {
-  apiKey: string;
-  baseUrl?: string;
-  computerId: string;
-}
+export interface RefreshComputerOptions extends ComputerApiOptions {}
 
 export const RefreshComputerResponseSchema = z.object({
   configured: z.number().int(),
@@ -161,18 +140,11 @@ export type ComputerMetricsResponse = z.infer<
   typeof ComputerMetricsResponseSchema
 >;
 
-export interface GetComputerMetricsOptions {
-  apiKey: string;
-  baseUrl?: string;
-  computerId: string;
+export interface GetComputerMetricsOptions extends ComputerApiOptions {
   start?: string;
 }
 
-export interface RetryInstallDepsOptions {
-  apiKey: string;
-  baseUrl?: string;
-  computerId: string;
-}
+export interface RetryInstallDepsOptions extends ComputerApiOptions {}
 
 export const RemoteSessionSchema = z.object({
   sessionId: z.string(),
@@ -199,9 +171,7 @@ export type RemoteSessionListResponse = z.infer<
   typeof RemoteSessionListResponseSchema
 >;
 
-export interface ListRemoteSessionsOptions {
-  apiKey: string;
-  baseUrl?: string;
+export interface ListRemoteSessionsOptions extends FactoryApiOptions {
   computerId?: string;
   limit?: number;
   cursor?: string;

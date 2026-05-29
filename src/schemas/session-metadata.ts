@@ -67,48 +67,27 @@ export type SessionSettingsFile = z.infer<typeof SessionSettingsFileSchema>;
 /** Options accepted by {@link listSessions}. */
 export interface ListSessionsOptions {
   /**
-   * Factory API key. When provided, sessions are fetched from the remote
-   * Factory API instead of reading local `.jsonl` files. Local-only options
-   * (`cwd`, `fetchOutsideCWD`, `sessionsDir`) are ignored in this mode.
-   */
-  apiKey?: string;
-
-  /** Factory API base URL. Only used when `apiKey` is provided. */
-  baseUrl?: string;
-
-  /** Filter remote sessions by computer ID. Only used when `apiKey` is provided. */
-  computerId?: string;
-
-  /**
    * Working directory to scope the listing to. Defaults to `process.cwd()`.
-   * Ignored when `fetchOutsideCWD` is `true` or `apiKey` is provided.
+   * Ignored when `fetchOutsideCWD` is `true`.
    */
   cwd?: string;
 
   /**
    * If `true`, return sessions from every working directory on disk and
    * ignore `cwd`. Defaults to `false` (only sessions for the given `cwd`
-   * are returned). Ignored when `apiKey` is provided.
+   * are returned).
    */
   fetchOutsideCWD?: boolean;
 
   /**
-   * Cap the number of sessions returned. For local sessions, results are
-   * sorted by `modifiedTime` descending before being truncated. For remote
-   * sessions, this is passed as the `limit` query parameter.
+   * Cap the number of sessions returned. Results are sorted by
+   * `modifiedTime` descending before being truncated.
    */
   numSessions?: number;
 
   /**
-   * Pagination cursor for remote session listing. Only used when `apiKey`
-   * is provided.
-   */
-  cursor?: string;
-
-  /**
    * Override the sessions root directory. Defaults to `~/.factory/sessions/`.
-   * Primarily useful for tests and custom installations. Ignored when
-   * `apiKey` is provided.
+   * Primarily useful for tests and custom installations.
    */
   sessionsDir?: string;
 }

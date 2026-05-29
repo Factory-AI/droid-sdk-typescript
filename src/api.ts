@@ -1,3 +1,5 @@
+import type { z } from 'zod';
+
 import {
   ComputerListResponseSchema,
   ComputerMetricsResponseSchema,
@@ -104,6 +106,19 @@ async function factoryFetch(
   return body;
 }
 
+function parseResponse<T extends z.ZodTypeAny>(
+  body: unknown,
+  schema: T
+): z.output<T> {
+  const parsed = schema.safeParse(body);
+  if (!parsed.success) {
+    throw new ProtocolError(
+      `Unexpected response format from Factory API: ${parsed.error.message}`
+    );
+  }
+  return parsed.data;
+}
+
 export async function listMachineTemplates(
   options: ListMachineTemplatesOptions
 ): Promise<MachineTemplateListResponse> {
@@ -118,13 +133,7 @@ export async function listMachineTemplates(
   const path = `/api/v0/machines/templates${query ? `?${query}` : ''}`;
 
   const body = await factoryFetch(path, options.apiKey, options.baseUrl);
-  const parsed = MachineTemplateListResponseSchema.safeParse(body);
-  if (!parsed.success) {
-    throw new ProtocolError(
-      `Unexpected response format from Factory API: ${parsed.error.message}`
-    );
-  }
-  return parsed.data;
+  return parseResponse(body, MachineTemplateListResponseSchema);
 }
 
 export async function getMachineTemplate(
@@ -133,13 +142,7 @@ export async function getMachineTemplate(
   const path = `/api/v0/machines/templates/${encodeURIComponent(options.templateId)}`;
 
   const body = await factoryFetch(path, options.apiKey, options.baseUrl);
-  const parsed = MachineTemplateSchema.safeParse(body);
-  if (!parsed.success) {
-    throw new ProtocolError(
-      `Unexpected response format from Factory API: ${parsed.error.message}`
-    );
-  }
-  return parsed.data;
+  return parseResponse(body, MachineTemplateSchema);
 }
 
 export async function listComputers(
@@ -148,13 +151,7 @@ export async function listComputers(
   const path = '/api/v0/computers';
 
   const body = await factoryFetch(path, options.apiKey, options.baseUrl);
-  const parsed = ComputerListResponseSchema.safeParse(body);
-  if (!parsed.success) {
-    throw new ProtocolError(
-      `Unexpected response format from Factory API: ${parsed.error.message}`
-    );
-  }
-  return parsed.data;
+  return parseResponse(body, ComputerListResponseSchema);
 }
 
 export async function getComputer(
@@ -163,13 +160,7 @@ export async function getComputer(
   const path = `/api/v0/computers/${encodeURIComponent(options.computerId)}`;
 
   const body = await factoryFetch(path, options.apiKey, options.baseUrl);
-  const parsed = ComputerSchema.safeParse(body);
-  if (!parsed.success) {
-    throw new ProtocolError(
-      `Unexpected response format from Factory API: ${parsed.error.message}`
-    );
-  }
-  return parsed.data;
+  return parseResponse(body, ComputerSchema);
 }
 
 export async function createComputer(
@@ -192,13 +183,7 @@ export async function createComputer(
     method: 'POST',
     body: reqBody,
   });
-  const parsed = ComputerSchema.safeParse(body);
-  if (!parsed.success) {
-    throw new ProtocolError(
-      `Unexpected response format from Factory API: ${parsed.error.message}`
-    );
-  }
-  return parsed.data;
+  return parseResponse(body, ComputerSchema);
 }
 
 export async function getComputerByName(
@@ -207,13 +192,7 @@ export async function getComputerByName(
   const path = `/api/v0/computers/name/${encodeURIComponent(options.name)}`;
 
   const body = await factoryFetch(path, options.apiKey, options.baseUrl);
-  const parsed = ComputerSchema.safeParse(body);
-  if (!parsed.success) {
-    throw new ProtocolError(
-      `Unexpected response format from Factory API: ${parsed.error.message}`
-    );
-  }
-  return parsed.data;
+  return parseResponse(body, ComputerSchema);
 }
 
 export async function updateComputer(
@@ -229,13 +208,7 @@ export async function updateComputer(
     method: 'PATCH',
     body: reqBody,
   });
-  const parsed = ComputerSchema.safeParse(body);
-  if (!parsed.success) {
-    throw new ProtocolError(
-      `Unexpected response format from Factory API: ${parsed.error.message}`
-    );
-  }
-  return parsed.data;
+  return parseResponse(body, ComputerSchema);
 }
 
 export async function deleteComputer(
@@ -266,13 +239,7 @@ export async function refreshComputer(
   const body = await factoryFetch(path, options.apiKey, options.baseUrl, {
     method: 'POST',
   });
-  const parsed = RefreshComputerResponseSchema.safeParse(body);
-  if (!parsed.success) {
-    throw new ProtocolError(
-      `Unexpected response format from Factory API: ${parsed.error.message}`
-    );
-  }
-  return parsed.data;
+  return parseResponse(body, RefreshComputerResponseSchema);
 }
 
 export async function getComputerMetrics(
@@ -286,13 +253,7 @@ export async function getComputerMetrics(
   const path = `/api/v0/computers/${encodeURIComponent(options.computerId)}/metrics${query ? `?${query}` : ''}`;
 
   const body = await factoryFetch(path, options.apiKey, options.baseUrl);
-  const parsed = ComputerMetricsResponseSchema.safeParse(body);
-  if (!parsed.success) {
-    throw new ProtocolError(
-      `Unexpected response format from Factory API: ${parsed.error.message}`
-    );
-  }
-  return parsed.data;
+  return parseResponse(body, ComputerMetricsResponseSchema);
 }
 
 export async function retryInstallDeps(
@@ -303,13 +264,7 @@ export async function retryInstallDeps(
   const body = await factoryFetch(path, options.apiKey, options.baseUrl, {
     method: 'POST',
   });
-  const parsed = ComputerSchema.safeParse(body);
-  if (!parsed.success) {
-    throw new ProtocolError(
-      `Unexpected response format from Factory API: ${parsed.error.message}`
-    );
-  }
-  return parsed.data;
+  return parseResponse(body, ComputerSchema);
 }
 
 export async function listRemoteSessions(
@@ -329,11 +284,5 @@ export async function listRemoteSessions(
   const path = `/api/v0/sessions${query ? `?${query}` : ''}`;
 
   const body = await factoryFetch(path, options.apiKey, options.baseUrl);
-  const parsed = RemoteSessionListResponseSchema.safeParse(body);
-  if (!parsed.success) {
-    throw new ProtocolError(
-      `Unexpected response format from Factory API: ${parsed.error.message}`
-    );
-  }
-  return parsed.data;
+  return parseResponse(body, RemoteSessionListResponseSchema);
 }
