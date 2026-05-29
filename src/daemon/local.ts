@@ -138,7 +138,9 @@ async function waitForDaemonReady(
           settle('timeout');
           return;
         }
-        await new Promise<void>((r) => setTimeout(r, STARTUP_POLL_INTERVAL_MS));
+        await new Promise<void>((r) => {
+          setTimeout(r, STARTUP_POLL_INTERVAL_MS);
+        });
       }
     };
 

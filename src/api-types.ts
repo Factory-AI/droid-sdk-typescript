@@ -84,9 +84,9 @@ export const ComputerListResponseSchema = z.object({
 
 export type ComputerListResponse = z.infer<typeof ComputerListResponseSchema>;
 
-export interface ListComputersOptions extends FactoryApiOptions {}
+export type ListComputersOptions = FactoryApiOptions;
 
-export interface GetComputerOptions extends ComputerApiOptions {}
+export type GetComputerOptions = ComputerApiOptions;
 
 export interface CreateComputerOptions extends FactoryApiOptions {
   name: string;
@@ -108,11 +108,11 @@ export interface UpdateComputerOptions extends ComputerApiOptions {
   hostId?: string;
 }
 
-export interface DeleteComputerOptions extends ComputerApiOptions {}
+export type DeleteComputerOptions = ComputerApiOptions;
 
-export interface RestartComputerOptions extends ComputerApiOptions {}
+export type RestartComputerOptions = ComputerApiOptions;
 
-export interface RefreshComputerOptions extends ComputerApiOptions {}
+export type RefreshComputerOptions = ComputerApiOptions;
 
 export const RefreshComputerResponseSchema = z.object({
   configured: z.number().int(),
@@ -144,7 +144,7 @@ export interface GetComputerMetricsOptions extends ComputerApiOptions {
   start?: string;
 }
 
-export interface RetryInstallDepsOptions extends ComputerApiOptions {}
+export type RetryInstallDepsOptions = ComputerApiOptions;
 
 export const RemoteSessionSchema = z.object({
   sessionId: z.string(),

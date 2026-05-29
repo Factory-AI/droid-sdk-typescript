@@ -1,5 +1,6 @@
 import type { DroidHookEvent } from './schemas/hooks.js';
 
+// eslint-disable-next-line no-barrel-files/no-barrel-files
 export type { DroidHookEvent, DroidHookOutput } from './schemas/hooks.js';
 
 export type DroidPermissionMode =

@@ -112,9 +112,14 @@ describe('DaemonSession', () => {
     it('does not subscribe to notifications after send', async () => {
       await session.send('Quick task.');
 
+      const addUserMessageSent = transport.sentMessages.find(
+        (m) => m['method'] === 'daemon.add_user_message'
+      );
+      expect(addUserMessageSent).toBeDefined();
+
       // Injecting a notification after send should not cause any issues
       // (send() does not subscribe to notifications)
-      sendDefaultStreamSequence(transport);
+      expect(() => sendDefaultStreamSequence(transport)).not.toThrow();
     });
 
     it('throws when session is closed', async () => {
@@ -133,7 +138,9 @@ describe('DaemonSession', () => {
       })();
 
       // Wait a tick for the auto-responder to handle addUserMessage
-      await new Promise((r) => setTimeout(r, 10));
+      await new Promise((r) => {
+        setTimeout(r, 10);
+      });
 
       // Use the standard test helper to inject a full stream sequence
       sendDefaultStreamSequence(transport);
@@ -167,7 +174,7 @@ describe('DaemonSession', () => {
   describe('close()', () => {
     it('is idempotent', async () => {
       await session.close();
-      await session.close(); // Should not throw
+      await expect(session.close()).resolves.toBeUndefined();
     });
 
     it('signals done to active bridges', async () => {
@@ -179,11 +186,13 @@ describe('DaemonSession', () => {
       })();
 
       // Wait for auto-responder to handle addUserMessage
-      await new Promise((r) => setTimeout(r, 10));
+      await new Promise((r) => {
+        setTimeout(r, 10);
+      });
 
       // Close the session — should terminate the stream
       await session.close();
-      await streamPromise;
+      await expect(streamPromise).resolves.toBeUndefined();
     });
 
     it('invokes cleanup callbacks when session is closed', async () => {
@@ -215,7 +224,9 @@ describe('DaemonSession', () => {
     it('awaits async cleanup callbacks', async () => {
       let cleaned = false;
       session.addCleanup(async () => {
-        await new Promise<void>((r) => setTimeout(r, 10));
+        await new Promise<void>((r) => {
+          setTimeout(r, 10);
+        });
         cleaned = true;
       });
 

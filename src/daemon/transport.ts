@@ -60,7 +60,9 @@ export class WebSocketTransport implements DroidClientTransport {
             this.initialRetryDelayMs * 2 ** attempt,
             this.maxRetryDelayMs
           );
-          await new Promise<void>((resolve) => setTimeout(resolve, delay));
+          await new Promise<void>((resolve) => {
+            setTimeout(resolve, delay);
+          });
         }
       }
     }

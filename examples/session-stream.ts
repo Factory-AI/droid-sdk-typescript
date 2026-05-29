@@ -44,6 +44,9 @@ async function main(): Promise<void> {
             );
           }
           break;
+
+        default:
+          break;
       }
     }
   } finally {

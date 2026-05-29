@@ -134,7 +134,9 @@ describe('SharedTransportMultiplexer (via DaemonConnection)', () => {
         },
       });
 
-      await new Promise((r) => setTimeout(r, 20));
+      await new Promise((r) => {
+        setTimeout(r, 20);
+      });
 
       // Each session should only see its own notifications
       expect(notifs1.length).toBe(1);
@@ -176,7 +178,9 @@ describe('SharedTransportMultiplexer (via DaemonConnection)', () => {
         params: { isDroidCLIInPath: true },
       });
 
-      await new Promise((r) => setTimeout(r, 10));
+      await new Promise((r) => {
+        setTimeout(r, 10);
+      });
       expect(notifs.length).toBeGreaterThanOrEqual(0); // May or may not reach session depending on method routing
       await session.close();
     });
@@ -200,12 +204,15 @@ describe('SharedTransportMultiplexer (via DaemonConnection)', () => {
       });
 
       const session = await connection.createSession({ cwd: '/test' });
+      expect(session.sessionId).toBe('s-err');
 
       // Inject a transport error — should propagate
       transport.injectError(new Error('WebSocket closed unexpectedly'));
 
       // Session should now be in an error state
-      await new Promise((r) => setTimeout(r, 10));
+      await new Promise((r) => {
+        setTimeout(r, 10);
+      });
 
       // Cleanup
       try {
@@ -252,7 +259,9 @@ describe('SharedTransportMultiplexer (via DaemonConnection)', () => {
         },
       });
 
-      await new Promise((r) => setTimeout(r, 10));
+      await new Promise((r) => {
+        setTimeout(r, 10);
+      });
       // After close, no new notifications should be received
       expect(notifs).toHaveLength(0);
     });
@@ -310,7 +319,9 @@ describe('SharedTransportMultiplexer (via DaemonConnection)', () => {
         },
       });
 
-      await new Promise((r) => setTimeout(r, 50));
+      await new Promise((r) => {
+        setTimeout(r, 50);
+      });
 
       // A response should have been sent back
       const response = transport.sentMessages.find(

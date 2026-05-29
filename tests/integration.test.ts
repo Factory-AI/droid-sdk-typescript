@@ -1863,7 +1863,9 @@ describe('Settings update notification flow (VAL-CROSS-007)', () => {
 
     await session.updateSettings({ modelId: 'upgraded-model' } as never);
 
-    await new Promise((r) => setTimeout(r, 20));
+    await new Promise((r) => {
+      setTimeout(r, 20);
+    });
 
     const sentUpdateSettings = transport.sentMessages.find(
       (m) =>

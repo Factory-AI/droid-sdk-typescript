@@ -632,6 +632,7 @@ export class StreamStateTracker {
     additional: InternalDroidMessage[];
   } {
     const additional: InternalDroidMessage[] = [];
+    let enriched: InternalDroidMessage = message;
 
     if (message.type === 'tool_use') {
       this.toolNameMap.set(message.toolUseId, message.toolName);
@@ -647,7 +648,7 @@ export class StreamStateTracker {
 
     // Enrich tool_result with toolName from prior tool_use
     if (message.type === DroidMessageType.ToolResult) {
-      message = { ...message, toolName: this.getToolName(message.toolUseId) };
+      enriched = { ...message, toolName: this.getToolName(message.toolUseId) };
     }
 
     if (message.type === DroidMessageType.AssistantTextDelta) {
@@ -687,10 +688,10 @@ export class StreamStateTracker {
     }
 
     if (message.type !== DroidMessageType.WorkingStateChanged) {
-      this.trackEmittedMessage(message);
+      this.trackEmittedMessage(enriched);
     }
 
-    return { message, additional };
+    return { message: enriched, additional };
   }
 
   private createResultMessage(): DroidResultMessage {

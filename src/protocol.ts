@@ -288,6 +288,8 @@ export class ProtocolEngine {
       case JsonRpcMessageType.Request:
         void this._handleServerRequest(msg.method, msg.id, msg.params);
         break;
+      default:
+        break;
     }
   }
 

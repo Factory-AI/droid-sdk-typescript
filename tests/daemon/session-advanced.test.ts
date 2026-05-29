@@ -90,7 +90,9 @@ describe('DaemonSession — advanced scenarios', () => {
         }
       })();
 
-      await new Promise((r) => setTimeout(r, 10));
+      await new Promise((r) => {
+        setTimeout(r, 10);
+      });
 
       // Abort after the stream has started
       controller.abort(new Error('User cancelled'));
@@ -127,7 +129,9 @@ describe('DaemonSession — advanced scenarios', () => {
         }
       })();
 
-      await new Promise((r) => setTimeout(r, 10));
+      await new Promise((r) => {
+        setTimeout(r, 10);
+      });
       controller.abort('timeout');
 
       await streamPromise;
@@ -151,7 +155,9 @@ describe('DaemonSession — advanced scenarios', () => {
         }
       })();
 
-      await new Promise((r) => setTimeout(r, 10));
+      await new Promise((r) => {
+        setTimeout(r, 10);
+      });
       controller.abort();
 
       await streamPromise;
@@ -173,7 +179,9 @@ describe('DaemonSession — advanced scenarios', () => {
         }
       })();
 
-      await new Promise((r) => setTimeout(r, 10));
+      await new Promise((r) => {
+        setTimeout(r, 10);
+      });
       controller.abort(new Error('stop'));
 
       await streamPromise;
@@ -197,7 +205,9 @@ describe('DaemonSession — advanced scenarios', () => {
         }
       })();
 
-      await new Promise((r) => setTimeout(r, 10));
+      await new Promise((r) => {
+        setTimeout(r, 10);
+      });
       sendDefaultStreamSequence(transport, { deltas: ['Chunk1', ' Chunk2'] });
 
       await streamPromise;
@@ -219,7 +229,9 @@ describe('DaemonSession — advanced scenarios', () => {
         }
       })();
 
-      await new Promise((r) => setTimeout(r, 10));
+      await new Promise((r) => {
+        setTimeout(r, 10);
+      });
       sendDefaultStreamSequence(transport);
       await streamPromise;
 
@@ -246,7 +258,9 @@ describe('DaemonSession — advanced scenarios', () => {
         }
       })();
 
-      await new Promise((r) => setTimeout(r, 10));
+      await new Promise((r) => {
+        setTimeout(r, 10);
+      });
       sendDefaultStreamSequence(transport);
       await streamPromise;
 
@@ -266,36 +280,53 @@ describe('DaemonSession — advanced scenarios', () => {
         }
       })();
 
-      await new Promise((r) => setTimeout(r, 10));
+      await new Promise((r) => {
+        setTimeout(r, 10);
+      });
       sendDefaultStreamSequence(transport);
       await streamPromise;
 
       // After stream completes, session should still be usable
+      const secondStreamMessages: DroidStreamEvent[] = [];
       const streamPromise2 = (async () => {
-        for await (const _msg of session.stream('test2')) {
-          // consume
+        for await (const msg of session.stream('test2')) {
+          secondStreamMessages.push(msg);
         }
       })();
 
-      await new Promise((r) => setTimeout(r, 10));
+      await new Promise((r) => {
+        setTimeout(r, 10);
+      });
       sendDefaultStreamSequence(transport);
       await streamPromise2;
+
+      expect(secondStreamMessages.length).toBeGreaterThan(0);
     });
 
     it('unsubscribes notification handler after stream completes', async () => {
+      const messages: DroidStreamEvent[] = [];
       const streamPromise = (async () => {
-        for await (const _msg of session.stream('test')) {
-          // consume
+        for await (const msg of session.stream('test')) {
+          messages.push(msg);
         }
       })();
 
-      await new Promise((r) => setTimeout(r, 10));
+      await new Promise((r) => {
+        setTimeout(r, 10);
+      });
       sendDefaultStreamSequence(transport);
       await streamPromise;
 
-      // Late notifications should not cause issues
+      const countAfterStream = messages.length;
+      expect(countAfterStream).toBeGreaterThan(0);
+
+      // Late notifications should not reach the unsubscribed handler
       sendDefaultStreamSequence(transport);
-      await new Promise((r) => setTimeout(r, 10));
+      await new Promise((r) => {
+        setTimeout(r, 10);
+      });
+
+      expect(messages.length).toBe(countAfterStream);
     });
   });
 
@@ -311,7 +342,9 @@ describe('DaemonSession — advanced scenarios', () => {
         streamDone = true;
       })();
 
-      await new Promise((r) => setTimeout(r, 10));
+      await new Promise((r) => {
+        setTimeout(r, 10);
+      });
 
       // Close while streaming
       await session.close();
@@ -330,7 +363,9 @@ describe('DaemonSession — advanced scenarios', () => {
           messages1.push(msg);
         }
       })();
-      await new Promise((r) => setTimeout(r, 10));
+      await new Promise((r) => {
+        setTimeout(r, 10);
+      });
       sendDefaultStreamSequence(transport, { deltas: ['Response 1'] });
       await stream1;
 
@@ -341,7 +376,9 @@ describe('DaemonSession — advanced scenarios', () => {
           messages2.push(msg);
         }
       })();
-      await new Promise((r) => setTimeout(r, 10));
+      await new Promise((r) => {
+        setTimeout(r, 10);
+      });
       sendDefaultStreamSequence(transport, { deltas: ['Response 2'] });
       await stream2;
 
@@ -415,7 +452,9 @@ describe('DaemonSession — advanced scenarios', () => {
         },
       });
 
-      await new Promise((r) => setTimeout(r, 10));
+      await new Promise((r) => {
+        setTimeout(r, 10);
+      });
       expect(notifications.length).toBeGreaterThan(0);
     });
   });
@@ -433,7 +472,9 @@ describe('DaemonSession — advanced scenarios', () => {
         }
       })();
 
-      await new Promise((r) => setTimeout(r, 10));
+      await new Promise((r) => {
+        setTimeout(r, 10);
+      });
       sendDefaultStreamSequence(transport);
       await streamPromise;
 
