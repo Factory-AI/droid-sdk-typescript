@@ -104,6 +104,19 @@ const DEFAULT_SERVER_REQUEST_METHOD_MAP: Record<
   [DroidClientMethod.ASK_USER]: ServerRequestHandlerType.AskUser,
 };
 
+// ─── Module-level JSON-RPC metadata provider ──────────────────────────────
+
+type MetaProvider = () => Record<string, string | undefined> | undefined;
+let _metaProvider: MetaProvider | null = null;
+
+/**
+ * Registers a callback that is invoked on every outgoing JSON-RPC request to
+ * inject metadata into the envelope _meta field. Pass null to clear.
+ */
+export function setGlobalMetaProvider(fn: MetaProvider | null): void {
+  _metaProvider = fn;
+}
+
 export class ProtocolEngine {
   private readonly _transport: DroidClientTransport;
   private readonly _defaultTimeout: number;
@@ -160,6 +173,7 @@ export class ProtocolEngine {
     const effectiveTimeout = timeout ?? this._defaultTimeout;
     const requestId = uuidv4();
 
+    const _meta = _metaProvider?.();
     const envelope = {
       jsonrpc: JSONRPC_VERSION,
       factoryApiVersion: LEGACY_FACTORY_API_VERSION,
@@ -168,6 +182,7 @@ export class ProtocolEngine {
       id: requestId,
       method,
       params,
+      ...(_meta ? { _meta } : {}),
     };
 
     // Create a promise that will be resolved when we get a matching response
