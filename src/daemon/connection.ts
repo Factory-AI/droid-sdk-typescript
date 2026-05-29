@@ -55,11 +55,6 @@ export function resolveWebSocketUrl(
     return `ws://127.0.0.1:${port}`;
   }
 
-  if (machine.type === MachineType.Ephemeral) {
-    const port = options.daemonPort ?? DEFAULT_DAEMON_PORT;
-    return `wss://${port}-${machine.sandboxId}.e2b.app`;
-  }
-
   if (machine.type === MachineType.Computer) {
     const relayBase = options.relayBaseUrl ?? DEFAULT_RELAY_BASE_URL;
     return `${relayBase}/v0/computer/${machine.computerId}/client`;

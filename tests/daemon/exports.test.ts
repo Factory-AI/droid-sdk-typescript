@@ -29,7 +29,6 @@ describe('daemon public API exports', () => {
 
   it('exports MachineType enum', () => {
     expect(sdk.MachineType).toBeDefined();
-    expect(sdk.MachineType.Ephemeral).toBe('ephemeral');
     expect(sdk.MachineType.Computer).toBe('computer');
     expect(sdk.MachineType.Local).toBe('local');
   });
