@@ -14,3 +14,4 @@ export * from './automations-enums.js';
 export * from './automations.js';
 export * from './plugins.js';
 export * from './settings.js';
+export * from './droid.js';
