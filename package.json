@@ -1,6 +1,6 @@
 {
   "name": "@factory/droid-sdk",
-  "version": "0.3.0",
+  "version": "0.4.0",
   "private": false,
   "description": "TypeScript SDK for the Factory Droid CLI",
   "keywords": [
