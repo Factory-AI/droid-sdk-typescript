@@ -1,16 +1,28 @@
 import { describe, expect, it } from 'vitest';
 
 import {
+  CliRequestOrNotificationSchema,
+  RequestPermissionRequestParamsSchema,
+} from '../src/protocol/cli.js';
+import {
+  ClientRequestSchema,
+  InitializeSessionRequestParamsSchema,
+} from '../src/protocol/client.js';
+import {
   FACTORY_PROTOCOL_VERSION,
   JSONRPC_VERSION,
   LEGACY_FACTORY_API_VERSION,
 } from '../src/protocol/constants.js';
+import { ManagedCustomModelSchema } from '../src/protocol/custom-models.js';
 import {
+  DroidClientMethod,
   DroidLoopStatus,
+  DroidServerMethod,
   JsonRpcErrorCode,
   JsonRpcMessageType,
   MessageContentBlockType,
   MessageRole,
+  ModelProvider,
   ReasoningEffort,
   SessionPlatform,
 } from '../src/protocol/enums.js';
@@ -192,5 +204,66 @@ describe('protocol TIER-2', () => {
       skipScrutiny: true,
     });
     expect(settings.workerReasoningEffort).toBe(ReasoningEffort.High);
+  });
+});
+
+describe('protocol TIER-3', () => {
+  it('parses InitializeSessionRequestParams with required fields', () => {
+    const params = InitializeSessionRequestParamsSchema.parse({
+      machineId: 'machine-1',
+      cwd: '/tmp/project',
+    });
+    expect(params.machineId).toBe('machine-1');
+  });
+
+  it('parses an InitializeSession client request via the discriminated union', () => {
+    const request = ClientRequestSchema.parse({
+      ...envelope,
+      type: 'request',
+      id: 'req-1',
+      method: DroidServerMethod.INITIALIZE_SESSION,
+      params: { machineId: 'machine-1', cwd: '/tmp/project' },
+    });
+    expect(request.method).toBe(DroidServerMethod.INITIALIZE_SESSION);
+  });
+
+  it('parses a ManagedCustomModel with apiKey + baseUrl', () => {
+    const model = ManagedCustomModelSchema.parse({
+      model: 'gpt-x',
+      provider: ModelProvider.ANTHROPIC,
+      baseUrl: 'https://example.com',
+      apiKey: 'secret',
+    });
+    expect(model.model).toBe('gpt-x');
+  });
+
+  it('rejects a ManagedCustomModel missing apiKey when not bedrock', () => {
+    expect(() =>
+      ManagedCustomModelSchema.parse({
+        model: 'gpt-x',
+        provider: ModelProvider.ANTHROPIC,
+        baseUrl: 'https://example.com',
+      })
+    ).toThrow();
+  });
+
+  it('parses a RequestPermission CLI request via the envelope union', () => {
+    const params = {
+      toolUses: [],
+      options: [],
+    };
+    expect(RequestPermissionRequestParamsSchema.parse(params).toolUses).toEqual(
+      []
+    );
+    const message = {
+      ...envelope,
+      type: 'request',
+      id: 'req-2',
+      method: DroidClientMethod.REQUEST_PERMISSION,
+      params,
+    };
+    expect(CliRequestOrNotificationSchema.parse(message).method).toBe(
+      DroidClientMethod.REQUEST_PERMISSION
+    );
   });
 });

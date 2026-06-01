@@ -585,3 +585,50 @@ export enum ApiProvider {
   BASETEN = 'baseten',
   SNOWFLAKE = 'snowflake',
 }
+
+export enum ModelKind {
+  Concrete = 'concrete',
+  Router = 'router',
+}
+
+export enum LLMModelTier {
+  Standard = 'standard',
+  // Deprecated
+  Premium = 'premium',
+  // Extra Usage (overage) billing tier
+  Overage = 'overage',
+}
+
+// ---------------------------------------------------------------------------
+// settings/enums.ts (leaf subset)
+// ---------------------------------------------------------------------------
+
+/**
+ * Settings hierarchy level enum.
+ * Precedence order (highest to lowest): Org -> Runtime -> Folder -> Project -> User
+ */
+export enum SettingsLevel {
+  Org = 'org',
+  Runtime = 'runtime',
+  User = 'user',
+  Project = 'project',
+  Folder = 'folder',
+  Dynamic = 'dynamic',
+  BuiltIn = 'builtin',
+}
+
+export enum DroidLocation {
+  Project = 'project',
+  Personal = 'personal',
+}
+
+export enum SkillLocation {
+  Project = 'project',
+  Personal = 'personal',
+  Builtin = 'builtin',
+}
+
+export enum SandboxMode {
+  PerCommand = 'per-command',
+  WholeProcess = 'whole-process',
+}
