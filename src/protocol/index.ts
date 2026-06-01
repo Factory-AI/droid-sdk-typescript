@@ -18,3 +18,5 @@ export * from './mcp.js';
 export * from './mission-decomposition.js';
 export * from './cli.js';
 export * from './client.js';
+
+export * as daemon from './daemon/index.js';
