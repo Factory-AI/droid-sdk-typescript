@@ -1,7 +1,4 @@
-/** Privacy level for an automation */
-export enum AutomationPrivacyLevel {
-  /** Only visible to the creator */
-  Private = 'private',
-  /** Visible to all members of the organization */
-  Organization = 'organization',
-}
+// Re-export from the hoisted top-level automations enums module so daemon
+// consumers continue to import `AutomationPrivacyLevel` from this path while
+// the canonical definition lives at `src/protocol/automations-enums.ts`.
+export * from '../automations-enums.js';
