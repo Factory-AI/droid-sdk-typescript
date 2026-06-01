@@ -22,86 +22,12 @@ import {
   MissionModelSettingsSchema,
   SubagentModelSettingsSchema,
 } from '../model-settings.js';
+import {
+  GeneralSettingsSchema,
+  SessionDefaultSettingsSchema,
+  SettingsResolutionEventSchema,
+} from '../settings.js';
 import { DaemonSettingsMethod } from './enums.js';
-
-// ---------------------------------------------------------------------------
-// Inlined helpers from the private settings/schema.ts source. Inlined because
-// the full settings schema is not yet ported into the public SDK. These mirror
-// the field shapes the daemon settings RPCs reference; the wire shape stays
-// faithful to the source.
-// ---------------------------------------------------------------------------
-
-const ReasoningEffortSchema = z.nativeEnum(ReasoningEffort);
-
-// CompactionModelSchema in the source is a union over a fixed enum of model
-// IDs plus a `custom:` prefix string. The wire shape is fundamentally a
-// string, so we mirror that here without pulling the entire ModelID enum.
-const CompactionModelSchema = z.string();
-
-const SessionDefaultSettingsSchema = z.object({
-  model: z.string().optional(),
-  reasoningEffort: ReasoningEffortSchema.optional(),
-  interactionMode: DroidInteractionModeSchema.optional(),
-  autonomyLevel: z.nativeEnum(AutonomyLevel).optional(),
-  autonomyMode: z
-    .nativeEnum(AutonomyMode)
-    .optional()
-    .describe('Deprecated: use interactionMode + autonomyLevel instead.'),
-  specModeModel: z.string().optional(),
-  specModeReasoningEffort: ReasoningEffortSchema.optional(),
-  runInWorktree: z.boolean().optional(),
-});
-
-const GeneralSettingsSchema = z.object({
-  specSaveDir: z.string().optional(),
-  missionOrchestratorModel: z.string().optional(),
-  missionOrchestratorReasoningEffort: ReasoningEffortSchema.optional(),
-  worktreeDirectory: z.string().optional(),
-  compactionTokenLimit: z.number().optional(),
-  compactionTokenLimitPerModel: z.record(z.number()).optional(),
-  compactionModel: CompactionModelSchema.optional(),
-});
-
-const SettingsSourceTypeEnum = z.enum([
-  'builtin-default',
-  'dynamic-config',
-  'org',
-  'user',
-  'project',
-  'folder',
-  'feature-flag',
-  'localstorage',
-  'nav-state',
-  'orchestrator-override',
-  'auto-select',
-  'session-state',
-]);
-
-const SettingsSourceSchema = z.object({
-  type: SettingsSourceTypeEnum,
-  filePath: z.string().optional(),
-  flagName: z.string().optional(),
-  key: z.string().optional(),
-  orgId: z.string().optional(),
-});
-
-const SettingsActionEnum = z.enum(['set', 'override', 'skip', 'fallback']);
-
-const SettingsResolutionLocationSchema = z.object({
-  package: z.string(),
-  file: z.string(),
-  function: z.string().optional(),
-});
-
-const SettingsResolutionEventSchema = z.object({
-  timestamp: z.string(),
-  keys: z.array(z.string()),
-  action: SettingsActionEnum,
-  source: SettingsSourceSchema,
-  value: z.record(z.unknown()).optional(),
-  reason: z.string().optional(),
-  location: SettingsResolutionLocationSchema.optional(),
-});
 
 // ---------------------------------------------------------------------------
 // Daemon settings RPC schemas

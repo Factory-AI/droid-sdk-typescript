@@ -1,41 +1,15 @@
 import z from 'zod';
 
 import { JsonRpcBaseRequestSchema } from '../json-rpc.js';
+import { MarketplaceSourceSchema } from '../settings.js';
 import { DaemonDroidMethod } from './enums.js';
 
-// Local mirror of the marketplace source schema from
-// factory-mono-alpha/packages/common/src/settings/schema.ts. Inlined here
-// because the full settings schema is not yet ported into the public SDK.
-// CRITICAL: keep this distinct from `RedactedMarketplaceSourceSchema` below —
-// the redacted variant intentionally omits filesystem paths and userinfo for
-// RPC responses, and collapsing the two would risk credential leakage.
-const GitHubMarketplaceSourceSchema = z.object({
-  source: z.literal('github'),
-  repo: z.string(),
-});
+export { MarketplaceSourceSchema };
 
-const UrlMarketplaceSourceSchema = z.object({
-  source: z.literal('url'),
-  url: z.string(),
-});
-
-const LocalMarketplaceSourceSchema = z.object({
-  source: z.literal('local'),
-  path: z.string(),
-});
-
-const GitSubdirMarketplaceSourceSchema = z.object({
-  source: z.literal('git-subdir'),
-  url: z.string(),
-  path: z.string(),
-});
-
-export const MarketplaceSourceSchema = z.discriminatedUnion('source', [
-  GitHubMarketplaceSourceSchema,
-  UrlMarketplaceSourceSchema,
-  LocalMarketplaceSourceSchema,
-  GitSubdirMarketplaceSourceSchema,
-]);
+// CRITICAL: `RedactedMarketplaceSourceSchema` below stays intentionally
+// distinct from `MarketplaceSourceSchema`. The redacted variant omits
+// filesystem paths and userinfo for RPC responses; collapsing the two would
+// risk credential / local-layout leakage.
 
 // ── LIST_AVAILABLE_PLUGINS ───────────────────────────────────────────
 

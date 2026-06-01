@@ -15,6 +15,19 @@ export const FACTORY_PROTOCOL_VERSION = '1.62.0' as const;
 
 export const JSONRPC_VERSION = '2.0' as const;
 
+/**
+ * Sentinel ModelID value for the Factory routing model. Faithful copy of
+ * packages/common/src/llm/constants.ts.
+ */
+export const FACTORY_ROUTER_MODEL_ID = 'factory-router' as const;
+
+/**
+ * Sentinel value used by CompactionModelSchema to mean "use the session's
+ * current model for compaction". Faithful copy of
+ * packages/common/src/settings/constants.ts.
+ */
+export const CURRENT_COMPACTION_MODEL = 'current-model';
+
 const seconds = (value: number) => value * 1_000;
 const minutes = (value: number) => seconds(value * 60);
 const hours = (value: number) => minutes(value * 60);
