@@ -1,15 +1,18 @@
 // Source-of-truth mirror of factory-mono-alpha message content-block schemas.
-// Faithful copy of the content-block stack from
+// Faithful copy of the message schemas from
 //   packages/common/src/sessionV2/messages/schemas.ts
-// EXCLUDING FactoryDroidMessageSchema / FactoryDroidMessageWithCachingSchema,
-// which are deferred to a later (TIER-2) migration step.
 
 import { z } from 'zod';
 
 import {
+  ChatCompletionReasoningField,
   DocumentSourceType,
   MessageContentBlockType,
+  MessageRole,
+  MessageVisibility,
   ModelProvider,
+  OpenAIPhase,
+  SessionOrigin,
 } from './enums.js';
 
 // Base content block with optional id field
@@ -124,6 +127,44 @@ export const CacheLabelSchema = z.object({
     .optional(),
 });
 
+// FactoryDroidMessage schema (used in JSON-RPC protocol and application)
+export const FactoryDroidMessageSchema = z.object({
+  id: z.string(),
+  role: z.nativeEnum(MessageRole),
+  content: z.array(ContentBlockSchema),
+  createdAt: z.number(),
+  updatedAt: z.number(),
+  parentId: z.string().optional(),
+  userMessageSource: z.nativeEnum(SessionOrigin).optional(),
+  visibility: z.nativeEnum(MessageVisibility).optional(),
+  openaiMessageId: z.string().optional(),
+  openaiPhase: z
+    .enum([OpenAIPhase.Commentary, OpenAIPhase.FinalAnswer])
+    .nullable()
+    .optional(),
+  openaiEncryptedContent: z.string().optional(),
+  openaiReasoningId: z.string().optional(),
+  openaiReasoningSummary: z.string().optional(),
+  geminiThoughtSignature: z
+    .string()
+    .optional()
+    .describe(
+      '@deprecated Use thinking block `signature` fields with `signatureProvider: "google"` instead. Do not use in new code.'
+    ),
+  chatCompletionReasoningField: z
+    .nativeEnum(ChatCompletionReasoningField)
+    .optional(),
+  chatCompletionReasoningContent: z.string().optional(),
+  isUserVisible: z.boolean().optional(), // deprecated
+  isError: z.boolean().optional(),
+});
+
+// FactoryDroidMessageWithCaching schema
+export const FactoryDroidMessageWithCachingSchema =
+  FactoryDroidMessageSchema.extend({
+    content: z.array(ContentBlockSchema.and(CacheLabelSchema)),
+  });
+
 export type TextBlock = z.infer<typeof TextBlockSchema>;
 export type Base64ImageSource = z.infer<typeof Base64ImageSourceSchema>;
 export type ImageBlock = z.infer<typeof ImageBlockSchema>;
@@ -137,3 +178,7 @@ export type DocumentBlock = z.infer<typeof DocumentBlockSchema>;
 export type ToolResult = z.infer<typeof ToolResultSchema>;
 export type ContentBlock = z.infer<typeof ContentBlockSchema>;
 export type CacheLabel = z.infer<typeof CacheLabelSchema>;
+export type FactoryDroidMessage = z.infer<typeof FactoryDroidMessageSchema>;
+export type FactoryDroidMessageWithCaching = z.infer<
+  typeof FactoryDroidMessageWithCachingSchema
+>;
