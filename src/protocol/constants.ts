@@ -28,6 +28,15 @@ export const FACTORY_ROUTER_MODEL_ID = 'factory-router' as const;
  */
 export const CURRENT_COMPACTION_MODEL = 'current-model';
 
+// Faithful copy of packages/common/src/settings/constants.ts router-rule
+// guardrails. Used by ManagedSettingsBaseSchema and FactoryRouterRuleSchema.
+
+/** Sized comparably to a trimmed user message in the classifier context budget. */
+export const FACTORY_ROUTER_GUIDANCE_MAX_LENGTH = 2000;
+export const FACTORY_ROUTER_RULES_MAX_COUNT = 20;
+export const FACTORY_ROUTER_RULE_WHEN_MAX_LENGTH = 300;
+export const FACTORY_ROUTER_RULE_GUIDANCE_MAX_LENGTH = 600;
+
 const seconds = (value: number) => value * 1_000;
 const minutes = (value: number) => seconds(value * 60);
 const hours = (value: number) => minutes(value * 60);

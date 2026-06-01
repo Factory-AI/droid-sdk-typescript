@@ -12,6 +12,7 @@ export * from './session-source.js';
 export * from './messages.js';
 export * from './model-settings.js';
 export * from './settings.js';
+export * from './general-settings.js';
 export * from './loop.js';
 export * from './selectable-list-item.js';
 export * from './custom-models.js';

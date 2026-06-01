@@ -707,3 +707,44 @@ export enum SandboxMode {
   PerCommand = 'per-command',
   WholeProcess = 'whole-process',
 }
+
+// ---------------------------------------------------------------------------
+// settings/enums.ts (additional leaf enums for GeneralSettingsSchema)
+// ---------------------------------------------------------------------------
+
+export enum DiffMode {
+  Github = 'github',
+  Unified = 'unified',
+}
+
+export enum SoundFocusMode {
+  Always = 'always',
+  Focused = 'focused',
+  Unfocused = 'unfocused',
+}
+
+export enum TodoDisplayMode {
+  Inline = 'inline',
+  Pinned = 'pinned',
+}
+
+export enum SubagentSoundMode {
+  Off = 'off',
+  Quiet = 'quiet',
+  Inherit = 'inherit',
+}
+
+// ---------------------------------------------------------------------------
+// cli/enums.ts (leaf enums for GeneralSettingsSchema)
+// ---------------------------------------------------------------------------
+
+export enum LogoAnimationMode {
+  Once = 'once',
+  Always = 'always',
+  Off = 'off',
+}
+
+export enum ToolResultDisplay {
+  Expanded = 'expanded',
+  Compact = 'compact',
+}

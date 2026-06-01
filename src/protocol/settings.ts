@@ -13,16 +13,11 @@
 // avoid duplicate barrel exports. Callers needing them should import from
 // './model-settings.js' as before.
 //
-// GeneralSettingsSchema is intentionally NOT mirrored here. In the source it
-// extends ManagedSettingsBaseSchema and pulls in a large transitive chain of
-// CLI/UI/policy schemas (UserModelPolicySchema, FactoryTier, McpPolicy,
-// MissionPolicy, NetworkPolicy, SandboxSettings, FactoryRouterRule, custom
-// models, cli enums, plus ~15-25 additional supporting schemas) that are
-// not part of the daemon wire protocol. Exporting a narrowed 7-field subset
-// under the same name would silently drop ~63 fields for callers parsing
-// real settings.json blobs, so we omit it entirely. Daemon settings RPCs
-// that need specific field shapes inline them directly from the monorepo
-// source (see ./daemon/settings.ts).
+// GeneralSettingsSchema and ManagedSettingsBaseSchema (plus their helper
+// schemas: ModelPolicySchema, McpPolicySchema, MissionPolicySchema,
+// SandboxSettingsSchema, FactoryRouterRuleSchema, etc.) live in
+// ./general-settings.js, mirrored verbatim from the same upstream source
+// file.
 
 import { z } from 'zod';
 
