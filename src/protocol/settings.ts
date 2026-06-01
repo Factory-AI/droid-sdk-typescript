@@ -13,19 +13,16 @@
 // avoid duplicate barrel exports. Callers needing them should import from
 // './model-settings.js' as before.
 //
-// IMPORTANT: GeneralSettingsSchema in the source extends
-// ManagedSettingsBaseSchema and pulls in an enormous transitive dep chain
-// (UserModelPolicySchema, FactoryTier, McpPolicy, MissionPolicy,
-// NetworkPolicy, SandboxSettings, FactoryRouterRule, custom models, cli
-// enums, etc.). Porting all of that would balloon the SDK far beyond the
-// daemon protocol's needs. The daemon settings RPCs only access
-// `GeneralSettingsSchema.shape.{compactionTokenLimit,
-// compactionTokenLimitPerModel, compactionModel, specSaveDir,
-// missionOrchestratorModel, missionOrchestratorReasoningEffort,
-// worktreeDirectory}` via `.shape.X`. We therefore export a *subset*
-// `GeneralSettingsSchema` containing only those fields. The field shapes
-// match the source verbatim; the schema is intentionally narrower than the
-// monorepo original.
+// GeneralSettingsSchema is intentionally NOT mirrored here. In the source it
+// extends ManagedSettingsBaseSchema and pulls in a large transitive chain of
+// CLI/UI/policy schemas (UserModelPolicySchema, FactoryTier, McpPolicy,
+// MissionPolicy, NetworkPolicy, SandboxSettings, FactoryRouterRule, custom
+// models, cli enums, plus ~15-25 additional supporting schemas) that are
+// not part of the daemon wire protocol. Exporting a narrowed 7-field subset
+// under the same name would silently drop ~63 fields for callers parsing
+// real settings.json blobs, so we omit it entirely. Daemon settings RPCs
+// that need specific field shapes inline them directly from the monorepo
+// source (see ./daemon/settings.ts).
 
 import { z } from 'zod';
 
@@ -116,25 +113,6 @@ export const MarketplaceSourceSchema = z.discriminatedUnion('source', [
 ]);
 
 // =============================================================================
-// General Settings Schema (subset — see file-level comment)
-// =============================================================================
-
-/**
- * Subset of the monorepo's `GeneralSettingsSchema` containing only the fields
- * the daemon settings RPCs reach into via `.shape.X`. Field shapes mirror the
- * source verbatim. See the file-level comment for the porting rationale.
- */
-export const GeneralSettingsSchema = z.object({
-  specSaveDir: z.string().optional(),
-  missionOrchestratorModel: z.string().optional(),
-  missionOrchestratorReasoningEffort: ReasoningEffortSchema.optional(),
-  worktreeDirectory: z.string().optional(),
-  compactionTokenLimit: z.number().optional(),
-  compactionTokenLimitPerModel: z.record(z.number()).optional(),
-  compactionModel: CompactionModelSchema.optional(),
-});
-
-// =============================================================================
 // Settings Resolution Chain Schemas
 // =============================================================================
 
@@ -200,7 +178,6 @@ export type SessionDefaultSettings = z.infer<
   typeof SessionDefaultSettingsSchema
 >;
 export type MarketplaceSource = z.infer<typeof MarketplaceSourceSchema>;
-export type GeneralSettings = z.infer<typeof GeneralSettingsSchema>;
 export type CompactionModel = z.infer<typeof CompactionModelSchema>;
 export type SettingsResolutionEvent = z.infer<
   typeof SettingsResolutionEventSchema

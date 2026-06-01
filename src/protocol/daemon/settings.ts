@@ -23,11 +23,25 @@ import {
   SubagentModelSettingsSchema,
 } from '../model-settings.js';
 import {
-  GeneralSettingsSchema,
+  CompactionModelSchema,
   SessionDefaultSettingsSchema,
   SettingsResolutionEventSchema,
 } from '../settings.js';
 import { DaemonSettingsMethod } from './enums.js';
+
+// Field shapes inlined verbatim from the monorepo's `GeneralSettingsSchema`
+// (packages/common/src/settings/schema.ts). See ../settings.js for why the
+// full `GeneralSettingsSchema` is not mirrored in the public surface.
+const ReasoningEffortShape = z.nativeEnum(ReasoningEffort).optional();
+const GeneralSettingsShape = {
+  compactionTokenLimit: z.number().optional(),
+  compactionTokenLimitPerModel: z.record(z.number()).optional(),
+  compactionModel: CompactionModelSchema.optional(),
+  specSaveDir: z.string().optional(),
+  missionOrchestratorModel: z.string().optional(),
+  missionOrchestratorReasoningEffort: ReasoningEffortShape,
+  worktreeDirectory: z.string().optional(),
+};
 
 // ---------------------------------------------------------------------------
 // Daemon settings RPC schemas
@@ -98,27 +112,27 @@ export const DaemonUpdateSessionDefaultsRequestParamsSchema = z.object({
   specModeModelId: SessionDefaultSettingsSchema.shape.specModeModel.nullable(),
   specModeReasoningEffort:
     SessionDefaultSettingsSchema.shape.specModeReasoningEffort.nullable(),
-  compactionTokenLimit: GeneralSettingsSchema.shape.compactionTokenLimit,
+  compactionTokenLimit: GeneralSettingsShape.compactionTokenLimit,
   compactionTokenLimitPerModel:
-    GeneralSettingsSchema.shape.compactionTokenLimitPerModel,
-  compactionModel: GeneralSettingsSchema.shape.compactionModel,
+    GeneralSettingsShape.compactionTokenLimitPerModel,
+  compactionModel: GeneralSettingsShape.compactionModel,
   compactionModelMode: LegacyCompactionModelModeWireSchema.optional().describe(
     'Deprecated wire input retained for existing daemon clients; use compactionModel instead.'
   ),
   subagentModelSettings: SubagentModelSettingsSchema.partial().optional(),
-  specSaveDir: GeneralSettingsSchema.shape.specSaveDir.nullable().optional(),
-  missionOrchestratorModel: GeneralSettingsSchema.shape.missionOrchestratorModel
+  specSaveDir: GeneralSettingsShape.specSaveDir.nullable().optional(),
+  missionOrchestratorModel: GeneralSettingsShape.missionOrchestratorModel
     .nullable()
     .optional(),
   missionOrchestratorReasoningEffort:
-    GeneralSettingsSchema.shape.missionOrchestratorReasoningEffort
+    GeneralSettingsShape.missionOrchestratorReasoningEffort
       .nullable()
       .optional(),
   missionModelSettings: MissionModelSettingsSchema.partial().optional(),
   runInWorktree: SessionDefaultSettingsSchema.shape.runInWorktree
     .nullable()
     .optional(),
-  worktreeDirectory: GeneralSettingsSchema.shape.worktreeDirectory
+  worktreeDirectory: GeneralSettingsShape.worktreeDirectory
     .nullable()
     .optional(),
 });
@@ -159,7 +173,7 @@ export const DaemonGetDefaultSettingsResultSchema = z.object({
   specModeReasoningEffort: z.nativeEnum(ReasoningEffort).optional(),
   compactionTokenLimit: z.number().optional(),
   compactionTokenLimitPerModel: z.record(z.number()).optional(),
-  compactionModel: GeneralSettingsSchema.shape.compactionModel,
+  compactionModel: GeneralSettingsShape.compactionModel,
   compactionModelMode: LegacyCompactionModelModeWireSchema.optional().describe(
     'Deprecated wire view retained for existing daemon clients; use compactionModel instead.'
   ),

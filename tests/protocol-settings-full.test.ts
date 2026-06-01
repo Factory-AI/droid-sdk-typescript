@@ -13,7 +13,6 @@ import { ModelID } from '../src/protocol/enums.js';
 import {
   AutonomyModeSchema,
   CompactionModelSchema,
-  GeneralSettingsSchema,
   MarketplaceSourceSchema,
   SessionDefaultSettingsSchema,
   SettingsResolutionEventSchema,
@@ -66,15 +65,6 @@ describe('protocol/settings (ported gap)', () => {
       autonomyMode: 'normal',
     });
     expect(parsed.model).toBe('gpt-5.5');
-  });
-
-  it('GeneralSettingsSchema parses the daemon-required fields', () => {
-    const parsed = GeneralSettingsSchema.parse({
-      compactionTokenLimit: 100_000,
-      compactionModel: CURRENT_COMPACTION_MODEL,
-      worktreeDirectory: '/tmp/worktrees',
-    });
-    expect(parsed.compactionModel).toBe('current-model');
   });
 
   it('MarketplaceSourceSchema parses each discriminated variant', () => {
@@ -169,5 +159,60 @@ describe('protocol/daemon — Settings/ModelID gap fill integration', () => {
       },
     });
     expect(result.success).toBe(false);
+  });
+
+  it('DaemonUpdateSessionDefaultsRequestSchema accepts all 7 inlined GeneralSettings fields together', () => {
+    const req = DaemonUpdateSessionDefaultsRequestSchema.parse({
+      jsonrpc: '2.0',
+      factoryApiVersion: '1.0.0',
+      type: 'request',
+      id: 'req-1',
+      method: 'daemon.update_session_defaults',
+      params: {
+        compactionTokenLimit: 100_000,
+        compactionTokenLimitPerModel: { [ModelID.CLAUDE_OPUS_4_7]: 200_000 },
+        compactionModel: CURRENT_COMPACTION_MODEL,
+        specSaveDir: '/tmp/specs',
+        missionOrchestratorModel: ModelID.CLAUDE_OPUS_4_7,
+        missionOrchestratorReasoningEffort: 'medium',
+        worktreeDirectory: '/tmp/worktrees',
+      },
+    });
+    expect(req.params.compactionTokenLimit).toBe(100_000);
+    expect(
+      req.params.compactionTokenLimitPerModel?.[ModelID.CLAUDE_OPUS_4_7]
+    ).toBe(200_000);
+    expect(req.params.compactionModel).toBe('current-model');
+    expect(req.params.specSaveDir).toBe('/tmp/specs');
+    expect(req.params.missionOrchestratorModel).toBe('claude-opus-4-7');
+    expect(req.params.missionOrchestratorReasoningEffort).toBe('medium');
+    expect(req.params.worktreeDirectory).toBe('/tmp/worktrees');
+  });
+
+  it('DaemonUpdateSessionDefaultsRequestSchema accepts each inlined GeneralSettings field individually optional/missing', () => {
+    for (const params of [
+      { compactionTokenLimit: 50_000 },
+      { compactionTokenLimitPerModel: { 'gpt-5.5': 75_000 } },
+      { compactionModel: CURRENT_COMPACTION_MODEL },
+      { specSaveDir: '/tmp/x' },
+      { specSaveDir: null },
+      { missionOrchestratorModel: 'gpt-5.5' },
+      { missionOrchestratorModel: null },
+      { missionOrchestratorReasoningEffort: 'high' },
+      { missionOrchestratorReasoningEffort: null },
+      { worktreeDirectory: '/tmp/wt' },
+      { worktreeDirectory: null },
+      {},
+    ]) {
+      const result = DaemonUpdateSessionDefaultsRequestSchema.safeParse({
+        jsonrpc: '2.0',
+        factoryApiVersion: '1.0.0',
+        type: 'request',
+        id: 'req-1',
+        method: 'daemon.update_session_defaults',
+        params,
+      });
+      expect(result.success, `payload ${JSON.stringify(params)}`).toBe(true);
+    }
   });
 });
