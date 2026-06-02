@@ -571,6 +571,10 @@ export enum ModelID {
   OLM_0305 = 'olm-03-05',
   ORBIT_0409 = 'orbit-04-09',
   OLIVE_0522 = 'olive-05-22',
+  ORIEL_0601 = 'oriel-06-01',
+  OXIDE_0601 = 'oxide-06-01',
+  OXBOW_0601 = 'oxbow-06-01',
+  OCELOT_0601 = 'ocelot-06-01',
 
   // Google models
   GEMINI_2_5_FLASH = 'gemini-2.5-flash',

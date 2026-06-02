@@ -171,6 +171,11 @@ const McpAutonomyLevelSchema = z.enum([
   AutonomyLevel.High,
 ]);
 
+const McpAutonomyUrlOverrideSchema = z.object({
+  urlPattern: z.string().trim().min(1),
+  defaultLevel: McpAutonomyLevelSchema,
+});
+
 const StatusLineConfigSchema = z.object({
   type: z.literal('command').optional(),
   command: z.string(),
@@ -192,6 +197,7 @@ export const ManagedSettingsBaseSchema = z.object({
       })
     )
     .optional(),
+  mcpAutonomyUrlOverrides: z.array(McpAutonomyUrlOverrideSchema).optional(),
   cloudSessionSync: z.boolean().optional(),
   wikiCloudSync: z.boolean().optional(),
   includeCoAuthoredByDroid: z.boolean().optional(),
@@ -255,6 +261,7 @@ export const GeneralSettingsSchema = ManagedSettingsBaseSchema.extend({
   missionOrchestratorModel: z.string().optional(),
   missionOrchestratorReasoningEffort: ReasoningEffortSchema.optional(),
   modelFavorites: z.array(z.string()).optional(),
+  dismissedNewModels: z.array(z.string()).optional(),
   logoAnimation: z.nativeEnum(LogoAnimationMode).optional(),
   missionModelSettings: MissionModelSettingsSchema.optional(),
   subagentModelSettings: SubagentModelSettingsSchema.optional(),

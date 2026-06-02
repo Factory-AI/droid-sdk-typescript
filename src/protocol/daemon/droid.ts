@@ -566,6 +566,7 @@ export const DaemonRenameSessionResponseSchema =
 export const DaemonGetGitDiffRequestParamsSchema = z.object({
   sessionId: z.string(),
   baseBranch: z.string().optional(),
+  statsOnly: z.boolean().optional(),
 });
 
 export const DaemonGetGitDiffFileSchema = z.object({
@@ -593,6 +594,10 @@ export const DaemonGetGitDiffDataSchema = z.object({
   totalDeletions: z.number(),
   remoteUrl: z.string().nullable(),
   commits: z.array(DaemonGetGitDiffCommitSchema),
+  committedDiff: z.string().default(''),
+  committedFiles: z.array(DaemonGetGitDiffFileSchema).default([]),
+  committedTotalAdditions: z.number().default(0),
+  committedTotalDeletions: z.number().default(0),
   unstagedDiff: z.string().default(''),
   unstagedFiles: z.array(DaemonGetGitDiffFileSchema).default([]),
   unstagedTotalAdditions: z.number().default(0),
@@ -832,11 +837,32 @@ export const DaemonGetProxyTokenResponseSchema = z.union([
 const DaemonGetWorkspaceFileContentRequestParamsSchema = z.object({
   sessionId: z.string(),
   filePath: z.string(),
+  /**
+   * How the file bytes should be encoded in the response. `utf8` (default)
+   * returns decoded text for source/markdown previews; `base64` returns the
+   * raw bytes for binary previews (PDF, images) that the client turns into a
+   * blob URL.
+   */
+  encoding: z.enum(['utf8', 'base64']).optional(),
 });
 
 export const DaemonGetWorkspaceFileContentResultSchema = z.object({
   content: z.string(),
   byteLength: z.number(),
+  /**
+   * Encoding of `content`: decoded text (`utf8`) or raw bytes (`base64`).
+   * Optional for protocol back-compat; absent responses are treated as
+   * `utf8` by the client.
+   */
+  encoding: z.enum(['utf8', 'base64']).optional(),
+  /** Best-effort MIME type derived from the file extension, when known. */
+  mimeType: z.string().optional(),
+  /**
+   * Set when a `utf8` request targeted a file whose bytes are not valid text
+   * (e.g. a binary file opened by the generic code renderer). The client
+   * shows a "binary file" guard instead of rendering garbage.
+   */
+  isBinary: z.boolean().optional(),
 });
 
 export const DaemonGetWorkspaceFileContentRequestSchema =
