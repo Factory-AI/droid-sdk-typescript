@@ -522,6 +522,81 @@ export enum SessionOrigin {
 // llm/enums.ts (leaf subset)
 // ---------------------------------------------------------------------------
 
+/**
+ * ModelID enum defines unique identifiers for language models.
+ *
+ * These IDs are independent of provider (Anthropic, OpenAI, etc.) and reasoning effort (Low, Medium, High).
+ * They represent the core model identity that remains consistent regardless of how the model is accessed.
+ */
+export enum ModelID {
+  // Claude models
+  CLAUDE_SONNET_3_5 = 'claude-3-5-sonnet-20241022',
+  CLAUDE_SONNET_3_7 = 'claude-3-7-sonnet-20250219',
+  CLAUDE_SONNET_4 = 'claude-sonnet-4-20250514',
+  CLAUDE_OPUS_4 = 'claude-opus-4-1-20250805',
+  CLAUDE_HAIKU_3_5 = 'claude-3-5-haiku-20241022',
+  CLAUDE_SONNET_4_5 = 'claude-sonnet-4-5-20250929',
+  CLAUDE_OPUS_4_5 = 'claude-opus-4-5-20251101',
+  CLAUDE_HAIKU_4_5 = 'claude-haiku-4-5-20251001',
+  CLAUDE_SONNET_4_6 = 'claude-sonnet-4-6',
+  CLAUDE_OPUS_4_6 = 'claude-opus-4-6',
+  CLAUDE_OPUS_4_6_FAST = 'claude-opus-4-6-fast',
+  CLAUDE_OPUS_4_7 = 'claude-opus-4-7',
+  CLAUDE_OPUS_4_7_FAST = 'claude-opus-4-7-fast',
+  CLAUDE_OPUS_4_8 = 'claude-opus-4-8',
+  CLAUDE_OPUS_4_8_FAST = 'claude-opus-4-8-fast',
+  ASPEN_0515 = 'aspen-05-15',
+  ALMOND_0527 = 'almond-05-27',
+
+  // OpenAI models
+  GPT_5 = 'gpt-5-2025-08-07',
+  GPT_5_MINI = 'gpt-5-mini-2025-08-07',
+  GPT_5_NANO = 'gpt-5-nano-2025-08-07',
+  GPT_5_CODEX = 'gpt-5-codex',
+  GPT_5_1 = 'gpt-5.1',
+  GPT_5_1_CODEX = 'gpt-5.1-codex',
+  GPT_5_1_CODEX_MAX = 'gpt-5.1-codex-max',
+  GPT_5_2 = 'gpt-5.2',
+  GPT_5_2_CODEX = 'gpt-5.2-codex',
+  GPT_5_3_CODEX = 'gpt-5.3-codex',
+  GPT_5_3_CODEX_FAST = 'gpt-5.3-codex-fast',
+  GPT_5_4 = 'gpt-5.4',
+  GPT_5_4_FAST = 'gpt-5.4-fast',
+  GPT_5_4_MINI = 'gpt-5.4-mini',
+  GPT_5_5 = 'gpt-5.5',
+  GPT_5_5_FAST = 'gpt-5.5-fast',
+  GPT_5_5_PRO = 'gpt-5.5-pro',
+  OLM_0305 = 'olm-03-05',
+  ORBIT_0409 = 'orbit-04-09',
+  OLIVE_0522 = 'olive-05-22',
+
+  // Google models
+  GEMINI_2_5_FLASH = 'gemini-2.5-flash',
+  GEMINI_2_5_PRO = 'gemini-2.5-pro',
+  GEMINI_3_PRO = 'gemini-3-pro-preview',
+  GEMINI_3_FLASH = 'gemini-3-flash-preview',
+  GEMINI_3_1_PRO = 'gemini-3.1-pro-preview',
+  GEMINI_3_5_FLASH = 'gemini-3.5-flash',
+  GANTRY_0507 = 'gantry-05-07',
+
+  // XAI models
+  TITAN_0212 = 'titan-02-12',
+
+  // Open source models
+  GLM_4_6 = 'glm-4.6',
+  GLM_4_7 = 'glm-4.7',
+  KIMI_K2_5 = 'kimi-k2.5',
+  KIMI_K2_6 = 'kimi-k2.6',
+  DEEPSEEK_V4_PRO = 'deepseek-v4-pro',
+  MINIMAX_M2_5 = 'minimax-m2.5',
+  MINIMAX_M2_7 = 'minimax-m2.7',
+  GLM_5 = 'glm-5',
+  GLM_5_1 = 'glm-5.1',
+
+  // Routers
+  FACTORY_ROUTER = 'factory-router',
+}
+
 export enum OpenAIPhase {
   Commentary = 'commentary',
   FinalAnswer = 'final_answer',
@@ -631,4 +706,45 @@ export enum SkillLocation {
 export enum SandboxMode {
   PerCommand = 'per-command',
   WholeProcess = 'whole-process',
+}
+
+// ---------------------------------------------------------------------------
+// settings/enums.ts (additional leaf enums for GeneralSettingsSchema)
+// ---------------------------------------------------------------------------
+
+export enum DiffMode {
+  Github = 'github',
+  Unified = 'unified',
+}
+
+export enum SoundFocusMode {
+  Always = 'always',
+  Focused = 'focused',
+  Unfocused = 'unfocused',
+}
+
+export enum TodoDisplayMode {
+  Inline = 'inline',
+  Pinned = 'pinned',
+}
+
+export enum SubagentSoundMode {
+  Off = 'off',
+  Quiet = 'quiet',
+  Inherit = 'inherit',
+}
+
+// ---------------------------------------------------------------------------
+// cli/enums.ts (leaf enums for GeneralSettingsSchema)
+// ---------------------------------------------------------------------------
+
+export enum LogoAnimationMode {
+  Once = 'once',
+  Always = 'always',
+  Off = 'off',
+}
+
+export enum ToolResultDisplay {
+  Expanded = 'expanded',
+  Compact = 'compact',
 }

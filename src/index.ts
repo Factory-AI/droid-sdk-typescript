@@ -16,6 +16,12 @@ export type {
   PermissionHandler,
 } from './protocol.js';
 
+// Namespace export for the source-of-truth protocol schemas under src/protocol/.
+// Exposed as a namespace to avoid colliding with the flat exports above from
+// the legacy `./protocol.js` file. Consumers access these as
+// `protocol.DaemonRequestSchema`, `protocol.daemon.…`, `protocol.usage.…`, etc.
+export * as protocol from './protocol/index.js';
+
 export { DroidClient } from './client.js';
 export type {
   ClientAskUserHandler,
