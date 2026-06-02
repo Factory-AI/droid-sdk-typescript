@@ -496,7 +496,6 @@ const _SessionNotificationParamsSchema = z
   })
   .passthrough();
 
-/* eslint-disable @typescript-eslint/consistent-type-assertions -- Zod workaround for deep type inference */
 export const SessionNotificationParamsSchema: z.ZodType<
   SessionNotificationParams,
   z.ZodTypeDef,
@@ -506,7 +505,6 @@ export const SessionNotificationParamsSchema: z.ZodType<
   z.ZodTypeDef,
   unknown
 >;
-/* eslint-enable @typescript-eslint/consistent-type-assertions */
 
 export type SessionNotificationParams = {
   notification: SessionNotificationPayload;
@@ -519,7 +517,6 @@ const _SessionNotificationSchema = JsonRpcNotificationSchema.extend({
   params: SessionNotificationParamsSchema,
 });
 
-/* eslint-disable @typescript-eslint/consistent-type-assertions -- Zod workaround for deep type inference */
 export const SessionNotificationSchema: z.ZodType<
   SessionNotification,
   z.ZodTypeDef,
@@ -529,7 +526,6 @@ export const SessionNotificationSchema: z.ZodType<
   z.ZodTypeDef,
   unknown
 >;
-/* eslint-enable @typescript-eslint/consistent-type-assertions */
 
 export type SessionNotification = z.output<typeof JsonRpcNotificationSchema> & {
   method: 'droid.session_notification';
@@ -807,7 +803,6 @@ const _CliRequestOrNotificationSchema = z.union([
   AskUserRequestSchema,
 ]);
 
-/* eslint-disable @typescript-eslint/consistent-type-assertions -- Zod workaround for deep type inference */
 export const CliRequestOrNotificationSchema: z.ZodType<
   CliRequestOrNotification,
   z.ZodTypeDef,
@@ -817,7 +812,6 @@ export const CliRequestOrNotificationSchema: z.ZodType<
   z.ZodTypeDef,
   unknown
 >;
-/* eslint-enable @typescript-eslint/consistent-type-assertions */
 
 export type CliRequestOrNotification =
   | SessionNotification

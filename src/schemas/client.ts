@@ -1058,7 +1058,6 @@ export const LoadSessionResponseSchema: z.ZodType<
   LoadSessionResponse,
   z.ZodTypeDef,
   unknown
-  // eslint-disable-next-line @typescript-eslint/consistent-type-assertions -- Zod workaround for TS7056 deep type inference
 > = _LoadSessionResponseSchema as z.ZodType<
   LoadSessionResponse,
   z.ZodTypeDef,

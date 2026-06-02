@@ -4,8 +4,6 @@ import { JsonRpcBaseRequestSchema } from '../json-rpc.js';
 import { MarketplaceSourceSchema } from '../settings.js';
 import { DaemonDroidMethod } from './enums.js';
 
-export { MarketplaceSourceSchema };
-
 // CRITICAL: `RedactedMarketplaceSourceSchema` below stays intentionally
 // distinct from `MarketplaceSourceSchema`. The redacted variant omits
 // filesystem paths and userinfo for RPC responses; collapsing the two would

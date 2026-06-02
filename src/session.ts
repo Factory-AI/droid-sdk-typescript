@@ -76,7 +76,6 @@ export interface ResumeSessionOptions extends Pick<
   mcpServers?: DroidMcpServerConfig[];
 }
 
-// eslint-disable-next-line no-barrel-files/no-barrel-files
 export type { MessageOptions } from './helpers.js';
 
 /** Create instances via {@link createSession} or {@link resumeSession}. */

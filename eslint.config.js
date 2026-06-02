@@ -130,16 +130,25 @@ export default tseslint.config(
     },
   },
   {
-    // Dedicated public-API barrels: their sole purpose is re-exporting the
-    // package surface, so the no-barrel-files rule does not apply. The
-    // protocol barrels mirror the upstream source-of-truth layout and rely on
-    // `export *`, so the ExportAllDeclaration ban is lifted for them too.
+    // Dedicated barrels and protocol-parity shims: their sole purpose is
+    // re-exporting the package/protocol surface, so the no-barrel-files rule
+    // does not apply. The protocol barrels mirror the upstream
+    // factory-mono-alpha source-of-truth layout and rely on `export *`, so the
+    // ExportAllDeclaration ban is lifted for them too. `daemon/automations-enums.ts`
+    // is a thin parity shim that re-exposes the hoisted canonical enums under
+    // the daemon import path the protocol contract (and tests) require.
     files: [
       'src/index.ts',
       'src/schemas/index.ts',
       'src/daemon/index.ts',
       'src/protocol/index.ts',
       'src/protocol/daemon/index.ts',
+      'src/protocol/daemon/automations-enums.ts',
+      // Modules with intentional convenience re-exports of a small, curated
+      // slice of another module's surface (not full barrels).
+      'src/constants.ts',
+      'src/session.ts',
+      'src/hooks.ts',
     ],
     rules: {
       'no-barrel-files/no-barrel-files': 'off',
@@ -161,6 +170,16 @@ export default tseslint.config(
             '`with` is disallowed in strict mode because it makes code impossible to predict and optimize.',
         },
       ],
+    },
+  },
+  {
+    // Zod's deeply-recursive request/notification schemas exceed TypeScript's
+    // inference depth (TS7056), so these modules assert the schema's public
+    // `z.ZodType<...>` shape over the inferred internal type. The assertion is
+    // a localized type-system workaround, not an unsafe runtime cast.
+    files: ['src/schemas/client.ts', 'src/schemas/server.ts'],
+    rules: {
+      '@typescript-eslint/consistent-type-assertions': 'off',
     },
   },
   {

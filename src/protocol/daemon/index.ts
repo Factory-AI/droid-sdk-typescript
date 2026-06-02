@@ -15,3 +15,8 @@ export * from './automations.js';
 export * from './plugins.js';
 export * from './settings.js';
 export * from './droid.js';
+
+// `MarketplaceSourceSchema` is canonically defined in `../settings.js`. The
+// daemon plugin schemas consume it locally; the daemon surface re-exposes it
+// from its canonical home so consumers get the same schema instance.
+export { MarketplaceSourceSchema } from '../settings.js';
