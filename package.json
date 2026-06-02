@@ -26,6 +26,16 @@
         "types": "./dist/index.d.cts",
         "default": "./dist/index.cjs"
       }
+    },
+    "./protocol": {
+      "import": {
+        "types": "./dist/protocol/index.d.ts",
+        "default": "./dist/protocol/index.js"
+      },
+      "require": {
+        "types": "./dist/protocol/index.d.cts",
+        "default": "./dist/protocol/index.cjs"
+      }
     }
   },
   "files": [

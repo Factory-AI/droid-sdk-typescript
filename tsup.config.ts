@@ -4,7 +4,7 @@ import { defineConfig } from "tsup";
 const { version } = JSON.parse(readFileSync("./package.json", "utf-8"));
 
 export default defineConfig({
-  entry: ["src/index.ts"],
+  entry: ["src/index.ts", "src/protocol/index.ts"],
   format: ["esm", "cjs"],
   dts: true,
   splitting: false,
