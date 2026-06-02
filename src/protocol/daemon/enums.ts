@@ -70,10 +70,6 @@ export enum DaemonDroidMethod {
   LIST_AVAILABLE_SESSIONS = 'daemon.list_available_sessions',
   GET_SESSION_MESSAGES = 'daemon.get_session_messages',
   UPDATE_SESSION_SETTINGS = 'daemon.update_session_settings',
-  START_LOOP = 'daemon.start_loop',
-  STOP_LOOP = 'daemon.stop_loop',
-  GET_LOOP_STATUS = 'daemon.get_loop_status',
-  RUN_LOOP_NOW = 'daemon.run_loop_now',
   VALIDATE_WORKING_DIRECTORY = 'daemon.validate_working_directory',
   GET_MCP_CONFIG = 'daemon.get_mcp_config',
   UPDATE_MCP_CONFIG = 'daemon.update_mcp_config',
@@ -95,6 +91,7 @@ export enum DaemonDroidMethod {
   UNARCHIVE_SESSION = 'daemon.unarchive_session',
   RENAME_SESSION = 'daemon.rename_session',
   LIST_SKILLS = 'daemon.list_skills',
+  LIST_COMMANDS = 'daemon.list_commands',
   LIST_AVAILABLE_PLUGINS = 'daemon.list_available_plugins',
   LIST_INSTALLED_PLUGINS = 'daemon.list_installed_plugins',
   INSTALL_PLUGIN = 'daemon.install_plugin',
@@ -116,6 +113,12 @@ export enum DaemonDroidMethod {
   RENAME_AUTOMATION = 'daemon.rename_automation',
   DELETE_AUTOMATION = 'daemon.delete_automation',
   FORK_AUTOMATION = 'daemon.fork_automation',
+  LIST_CRONS = 'daemon.list_crons',
+  CREATE_CRON = 'daemon.create_cron',
+  UPDATE_CRON = 'daemon.update_cron',
+  DELETE_CRON = 'daemon.delete_cron',
+  HOLD_SESSION_CRONS = 'daemon.hold_session_crons',
+  RESUME_SESSION_CRONS = 'daemon.resume_session_crons',
   GET_GIT_DIFF = 'daemon.get_git_diff',
   GIT_PUSH = 'daemon.git_push',
   GIT_COMMIT = 'daemon.git_commit',
@@ -163,6 +166,10 @@ export enum DaemonRelayMethod {
 // Daemon relay events (notifications from server to client, e.g. external disconnects)
 export enum DaemonRelayEvent {
   STATUS_CHANGED = 'daemon.relay.status_changed',
+}
+
+export enum DaemonCronEvent {
+  STATE_CHANGED = 'daemon.cron.state_changed',
 }
 
 // Session notification types defined at the daemon level

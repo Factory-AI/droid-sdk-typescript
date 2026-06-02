@@ -689,6 +689,26 @@ export const ListSkillsRequestSchema = JsonRpcBaseRequestSchema.extend({
   params: ListSkillsRequestParamsSchema,
 });
 
+// List commands request (returns all custom slash commands)
+const ListCommandsRequestParamsSchema = z.object({});
+
+export const CustomCommandInfoSchema = z.object({
+  name: z.string(),
+  description: z.string(),
+  argumentHint: z.string().optional(),
+  // Whether the command is backed by an executable script (resolution runs it)
+  isExecutable: z.boolean().optional(),
+});
+
+const ListCommandsResultSchema = z.object({
+  commands: z.array(CustomCommandInfoSchema),
+});
+
+export const ListCommandsRequestSchema = JsonRpcBaseRequestSchema.extend({
+  method: z.literal(DroidServerMethod.LIST_COMMANDS),
+  params: ListCommandsRequestParamsSchema,
+});
+
 const GetContextStatsRequestParamsSchema = z.object({});
 
 export { ContextStatsSchema as GetContextStatsResultSchema };
@@ -917,6 +937,7 @@ export const ClientRequestSchema = z.discriminatedUnion('method', [
   ToggleMcpToolRequestSchema,
   SubmitMcpAuthCodeRequestSchema,
   ListSkillsRequestSchema,
+  ListCommandsRequestSchema,
   GetContextStatsRequestSchema,
   GetContextBreakdownRequestSchema,
   SubmitBugReportRequestSchema,
@@ -1064,6 +1085,13 @@ export const ToggleMcpToolResponseSchema = z.union([
 export const ListSkillsResponseSchema = z.union([
   JsonRpcBaseResponseSuccessSchema.extend({
     result: ListSkillsResultSchema,
+  }),
+  JsonRpcBaseResponseFailureSchema,
+]);
+
+export const ListCommandsResponseSchema = z.union([
+  JsonRpcBaseResponseSuccessSchema.extend({
+    result: ListCommandsResultSchema,
   }),
   JsonRpcBaseResponseFailureSchema,
 ]);

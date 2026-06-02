@@ -13,6 +13,11 @@ import {
   JSONRPC_VERSION,
   LEGACY_FACTORY_API_VERSION,
 } from '../src/protocol/constants.js';
+import {
+  CronCreateToolInputSchema,
+  CronDeleteToolInputSchema,
+  CronListToolInputSchema,
+} from '../src/protocol/crons.js';
 import { ManagedCustomModelSchema } from '../src/protocol/custom-models.js';
 import {
   DroidClientMethod,
@@ -265,5 +270,13 @@ describe('protocol TIER-3', () => {
     expect(CliRequestOrNotificationSchema.parse(message).method).toBe(
       DroidClientMethod.REQUEST_PERMISSION
     );
+  });
+});
+
+describe('protocol/crons (top-level tool inputs)', () => {
+  it('exposes CronCreateToolInputSchema, CronDeleteToolInputSchema, CronListToolInputSchema', () => {
+    expect(CronCreateToolInputSchema).toBeDefined();
+    expect(CronDeleteToolInputSchema).toBeDefined();
+    expect(CronListToolInputSchema).toBeDefined();
   });
 });

@@ -35,16 +35,6 @@ import {
   JsonRpcBaseResponseSuccessSchema,
   JsonRpcBaseResponseFailureSchema,
 } from '../json-rpc.js';
-import {
-  StartLoopRequestParamsSchema,
-  StartLoopResultSchema,
-  StopLoopRequestParamsSchema,
-  StopLoopResultSchema,
-  GetLoopStatusRequestParamsSchema,
-  GetLoopStatusResultSchema,
-  RunLoopNowRequestParamsSchema,
-  RunLoopNowResultSchema,
-} from '../loop.js';
 import { FactoryDroidMessageSchema } from '../messages.js';
 import { SessionTagSchema } from '../session.js';
 import {
@@ -62,6 +52,15 @@ import {
   DaemonForkAutomationRequestSchema,
 } from './automations.js';
 import { DaemonSubmitBugReportRequestSchema } from './bug-report.js';
+import { DaemonListCommandsRequestSchema } from './commands.js';
+import {
+  DaemonListCronsRequestSchema,
+  DaemonCreateCronRequestSchema,
+  DaemonUpdateCronRequestSchema,
+  DaemonDeleteCronRequestSchema,
+  DaemonHoldSessionCronsRequestSchema,
+  DaemonResumeSessionCronsRequestSchema,
+} from './crons.js';
 import {
   DaemonDroidEvent,
   DaemonDroidMethod,
@@ -207,26 +206,6 @@ export const DaemonUpdateSessionSettingsRequestParamsSchema =
     sessionId: z.string(),
   });
 
-export const DaemonStartLoopRequestParamsSchema =
-  StartLoopRequestParamsSchema.extend({
-    sessionId: z.string(),
-  });
-
-export const DaemonStopLoopRequestParamsSchema =
-  StopLoopRequestParamsSchema.extend({
-    sessionId: z.string(),
-  });
-
-export const DaemonGetLoopStatusRequestParamsSchema =
-  GetLoopStatusRequestParamsSchema.extend({
-    sessionId: z.string(),
-  });
-
-export const DaemonRunLoopNowRequestParamsSchema =
-  RunLoopNowRequestParamsSchema.extend({
-    sessionId: z.string(),
-  });
-
 export const DaemonGetUserInfoRequestParamsSchema = z.object({});
 
 export const DaemonValidateWorkingDirectoryRequestParamsSchema = z.object({
@@ -309,28 +288,6 @@ export const DaemonUpdateSessionSettingsRequestSchema =
     params: DaemonUpdateSessionSettingsRequestParamsSchema,
   });
 
-export const DaemonStartLoopRequestSchema = JsonRpcBaseRequestSchema.extend({
-  method: z.literal(DaemonDroidMethod.START_LOOP),
-  params: DaemonStartLoopRequestParamsSchema,
-});
-
-export const DaemonStopLoopRequestSchema = JsonRpcBaseRequestSchema.extend({
-  method: z.literal(DaemonDroidMethod.STOP_LOOP),
-  params: DaemonStopLoopRequestParamsSchema,
-});
-
-export const DaemonGetLoopStatusRequestSchema = JsonRpcBaseRequestSchema.extend(
-  {
-    method: z.literal(DaemonDroidMethod.GET_LOOP_STATUS),
-    params: DaemonGetLoopStatusRequestParamsSchema,
-  }
-);
-
-export const DaemonRunLoopNowRequestSchema = JsonRpcBaseRequestSchema.extend({
-  method: z.literal(DaemonDroidMethod.RUN_LOOP_NOW),
-  params: DaemonRunLoopNowRequestParamsSchema,
-});
-
 export const DaemonValidateWorkingDirectoryRequestSchema =
   JsonRpcBaseRequestSchema.extend({
     method: z.literal(DaemonDroidMethod.VALIDATE_WORKING_DIRECTORY),
@@ -405,14 +362,6 @@ export const DaemonGetSessionMessagesResultSchema = z.object({
 
 export const DaemonUpdateSessionSettingsResultSchema =
   UpdateSessionSettingsResultSchema;
-
-export const DaemonStartLoopResultSchema = StartLoopResultSchema;
-
-export const DaemonStopLoopResultSchema = StopLoopResultSchema;
-
-export const DaemonGetLoopStatusResultSchema = GetLoopStatusResultSchema;
-
-export const DaemonRunLoopNowResultSchema = RunLoopNowResultSchema;
 
 export const DaemonGetUserInfoResultSchema = z.object({
   userId: z.string(),
@@ -1075,10 +1024,6 @@ export const DaemonRequestSchema = z.discriminatedUnion('method', [
   DaemonListAvailableSessionsRequestSchema,
   DaemonGetSessionMessagesRequestSchema,
   DaemonUpdateSessionSettingsRequestSchema,
-  DaemonStartLoopRequestSchema,
-  DaemonStopLoopRequestSchema,
-  DaemonGetLoopStatusRequestSchema,
-  DaemonRunLoopNowRequestSchema,
   DaemonGetDefaultSettingsRequestSchema,
   DaemonUpdateSessionDefaultsRequestSchema,
   DaemonValidateWorkingDirectoryRequestSchema,
@@ -1102,6 +1047,7 @@ export const DaemonRequestSchema = z.discriminatedUnion('method', [
   DaemonUnarchiveSessionRequestSchema,
   DaemonRenameSessionRequestSchema,
   DaemonListSkillsRequestSchema,
+  DaemonListCommandsRequestSchema,
   DaemonListAvailablePluginsRequestSchema,
   DaemonListInstalledPluginsRequestSchema,
   DaemonInstallPluginRequestSchema,
@@ -1124,6 +1070,12 @@ export const DaemonRequestSchema = z.discriminatedUnion('method', [
   DaemonRenameAutomationRequestSchema,
   DaemonDeleteAutomationRequestSchema,
   DaemonForkAutomationRequestSchema,
+  DaemonListCronsRequestSchema,
+  DaemonCreateCronRequestSchema,
+  DaemonUpdateCronRequestSchema,
+  DaemonDeleteCronRequestSchema,
+  DaemonHoldSessionCronsRequestSchema,
+  DaemonResumeSessionCronsRequestSchema,
   DaemonGetGitDiffRequestSchema,
   DaemonGitPushRequestSchema,
   DaemonGitCommitRequestSchema,
@@ -1195,25 +1147,6 @@ export const DaemonGetSessionMessagesResponseSchema = z.union([
 
 export const DaemonUpdateSessionSettingsResponseSchema =
   createAckCompatibleResponseSchema(DaemonUpdateSessionSettingsResultSchema);
-
-export const DaemonStartLoopResponseSchema = createAckCompatibleResponseSchema(
-  DaemonStartLoopResultSchema
-);
-
-export const DaemonStopLoopResponseSchema = createAckCompatibleResponseSchema(
-  DaemonStopLoopResultSchema
-);
-
-export const DaemonGetLoopStatusResponseSchema = z.union([
-  JsonRpcBaseResponseSuccessSchema.extend({
-    result: DaemonGetLoopStatusResultSchema,
-  }),
-  JsonRpcBaseResponseFailureSchema,
-]);
-
-export const DaemonRunLoopNowResponseSchema = createAckCompatibleResponseSchema(
-  DaemonRunLoopNowResultSchema
-);
 
 export const DaemonValidateWorkingDirectoryResponseSchema = z.union([
   JsonRpcBaseResponseSuccessSchema.extend({

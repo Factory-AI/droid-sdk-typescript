@@ -1,19 +1,25 @@
 // Source-of-truth mirror of factory-mono-alpha loop schemas.
-// Faithful copy of packages/common/src/droid/schemas/loop.ts.
+// Verbatim copy of packages/common/src/droid/schemas/loop.ts.
 
 import { z } from 'zod';
 
-import { LOOP_INTERVAL_POLICY } from './constants.js';
 import { DroidLoopStatus, DroidLoopStopReason } from './enums.js';
 
-export const LoopIntervalMsSchema = z
+// Bounds are frozen at the values shipped with the deprecated loop protocol
+// surface; they intentionally do not track the live LOOP_INTERVAL_POLICY.
+const DEPRECATED_LOOP_INTERVAL_MIN_MS = 5_000;
+const DEPRECATED_LOOP_INTERVAL_MAX_MS = 24 * 60 * 60 * 1_000;
+
+/** @deprecated Loop scheduling now uses daemon cron schemas. */
+const LoopIntervalMsSchema = z
   .number()
   .int()
   .finite()
   .safe()
-  .min(LOOP_INTERVAL_POLICY.minMs)
-  .max(LOOP_INTERVAL_POLICY.maxMs);
+  .min(DEPRECATED_LOOP_INTERVAL_MIN_MS)
+  .max(DEPRECATED_LOOP_INTERVAL_MAX_MS);
 
+/** @deprecated Loop scheduling now uses daemon cron schemas. */
 export const LoopStateSchema = z.object({
   loopId: z.string(),
   status: z.nativeEnum(DroidLoopStatus),
@@ -28,38 +34,4 @@ export const LoopStateSchema = z.object({
   stopReason: z.nativeEnum(DroidLoopStopReason).optional(),
 });
 
-export const StartLoopRequestParamsSchema = z.object({
-  intervalMs: LoopIntervalMsSchema,
-  prompt: z.string().trim().min(1),
-});
-
-export const StopLoopRequestParamsSchema = z.object({});
-
-export const GetLoopStatusRequestParamsSchema = z.object({});
-
-export const RunLoopNowRequestParamsSchema = z.object({});
-
-export const StartLoopResultSchema = z.object({
-  loopState: LoopStateSchema,
-});
-
-export const StopLoopResultSchema = z.object({
-  loopState: LoopStateSchema.nullable(),
-});
-
-export const GetLoopStatusResultSchema = z.object({
-  loopState: LoopStateSchema.nullable(),
-});
-
-export const RunLoopNowResultSchema = z.object({
-  loopState: LoopStateSchema,
-});
-
 export type LoopState = z.infer<typeof LoopStateSchema>;
-export type StartLoopRequestParams = z.infer<
-  typeof StartLoopRequestParamsSchema
->;
-export type StartLoopResult = z.infer<typeof StartLoopResultSchema>;
-export type StopLoopResult = z.infer<typeof StopLoopResultSchema>;
-export type GetLoopStatusResult = z.infer<typeof GetLoopStatusResultSchema>;
-export type RunLoopNowResult = z.infer<typeof RunLoopNowResultSchema>;

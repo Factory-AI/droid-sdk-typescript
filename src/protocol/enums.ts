@@ -174,6 +174,8 @@ export enum DroidServerMethod {
   SUBMIT_MCP_AUTH_CODE = 'droid.submit_mcp_auth_code',
   // Skills
   LIST_SKILLS = 'droid.list_skills',
+  // Custom slash commands
+  LIST_COMMANDS = 'droid.list_commands',
   // Bug reports
   SUBMIT_BUG_REPORT = 'droid.submit_bug_report',
   // Rewind

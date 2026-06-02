@@ -16,7 +16,6 @@ import {
   DaemonGetGitDiffDataSchema,
   DaemonGetGitDiffRequestSchema,
   DaemonGetGitDiffResultSchema,
-  DaemonGetLoopStatusRequestSchema,
   DaemonGetProxyTokenResponseSchema,
   DaemonGetProxyTokenResultSchema,
   DaemonGetRewindInfoRequestSchema,
@@ -40,8 +39,6 @@ import {
   DaemonSearchFilesRequestSchema,
   DaemonSearchSessionsRequestSchema,
   DaemonSessionNotificationSchema,
-  DaemonStartLoopRequestSchema,
-  DaemonStopLoopRequestSchema,
   DaemonUnarchiveSessionRequestSchema,
   DaemonValidateWorkingDirectoryRequestSchema,
   DaemonWarmupCacheRequestSchema,
@@ -90,12 +87,9 @@ describe('protocol/daemon/droid representative schemas', () => {
     expect(DaemonGenerateSemanticDiffRequestSchema).toBeDefined();
   });
 
-  it('exports rewind / loop / validation request schemas', () => {
+  it('exports rewind / validation request schemas', () => {
     expect(DaemonGetRewindInfoRequestSchema).toBeDefined();
     expect(DaemonExecuteRewindRequestSchema).toBeDefined();
-    expect(DaemonStartLoopRequestSchema).toBeDefined();
-    expect(DaemonStopLoopRequestSchema).toBeDefined();
-    expect(DaemonGetLoopStatusRequestSchema).toBeDefined();
     expect(DaemonValidateWorkingDirectoryRequestSchema).toBeDefined();
     expect(DaemonWarmupCacheRequestSchema).toBeDefined();
   });
@@ -218,6 +212,68 @@ describe('protocol/daemon/droid DaemonRequestSchema discriminated union', () => 
       ...baseEnvelope,
       method: 'daemon.not_a_real_method',
       params: {},
+    });
+    expect(result.success).toBe(false);
+  });
+
+  it.each([
+    ['daemon.list_commands', { sessionId: 'sess-1' }],
+    [
+      'daemon.list_crons',
+      { sessionId: 'sess-1', includeInactive: false },
+    ],
+    [
+      'daemon.create_cron',
+      {
+        kind: 'session_prompt',
+        source: 'cron_tool',
+        scope: { type: 'session', sessionId: 'sess-1', sessionCwd: '/tmp' },
+        schedule: { expression: '* * * * *', recurring: true },
+        payload: {
+          type: 'prompt',
+          prompt: 'do work',
+          target: { type: 'same_session' },
+        },
+      },
+    ],
+    [
+      'daemon.update_cron',
+      { cronId: 'abc', status: 'paused' },
+    ],
+    [
+      'daemon.delete_cron',
+      { cronId: 'abc' },
+    ],
+    [
+      'daemon.hold_session_crons',
+      { sessionId: 'sess-1', reason: 'inactive' },
+    ],
+    [
+      'daemon.resume_session_crons',
+      { sessionId: 'sess-1' },
+    ],
+  ] as const)(
+    'accepts the new method literal %s',
+    (method, params) => {
+      const req = DaemonRequestSchema.parse({
+        ...baseEnvelope,
+        method,
+        params,
+      });
+      expect(req.method).toBe(method);
+    }
+  );
+
+  it.each([
+    'daemon.start_loop',
+    'daemon.stop_loop',
+    'daemon.get_loop_status',
+    'daemon.run_loop_now',
+  ])('rejects the retired loop method literal %s', (method) => {
+    const result = DaemonRequestSchema.safeParse({
+      ...baseEnvelope,
+      method,
+      params: { sessionId: 'sess-1' },
     });
     expect(result.success).toBe(false);
   });
