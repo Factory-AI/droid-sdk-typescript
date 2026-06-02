@@ -1,6 +1,3 @@
-// Source-of-truth mirror of factory-mono-alpha client protocol schemas.
-// Verbatim copy of packages/common/src/droid/schemas/client.ts.
-
 import { z } from 'zod';
 
 import {

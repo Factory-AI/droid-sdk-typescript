@@ -1,7 +1,5 @@
-// Source-of-truth mirror of packages/common/src/session/settings/schema.ts.
-// `TokenUsageSchema` is intentionally imported from `./session.js` (where it
-// was previously mirrored verbatim from the same upstream definition) rather
-// than redeclared here, to avoid duplicate barrel exports for the same shape.
+// `TokenUsageSchema` is imported from `./session.js` rather than redeclared
+// here, to avoid duplicate barrel exports for the same shape.
 
 import { z } from 'zod';
 

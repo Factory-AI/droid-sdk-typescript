@@ -1,6 +1,3 @@
-// Source-of-truth mirror of factory-mono-alpha loop schemas.
-// Verbatim copy of packages/common/src/droid/schemas/loop.ts.
-
 import { z } from 'zod';
 
 import { DroidLoopStatus, DroidLoopStopReason } from './enums.js';

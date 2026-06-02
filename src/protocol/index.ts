@@ -1,7 +1,4 @@
 // Barrel for the protocol source-of-truth modules.
-// These files mirror the private factory-mono-alpha protocol exactly and are
-// intentionally self-contained (zod-only). NOT yet wired into the public
-// package API (src/index.ts).
 
 export * from './constants.js';
 export * from './enums.js';
@@ -35,10 +32,9 @@ export * from './tools.js';
 export * from './updater.js';
 
 // `./usage.js` defines its own `TokenUsageSchema` whose shape (snake-cased
-// integer fields) differs from the one in `./session.js`. Both upstream
-// modules ship the same symbol name (`TokenUsageSchema`) under different
-// folder namespaces, so we mirror that here by re-exporting `./usage.js`
-// under a namespace alias rather than as a top-level wildcard.
+// integer fields) differs from the one in `./session.js`. To keep both
+// symbols distinct on the public barrel, `./usage.js` is re-exported under a
+// namespace alias rather than as a top-level wildcard.
 export * as usage from './usage.js';
 
 export * as daemon from './daemon/index.js';

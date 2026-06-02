@@ -1,6 +1,3 @@
-// Source-of-truth mirror of factory-mono-alpha MCP schemas.
-// Verbatim copy of packages/common/src/droid/schemas/mcp.ts.
-
 import { z } from 'zod';
 
 import { McpServerStatus, McpServerType, SettingsLevel } from './enums.js';

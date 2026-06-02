@@ -1,9 +1,4 @@
-// Source-of-truth mirror of factory-mono-alpha session schemas (symbol-only).
-// Faithful copies of:
-//   SessionTagSchema           — packages/common/src/session/tags/schema.ts
-//   MissionSessionTagMetadata  — packages/common/src/session/tags/schema.ts
-//   TokenUsageSchema           — packages/common/src/session/settings/schema.ts
-// Only the leaf, zero-coupling symbols are mirrored here (not the full files).
+// Leaf session schemas (tags, token usage).
 
 import { z } from 'zod';
 

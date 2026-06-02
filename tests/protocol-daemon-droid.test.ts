@@ -218,10 +218,7 @@ describe('protocol/daemon/droid DaemonRequestSchema discriminated union', () => 
 
   it.each([
     ['daemon.list_commands', { sessionId: 'sess-1' }],
-    [
-      'daemon.list_crons',
-      { sessionId: 'sess-1', includeInactive: false },
-    ],
+    ['daemon.list_crons', { sessionId: 'sess-1', includeInactive: false }],
     [
       'daemon.create_cron',
       {
@@ -236,33 +233,18 @@ describe('protocol/daemon/droid DaemonRequestSchema discriminated union', () => 
         },
       },
     ],
-    [
-      'daemon.update_cron',
-      { cronId: 'abc', status: 'paused' },
-    ],
-    [
-      'daemon.delete_cron',
-      { cronId: 'abc' },
-    ],
-    [
-      'daemon.hold_session_crons',
-      { sessionId: 'sess-1', reason: 'inactive' },
-    ],
-    [
-      'daemon.resume_session_crons',
-      { sessionId: 'sess-1' },
-    ],
-  ] as const)(
-    'accepts the new method literal %s',
-    (method, params) => {
-      const req = DaemonRequestSchema.parse({
-        ...baseEnvelope,
-        method,
-        params,
-      });
-      expect(req.method).toBe(method);
-    }
-  );
+    ['daemon.update_cron', { cronId: 'abc', status: 'paused' }],
+    ['daemon.delete_cron', { cronId: 'abc' }],
+    ['daemon.hold_session_crons', { sessionId: 'sess-1', reason: 'inactive' }],
+    ['daemon.resume_session_crons', { sessionId: 'sess-1' }],
+  ] as const)('accepts the new method literal %s', (method, params) => {
+    const req = DaemonRequestSchema.parse({
+      ...baseEnvelope,
+      method,
+      params,
+    });
+    expect(req.method).toBe(method);
+  });
 
   it.each([
     'daemon.start_loop',

@@ -1,23 +1,10 @@
-// Source-of-truth mirror of factory-mono-alpha settings schemas (symbol-only).
-// Faithful copies of the leaf schemas the daemon protocol references, drawn
-// from packages/common/src/settings/schema.ts. Verbatim:
-//   - MarketplaceSourceSchema (+ inner discriminated-union variants)
-//   - SessionDefaultSettingsSchema
-//   - CompactionModelSchema
-//   - AutonomyModeSchema
-//   - SettingsSourceTypeEnum, SettingsSourceSchema, SettingsActionEnum,
-//     SettingsResolutionEventSchema (+ private SettingsResolutionLocationSchema)
+// Leaf settings schemas: MarketplaceSourceSchema (+ inner discriminated-union
+// variants), SessionDefaultSettingsSchema, CompactionModelSchema,
+// AutonomyModeSchema, and the settings-resolution event family.
 //
-// MissionModelSettingsSchema and SubagentModelSettingsSchema are already
-// mirrored verbatim in ./model-settings.js; they are not re-exported here to
-// avoid duplicate barrel exports. Callers needing them should import from
-// './model-settings.js' as before.
-//
-// GeneralSettingsSchema and ManagedSettingsBaseSchema (plus their helper
-// schemas: ModelPolicySchema, McpPolicySchema, MissionPolicySchema,
-// SandboxSettingsSchema, FactoryRouterRuleSchema, etc.) live in
-// ./general-settings.js, mirrored verbatim from the same upstream source
-// file.
+// MissionModelSettingsSchema and SubagentModelSettingsSchema live in
+// ./model-settings.js. GeneralSettingsSchema and ManagedSettingsBaseSchema
+// (plus their helper schemas) live in ./general-settings.js.
 
 import { z } from 'zod';
 

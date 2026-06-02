@@ -80,9 +80,9 @@ describe('protocol/crons tool-input schemas', () => {
   });
 
   it('CronDeleteToolInputSchema requires an 8-char cronId', () => {
-    expect(
-      CronDeleteToolInputSchema.parse({ cronId: 'abcd1234' }).cronId
-    ).toBe('abcd1234');
+    expect(CronDeleteToolInputSchema.parse({ cronId: 'abcd1234' }).cronId).toBe(
+      'abcd1234'
+    );
     expect(() =>
       CronDeleteToolInputSchema.parse({ cronId: 'short' })
     ).toThrow();

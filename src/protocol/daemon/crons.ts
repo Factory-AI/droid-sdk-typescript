@@ -1,6 +1,3 @@
-// Source-of-truth mirror of factory-mono-alpha daemon crons schemas.
-// Verbatim copy of packages/common/src/daemon/schemas/crons.ts.
-
 import { z } from 'zod';
 
 import {

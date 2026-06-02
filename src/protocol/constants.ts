@@ -1,9 +1,3 @@
-// Source-of-truth mirror of factory-mono-alpha protocol constants.
-// Faithful copy of:
-//   packages/common/src/droid/schemas/constants.ts
-//   packages/common/src/droid/constants.ts (LOOP_INTERVAL_POLICY + system markers)
-// Keep shapes/values identical to the private monorepo to avoid protocol drift.
-
 import { DroidWorkingState } from './enums.js';
 
 export const FACTORY_CLIENT_HEADER = 'X-Factory-Client';
@@ -22,20 +16,15 @@ export const FACTORY_PROTOCOL_VERSION = '1.66.0' as const;
 export const JSONRPC_VERSION = '2.0' as const;
 
 /**
- * Sentinel ModelID value for the Factory routing model. Faithful copy of
- * packages/common/src/llm/constants.ts.
+ * Sentinel ModelID value for the Factory routing model.
  */
 export const FACTORY_ROUTER_MODEL_ID = 'factory-router' as const;
 
 /**
  * Sentinel value used by CompactionModelSchema to mean "use the session's
- * current model for compaction". Faithful copy of
- * packages/common/src/settings/constants.ts.
+ * current model for compaction".
  */
 export const CURRENT_COMPACTION_MODEL = 'current-model';
-
-// Faithful copy of packages/common/src/settings/constants.ts router-rule
-// guardrails. Used by ManagedSettingsBaseSchema and FactoryRouterRuleSchema.
 
 /** Sized comparably to a trimmed user message in the classifier context budget. */
 export const FACTORY_ROUTER_GUIDANCE_MAX_LENGTH = 2000;

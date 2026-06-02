@@ -1,6 +1,3 @@
-// Source-of-truth mirror of factory-mono-alpha droid crons tool-input schemas.
-// Verbatim copy of packages/common/src/droid/schemas/crons.ts.
-
 import { z } from 'zod';
 
 const CronExpressionSchema = z

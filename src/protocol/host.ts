@@ -1,6 +1,3 @@
-// Source-of-truth mirror of factory-mono-alpha host schemas.
-// Faithful copy of packages/common/src/host/schemas.ts.
-
 import { z } from 'zod';
 
 export const HostIdSchema = z.string().uuid();

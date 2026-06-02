@@ -1,6 +1,3 @@
-// Source-of-truth mirror of factory-mono-alpha daemon commands schema.
-// Verbatim copy of packages/common/src/daemon/schemas/commands.ts.
-
 import { z } from 'zod';
 
 import { CustomCommandInfoSchema } from '../client.js';

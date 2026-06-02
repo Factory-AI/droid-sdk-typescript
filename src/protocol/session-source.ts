@@ -1,6 +1,3 @@
-// Source-of-truth mirror of factory-mono-alpha session source schemas.
-// Faithful copy of packages/common/src/session/sources/schema.ts.
-
 import { z } from 'zod';
 
 import { SessionPlatform } from './enums.js';
