@@ -1,7 +1,4 @@
-// Source-of-truth mirror of factory-mono-alpha model-settings schemas (symbol-only).
-// Faithful copies of MissionModelSettingsSchema and SubagentModelSettingsSchema
-// from packages/common/src/settings/schema.ts. Only these leaf symbols are
-// mirrored here (not the full, TIER-3 settings file).
+// Mission and subagent model-settings schemas.
 
 import { z } from 'zod';
 

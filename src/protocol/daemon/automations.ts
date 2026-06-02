@@ -16,9 +16,9 @@ export const DaemonListAutomationsRequestSchema =
   });
 
 export const AutomationEntrySchema = z.object({
-  /** Directory name slug (e.g. "health-check"). Kept as `id` because protocol rules forbid renaming required fields. */
+  /** Directory name slug (e.g. "health-check"). */
   id: z.string(),
-  /** Stable UUID from HEARTBEAT.md frontmatter, used for backend/Firestore sync. */
+  /** Stable UUID for backend sync. */
   uuid: z.string().optional(),
   name: z.string(),
   description: z.string().optional(),

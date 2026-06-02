@@ -1,16 +1,4 @@
-// Source-of-truth mirror of factory-mono-alpha protocol enums (leaf enums only).
-// Faithful copies of the private monorepo definitions from:
-//   packages/common/src/shared/enums.ts
-//   packages/common/src/droid/enums.ts
-//   packages/common/src/sessionV2/messages/enums.ts
-//   packages/common/src/session/sources/enums.ts
-//   packages/common/src/llm/enums.ts (leaf subset)
-//   packages/common/src/settings/enums.ts (leaf subset)
-// Keep values byte-identical to the private monorepo to avoid protocol drift.
-
-// ---------------------------------------------------------------------------
-// shared/enums.ts
-// ---------------------------------------------------------------------------
+// Protocol enums (shared, droid, session, llm, settings, sources).
 
 export enum JsonRpcMessageType {
   Request = 'request',
@@ -174,6 +162,8 @@ export enum DroidServerMethod {
   SUBMIT_MCP_AUTH_CODE = 'droid.submit_mcp_auth_code',
   // Skills
   LIST_SKILLS = 'droid.list_skills',
+  // Custom slash commands
+  LIST_COMMANDS = 'droid.list_commands',
   // Bug reports
   SUBMIT_BUG_REPORT = 'droid.submit_bug_report',
   // Rewind
@@ -405,28 +395,13 @@ export enum ProgressLogEntryType {
   MilestoneValidationTriggered = 'milestone_validation_triggered',
 }
 
-/**
- * Discriminator on `WorkerFailedEntry.failureReason` so the MissionRunner can
- * distinguish failure modes that should auto-pause the mission (e.g. an
- * unrecoverable 402) from generic worker exits that should be requeued and
- * retried by the orchestrator.
- */
+/** Structured failure cause used by orchestrators to branch on auto-pause vs requeue. */
 export enum WorkerFailureReason {
-  /**
-   * Worker LLM call returned 402 (Payment Required) and the in-process
-   * Droid Core fallback path was ineligible (overage preference != droidCore,
-   * already on Core, or no swap-eligible slot). The mission must auto-pause.
-   */
   UnrecoverableUsage402 = 'unrecoverable_usage_402',
 }
 
-/**
- * Discriminator on `MissionPausedEntry.pauseReason`. Default (`undefined`)
- * means a user- or runner-initiated pause; structured values mark
- * automatically-triggered pauses so the UI/orchestrator can react.
- */
+/** Structured cause for automatically-triggered mission pauses. */
 export enum MissionPauseReason {
-  /** Worker hit an unrecoverable 402 — usage limit reached. */
   UnrecoverableUsage402 = 'unrecoverable_usage_402',
 }
 
@@ -569,6 +544,10 @@ export enum ModelID {
   OLM_0305 = 'olm-03-05',
   ORBIT_0409 = 'orbit-04-09',
   OLIVE_0522 = 'olive-05-22',
+  ORIEL_0601 = 'oriel-06-01',
+  OXIDE_0601 = 'oxide-06-01',
+  OXBOW_0601 = 'oxbow-06-01',
+  OCELOT_0601 = 'ocelot-06-01',
 
   // Google models
   GEMINI_2_5_FLASH = 'gemini-2.5-flash',
@@ -647,11 +626,11 @@ export enum ModelProvider {
 }
 
 export enum ApiProvider {
-  BEDROCK = 'bedrock', // Ideally we deprecate!
+  BEDROCK = 'bedrock',
   ANTHROPIC = 'anthropic',
-  VERTEX_ANTHROPIC = 'vertex_anthropic', // A minimal wrapper for Anthropic's API on GCP
-  BEDROCK_ANTHROPIC = 'bedrock_anthropic', // A minimal wrapper for Anthropic's API on AWS
-  BEDROCK_CONVERSE = 'bedrock_converse', // BYOK custom models over the Bedrock Converse API (metric labeling only)
+  VERTEX_ANTHROPIC = 'vertex_anthropic',
+  BEDROCK_ANTHROPIC = 'bedrock_anthropic',
+  BEDROCK_CONVERSE = 'bedrock_converse',
   OPENAI = 'openai',
   AZURE_OPENAI = 'azure_openai',
   GOOGLE = 'google',
@@ -668,9 +647,7 @@ export enum ModelKind {
 
 export enum LLMModelTier {
   Standard = 'standard',
-  // Deprecated
   Premium = 'premium',
-  // Extra Usage (overage) billing tier
   Overage = 'overage',
 }
 

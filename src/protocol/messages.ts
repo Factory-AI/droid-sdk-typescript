@@ -1,7 +1,3 @@
-// Source-of-truth mirror of factory-mono-alpha message content-block schemas.
-// Faithful copy of the message schemas from
-//   packages/common/src/sessionV2/messages/schemas.ts
-
 import { z } from 'zod';
 
 import {
@@ -63,8 +59,7 @@ export const ToolUseSchema = z.object({
   thoughtSignature: z.string().optional(), // Gemini thought signature
 });
 
-// For now, this will be only used to send initial file content from the frontend to the daemon.
-// In the future, when we switch off vercel, we'll be able to use this instead of parsedData.
+// Used to send initial PDF content from the client to the daemon.
 export const Base64PDFSourceSchema = z.object({
   type: z.literal(DocumentSourceType.Base64),
   mediaType: z.literal('application/pdf'),

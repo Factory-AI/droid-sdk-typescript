@@ -35,16 +35,6 @@ import {
   JsonRpcBaseResponseSuccessSchema,
   JsonRpcBaseResponseFailureSchema,
 } from '../json-rpc.js';
-import {
-  StartLoopRequestParamsSchema,
-  StartLoopResultSchema,
-  StopLoopRequestParamsSchema,
-  StopLoopResultSchema,
-  GetLoopStatusRequestParamsSchema,
-  GetLoopStatusResultSchema,
-  RunLoopNowRequestParamsSchema,
-  RunLoopNowResultSchema,
-} from '../loop.js';
 import { FactoryDroidMessageSchema } from '../messages.js';
 import { SessionTagSchema } from '../session.js';
 import {
@@ -62,6 +52,15 @@ import {
   DaemonForkAutomationRequestSchema,
 } from './automations.js';
 import { DaemonSubmitBugReportRequestSchema } from './bug-report.js';
+import { DaemonListCommandsRequestSchema } from './commands.js';
+import {
+  DaemonListCronsRequestSchema,
+  DaemonCreateCronRequestSchema,
+  DaemonUpdateCronRequestSchema,
+  DaemonDeleteCronRequestSchema,
+  DaemonHoldSessionCronsRequestSchema,
+  DaemonResumeSessionCronsRequestSchema,
+} from './crons.js';
 import {
   DaemonDroidEvent,
   DaemonDroidMethod,
@@ -207,26 +206,6 @@ export const DaemonUpdateSessionSettingsRequestParamsSchema =
     sessionId: z.string(),
   });
 
-export const DaemonStartLoopRequestParamsSchema =
-  StartLoopRequestParamsSchema.extend({
-    sessionId: z.string(),
-  });
-
-export const DaemonStopLoopRequestParamsSchema =
-  StopLoopRequestParamsSchema.extend({
-    sessionId: z.string(),
-  });
-
-export const DaemonGetLoopStatusRequestParamsSchema =
-  GetLoopStatusRequestParamsSchema.extend({
-    sessionId: z.string(),
-  });
-
-export const DaemonRunLoopNowRequestParamsSchema =
-  RunLoopNowRequestParamsSchema.extend({
-    sessionId: z.string(),
-  });
-
 export const DaemonGetUserInfoRequestParamsSchema = z.object({});
 
 export const DaemonValidateWorkingDirectoryRequestParamsSchema = z.object({
@@ -309,28 +288,6 @@ export const DaemonUpdateSessionSettingsRequestSchema =
     params: DaemonUpdateSessionSettingsRequestParamsSchema,
   });
 
-export const DaemonStartLoopRequestSchema = JsonRpcBaseRequestSchema.extend({
-  method: z.literal(DaemonDroidMethod.START_LOOP),
-  params: DaemonStartLoopRequestParamsSchema,
-});
-
-export const DaemonStopLoopRequestSchema = JsonRpcBaseRequestSchema.extend({
-  method: z.literal(DaemonDroidMethod.STOP_LOOP),
-  params: DaemonStopLoopRequestParamsSchema,
-});
-
-export const DaemonGetLoopStatusRequestSchema = JsonRpcBaseRequestSchema.extend(
-  {
-    method: z.literal(DaemonDroidMethod.GET_LOOP_STATUS),
-    params: DaemonGetLoopStatusRequestParamsSchema,
-  }
-);
-
-export const DaemonRunLoopNowRequestSchema = JsonRpcBaseRequestSchema.extend({
-  method: z.literal(DaemonDroidMethod.RUN_LOOP_NOW),
-  params: DaemonRunLoopNowRequestParamsSchema,
-});
-
 export const DaemonValidateWorkingDirectoryRequestSchema =
   JsonRpcBaseRequestSchema.extend({
     method: z.literal(DaemonDroidMethod.VALIDATE_WORKING_DIRECTORY),
@@ -405,14 +362,6 @@ export const DaemonGetSessionMessagesResultSchema = z.object({
 
 export const DaemonUpdateSessionSettingsResultSchema =
   UpdateSessionSettingsResultSchema;
-
-export const DaemonStartLoopResultSchema = StartLoopResultSchema;
-
-export const DaemonStopLoopResultSchema = StopLoopResultSchema;
-
-export const DaemonGetLoopStatusResultSchema = GetLoopStatusResultSchema;
-
-export const DaemonRunLoopNowResultSchema = RunLoopNowResultSchema;
 
 export const DaemonGetUserInfoResultSchema = z.object({
   userId: z.string(),
@@ -617,6 +566,7 @@ export const DaemonRenameSessionResponseSchema =
 export const DaemonGetGitDiffRequestParamsSchema = z.object({
   sessionId: z.string(),
   baseBranch: z.string().optional(),
+  statsOnly: z.boolean().optional(),
 });
 
 export const DaemonGetGitDiffFileSchema = z.object({
@@ -644,6 +594,10 @@ export const DaemonGetGitDiffDataSchema = z.object({
   totalDeletions: z.number(),
   remoteUrl: z.string().nullable(),
   commits: z.array(DaemonGetGitDiffCommitSchema),
+  committedDiff: z.string().default(''),
+  committedFiles: z.array(DaemonGetGitDiffFileSchema).default([]),
+  committedTotalAdditions: z.number().default(0),
+  committedTotalDeletions: z.number().default(0),
   unstagedDiff: z.string().default(''),
   unstagedFiles: z.array(DaemonGetGitDiffFileSchema).default([]),
   unstagedTotalAdditions: z.number().default(0),
@@ -883,11 +837,32 @@ export const DaemonGetProxyTokenResponseSchema = z.union([
 const DaemonGetWorkspaceFileContentRequestParamsSchema = z.object({
   sessionId: z.string(),
   filePath: z.string(),
+  /**
+   * How the file bytes should be encoded in the response. `utf8` (default)
+   * returns decoded text for source/markdown previews; `base64` returns the
+   * raw bytes for binary previews (PDF, images) that the client turns into a
+   * blob URL.
+   */
+  encoding: z.enum(['utf8', 'base64']).optional(),
 });
 
 export const DaemonGetWorkspaceFileContentResultSchema = z.object({
   content: z.string(),
   byteLength: z.number(),
+  /**
+   * Encoding of `content`: decoded text (`utf8`) or raw bytes (`base64`).
+   * Optional for protocol back-compat; absent responses are treated as
+   * `utf8` by the client.
+   */
+  encoding: z.enum(['utf8', 'base64']).optional(),
+  /** Best-effort MIME type derived from the file extension, when known. */
+  mimeType: z.string().optional(),
+  /**
+   * Set when a `utf8` request targeted a file whose bytes are not valid text
+   * (e.g. a binary file opened by the generic code renderer). The client
+   * shows a "binary file" guard instead of rendering garbage.
+   */
+  isBinary: z.boolean().optional(),
 });
 
 export const DaemonGetWorkspaceFileContentRequestSchema =
@@ -1075,10 +1050,6 @@ export const DaemonRequestSchema = z.discriminatedUnion('method', [
   DaemonListAvailableSessionsRequestSchema,
   DaemonGetSessionMessagesRequestSchema,
   DaemonUpdateSessionSettingsRequestSchema,
-  DaemonStartLoopRequestSchema,
-  DaemonStopLoopRequestSchema,
-  DaemonGetLoopStatusRequestSchema,
-  DaemonRunLoopNowRequestSchema,
   DaemonGetDefaultSettingsRequestSchema,
   DaemonUpdateSessionDefaultsRequestSchema,
   DaemonValidateWorkingDirectoryRequestSchema,
@@ -1102,6 +1073,7 @@ export const DaemonRequestSchema = z.discriminatedUnion('method', [
   DaemonUnarchiveSessionRequestSchema,
   DaemonRenameSessionRequestSchema,
   DaemonListSkillsRequestSchema,
+  DaemonListCommandsRequestSchema,
   DaemonListAvailablePluginsRequestSchema,
   DaemonListInstalledPluginsRequestSchema,
   DaemonInstallPluginRequestSchema,
@@ -1124,6 +1096,12 @@ export const DaemonRequestSchema = z.discriminatedUnion('method', [
   DaemonRenameAutomationRequestSchema,
   DaemonDeleteAutomationRequestSchema,
   DaemonForkAutomationRequestSchema,
+  DaemonListCronsRequestSchema,
+  DaemonCreateCronRequestSchema,
+  DaemonUpdateCronRequestSchema,
+  DaemonDeleteCronRequestSchema,
+  DaemonHoldSessionCronsRequestSchema,
+  DaemonResumeSessionCronsRequestSchema,
   DaemonGetGitDiffRequestSchema,
   DaemonGitPushRequestSchema,
   DaemonGitCommitRequestSchema,
@@ -1195,25 +1173,6 @@ export const DaemonGetSessionMessagesResponseSchema = z.union([
 
 export const DaemonUpdateSessionSettingsResponseSchema =
   createAckCompatibleResponseSchema(DaemonUpdateSessionSettingsResultSchema);
-
-export const DaemonStartLoopResponseSchema = createAckCompatibleResponseSchema(
-  DaemonStartLoopResultSchema
-);
-
-export const DaemonStopLoopResponseSchema = createAckCompatibleResponseSchema(
-  DaemonStopLoopResultSchema
-);
-
-export const DaemonGetLoopStatusResponseSchema = z.union([
-  JsonRpcBaseResponseSuccessSchema.extend({
-    result: DaemonGetLoopStatusResultSchema,
-  }),
-  JsonRpcBaseResponseFailureSchema,
-]);
-
-export const DaemonRunLoopNowResponseSchema = createAckCompatibleResponseSchema(
-  DaemonRunLoopNowResultSchema
-);
 
 export const DaemonValidateWorkingDirectoryResponseSchema = z.union([
   JsonRpcBaseResponseSuccessSchema.extend({

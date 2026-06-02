@@ -1,8 +1,5 @@
-// Source-of-truth mirror of factory-mono-alpha custom-model schemas (symbol-only).
-// Verbatim copy of CustomModelBedrockSchema, ManagedCustomModelSchema, and
-// CustomModelsSchema from packages/common/src/settings/schema.ts. Ported as-is
-// per the no-modification rule (includes apiKey / aws credential fields).
-// SandboxModeSchema is colocated here (one-liner from the same settings module).
+// Custom-model schemas (includes apiKey / aws credential fields).
+// SandboxModeSchema is colocated here.
 
 import { z } from 'zod';
 

@@ -1,32 +1,3 @@
-// Source-of-truth mirror of `ManagedSettingsBaseSchema` and
-// `GeneralSettingsSchema` from `packages/common/src/settings/schema.ts`.
-// Verbatim port; do not modify the schema bodies. The only allowed
-// divergences are:
-//   1. Import paths are rewritten to local `./` siblings with `.js` ESM
-//      extensions (and helpers that already exist in sibling SDK modules
-//      are imported instead of redeclared).
-//   2. `ManagedSettingsBaseSchema` is `export const` here (upstream declares
-//      it `const`); the visibility is raised so `GeneralSettingsSchema` can
-//      call `.extend(...)` on it from a separate module boundary if needed
-//      and so the public API can surface it. See the inline NOTE below.
-//
-// Symbols ported verbatim (in upstream order):
-//   - SESSION_RETENTION_MIN_DAYS / SESSION_RETENTION_MAX_DAYS
-//   - ModelPolicySchema (+ private tolerantModelIdArray helper — upstream
-//     intentionally redefines this locally; we mirror that)
-//   - McpPolicySchema
-//   - MissionPolicySchema
-//   - NetworkPolicySchema (private, like upstream)
-//   - SandboxFilesystemSettingsSchema
-//   - SandboxNetworkSettingsSchema
-//   - SandboxSettingsSchema
-//   - ExtraMarketplaceEntrySchema (private, like upstream)
-//   - FactoryRouterRuleSchema
-//   - McpAutonomyLevelSchema (private, like upstream)
-//   - StatusLineConfigSchema (private, like upstream)
-//   - ManagedSettingsBaseSchema (exported; see NOTE)
-//   - GeneralSettingsSchema
-
 import { z } from 'zod';
 
 import {
@@ -67,10 +38,9 @@ const ReasoningEffortSchema = z.nativeEnum(ReasoningEffort);
 
 /**
  * A lenient model ID array that silently drops unrecognized values instead of
- * failing validation. This is critical for backward compatibility: when a ModelID
- * enum value is removed (e.g. after an EAP model cleanup), any Firestore
- * documents still referencing the old ID will have it filtered out rather than
- * causing the entire settings object to fail parsing.
+ * failing validation. Ensures backward compatibility when ModelID enum values
+ * are removed — persisted settings referencing old IDs filter them out rather
+ * than failing to parse.
  */
 const modelIdValues: ReadonlySet<string> = new Set(Object.values(ModelID));
 const tolerantModelIdArray = z
@@ -171,6 +141,11 @@ const McpAutonomyLevelSchema = z.enum([
   AutonomyLevel.High,
 ]);
 
+const McpAutonomyUrlOverrideSchema = z.object({
+  urlPattern: z.string().trim().min(1),
+  defaultLevel: McpAutonomyLevelSchema,
+});
+
 const StatusLineConfigSchema = z.object({
   type: z.literal('command').optional(),
   command: z.string(),
@@ -178,8 +153,8 @@ const StatusLineConfigSchema = z.object({
   maxRows: z.number().int().min(1).max(3).optional(),
 });
 
-// NOTE: upstream declares this `const`; exported here to allow `.extend(...)`
-// across module boundaries and to surface it on the public protocol namespace.
+// Exported (not internal-only) to allow `.extend(...)` across module
+// boundaries and to surface it on the public protocol namespace.
 export const ManagedSettingsBaseSchema = z.object({
   sessionDefaultSettings: SessionDefaultSettingsSchema.optional(),
   maxAutonomyLevel: z.nativeEnum(AutonomyLevel).optional(),
@@ -192,6 +167,7 @@ export const ManagedSettingsBaseSchema = z.object({
       })
     )
     .optional(),
+  mcpAutonomyUrlOverrides: z.array(McpAutonomyUrlOverrideSchema).optional(),
   cloudSessionSync: z.boolean().optional(),
   wikiCloudSync: z.boolean().optional(),
   includeCoAuthoredByDroid: z.boolean().optional(),
@@ -255,6 +231,7 @@ export const GeneralSettingsSchema = ManagedSettingsBaseSchema.extend({
   missionOrchestratorModel: z.string().optional(),
   missionOrchestratorReasoningEffort: ReasoningEffortSchema.optional(),
   modelFavorites: z.array(z.string()).optional(),
+  dismissedNewModels: z.array(z.string()).optional(),
   logoAnimation: z.nativeEnum(LogoAnimationMode).optional(),
   missionModelSettings: MissionModelSettingsSchema.optional(),
   subagentModelSettings: SubagentModelSettingsSchema.optional(),

@@ -39,7 +39,7 @@ export const DaemonAuthenticateRequestParamsSchema = z
     apiKey: z.string().optional(),
     /** Frontend-generated connection ID for trace correlation */
     connectionId: z.string().optional(),
-    /** Caller identifier for debugging (e.g., 'frontend', 'backend-v0-sessions', 'cli') */
+    /** Caller identifier for debugging (e.g., 'frontend', 'cli'). */
     caller: z.string(),
     /** Client-supplied metadata for tracing and diagnostics. */
     metadata: DaemonConnectionMetadataSchema.optional(),

@@ -1,6 +1,3 @@
-// Source-of-truth mirror of factory-mono-alpha selectable-list-item schema.
-// Faithful copy of packages/common/src/droid/schemas/selectable-list-item.ts.
-
 import { z } from 'zod';
 
 import { ToolConfirmationOutcome } from './enums.js';

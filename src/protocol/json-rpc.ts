@@ -1,8 +1,6 @@
-// Source-of-truth mirror of factory-mono-alpha JSON-RPC envelope family.
-// Faithful copy of packages/common/src/shared/schemas.ts.
-// Shapes match the private monorepo exactly (note: params/result/data use
-// z.unknown() as in the private source, NOT typed JsonValue). Do not "improve"
-// these shapes here — divergence from the private monorepo reintroduces drift.
+// JSON-RPC envelope/base protocol schemas.
+// Note: params/result/data use z.unknown() intentionally so envelopes carry
+// arbitrary payloads without typing the inner shape at this layer.
 
 import { z } from 'zod';
 

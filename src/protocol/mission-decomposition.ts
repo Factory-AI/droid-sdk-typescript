@@ -1,6 +1,3 @@
-// Source-of-truth mirror of factory-mono-alpha mission-decomposition schemas.
-// Verbatim copy of packages/common/src/droid/schemas/mission-decomposition.ts.
-
 import { z } from 'zod';
 
 import { CustomModelsSchema } from './custom-models.js';
@@ -134,33 +131,24 @@ export const DismissalRecordSchema = z.object({
 });
 
 // -------------------------
-// On-disk mission artifact schemas (GitHub issue #974)
+// On-disk mission artifact schemas
 //
-// These describe the shape of files the CLI's MissionFileService reads
-// and writes under `{missionDir}/`. They are intentionally stricter than
-// the protocol-level MissionFeatureSchema above: on-disk corruption
-// (a missing `status`, a truncated `state.json`, etc.) is the failure
-// class that drives scheduler-replay bugs, so schema enforcement here is
-// the first line of defense.
+// Describe the shape of files persisted under `{missionDir}/`. These are
+// intentionally stricter than the protocol-level MissionFeatureSchema above:
+// on-disk corruption (missing `status`, truncated state file, etc.) is the
+// failure class schema enforcement is designed to catch early.
 // -------------------------
 
 /**
- * On-disk feature schema. Kept intentionally more permissive than
- * `MissionFeatureSchema` (several list-typed fields are optional here
- * because `MissionFileService.normalizeFeature()` fills them with `[]`
- * defaults after reading). The fields we keep strict are the ones the
- * orchestrator always authors and whose silent regression would cause
- * scheduler-replay bugs: `id`, `description`, `status`.
+ * On-disk feature schema. More permissive than `MissionFeatureSchema` for
+ * list-typed fields (readers default them to `[]`). The required fields are
+ * those the orchestrator always authors and whose silent regression would
+ * lead to scheduler replay errors: `id`, `description`, `status`.
  */
 const OnDiskMissionFeatureSchema = z
   .object({
     id: z.string(),
     description: z.string(),
-    // Required: silent default-to-Pending re-enables the replay bug #974
-    // defends against. Missing status is corruption. Readers may have a
-    // narrow self-heal path for uniformly-legacy files authored by older
-    // CLI builds that never wrote `status`; anything else routes through
-    // the pause/repair flow in MissionRunner.
     status: z.nativeEnum(FeatureStatus),
     skillName: z.string().optional(),
     preconditions: z.array(z.string()).optional(),
@@ -254,10 +242,7 @@ export const MissionAcceptedEntrySchema = BaseProgressLogEntrySchema.extend({
 
 export const MissionPausedEntrySchema = BaseProgressLogEntrySchema.extend({
   type: z.literal(ProgressLogEntryType.MissionPaused),
-  /**
-   * Structured cause when the pause is automatic (e.g. unrecoverable 402).
-   * Absent for user- or runner-initiated pauses.
-   */
+  /** Structured cause when the pause is automatic. Absent for user-initiated pauses. */
   pauseReason: z.nativeEnum(MissionPauseReason).optional(),
 });
 
@@ -304,11 +289,7 @@ export const WorkerFailedEntrySchema = BaseProgressLogEntrySchema.extend({
   spawnId: z.string(),
   exitCode: z.number().optional(),
   reason: z.string(),
-  /**
-   * Structured cause that lets the MissionRunner branch on specific failure
-   * modes (e.g. unrecoverable 402 → auto-pause). Absent means a generic
-   * failure: requeue + return to orchestrator.
-   */
+  /** Structured failure cause used to branch on auto-pause vs requeue. Absent means a generic failure. */
   failureReason: z.nativeEnum(WorkerFailureReason).optional(),
 });
 

@@ -1,6 +1,3 @@
-// Source-of-truth mirror of factory-mono-alpha CLI protocol schemas.
-// Verbatim copy of packages/common/src/droid/schemas/cli.ts.
-
 import { z } from 'zod';
 
 import { SandboxModeSchema } from './custom-models.js';
