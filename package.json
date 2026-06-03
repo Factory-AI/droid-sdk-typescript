@@ -84,7 +84,7 @@
     "tsup": "^8.4.0",
     "typescript": "^5.8.0",
     "typescript-eslint": "^8.57.2",
-    "vitest": "^3.1.0"
+    "vitest": "^3.2.6"
   },
   "homepage": "https://github.com/Factory-AI/droid-sdk-typescript#readme",
   "bugs": {
