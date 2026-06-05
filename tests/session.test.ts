@@ -443,6 +443,33 @@ describe('DroidSession', () => {
       await session.close();
     });
 
+    it('forwards an explicit stream messageId to add_user_message', async () => {
+      const transport = new InMemoryTransport();
+      await transport.connect();
+
+      setupFullResponder(transport, 'sess-stream-message-id');
+
+      const session = await createSession({ apiKey: 'test-key', transport });
+
+      for await (const msg of session.stream('Hello', {
+        messageId: 'message-explicit-1',
+      })) {
+        void msg;
+      }
+
+      const addMessageRequest = transport.sentMessages.find(
+        (message) =>
+          (message as Record<string, unknown>)['method'] ===
+          DroidServerMethod.ADD_USER_MESSAGE
+      ) as Record<string, unknown>;
+      const params = addMessageRequest['params'] as Record<string, unknown>;
+
+      expect(params['text']).toBe('Hello');
+      expect(params['messageId']).toBe('message-explicit-1');
+
+      await session.close();
+    });
+
     it('defaults to message-level events and opts into partial events', async () => {
       const createStreamingSession = async (
         sessionId: string

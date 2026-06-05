@@ -66,6 +66,12 @@ export function throwIfAborted(signal: AbortSignal | undefined): void {
 }
 
 export interface MessageOptions {
+  /**
+   * Optional client-generated message id forwarded to add_user_message.
+   * Use this when callers need to correlate later session notifications with
+   * the user message that started this stream.
+   */
+  messageId?: string;
   images?: Base64ImageSource[];
   files?: DocumentSource[];
   outputFormat?: OutputFormat;
@@ -77,6 +83,7 @@ interface StreamableClient {
   onNotification(handler: (n: Record<string, unknown>) => void): () => void;
   addUserMessage(params: {
     text: string;
+    messageId?: string;
     images?: Base64ImageSource[];
     files?: DocumentSource[];
     outputFormat?: OutputFormat;
@@ -120,6 +127,7 @@ export async function* streamFromClient(
     await Promise.race([
       client.addUserMessage({
         text: prompt,
+        messageId: options?.messageId,
         images: options?.images,
         files: options?.files,
         outputFormat: options?.outputFormat,
