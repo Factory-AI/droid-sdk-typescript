@@ -1,8 +1,16 @@
 /**
  * Spec mode: approve and implement in the same session.
  *
+ * Demonstrates starting a session in spec (planning) mode and answering
+ * the ExitSpecMode confirmation with `ProceedOnce`, which implements
+ * the plan in the same session. The permission handler approves any
+ * tool call scoped to the temp directory and logs anything it cancels.
+ *
  * Usage:
  *   npx tsx examples/spec-mode-same-session.ts
+ *
+ * Requirements: droid CLI installed and logged in. FACTORY_API_KEY is
+ * optional; stored CLI credentials are used when it is unset.
  */
 
 import { mkdtemp, readFile, rm } from 'node:fs/promises';
@@ -15,10 +23,26 @@ import {
   ToolConfirmationOutcome,
   ToolConfirmationType,
   createSession,
+  type ToolConfirmationDetails,
 } from '@factory/droid-sdk';
 
 const tempDir = await mkdtemp(join(tmpdir(), 'droid-sdk-spec-'));
 const outputPath = join(tempDir, 'hello.txt');
+
+function isScopedToTempDir(details: ToolConfirmationDetails): boolean {
+  switch (details.type) {
+    case ToolConfirmationType.ExitSpecMode:
+      return true;
+    case ToolConfirmationType.Create:
+    case ToolConfirmationType.Edit:
+    case ToolConfirmationType.ApplyPatch:
+      return details.filePath.startsWith(tempDir);
+    case ToolConfirmationType.Execute:
+      return details.fullCommand.includes(tempDir);
+    default:
+      return false;
+  }
+}
 
 try {
   const session = await createSession({
@@ -27,32 +51,21 @@ try {
     interactionMode: DroidInteractionMode.Spec,
     specModeReasoningEffort: ReasoningEffort.High,
     permissionHandler(params) {
-      const canExitSpec = params.toolUses.some(
-        (item) => item.details.type === ToolConfirmationType.ExitSpecMode
-      );
-      const onlyCreatesFile = params.toolUses.every(
-        (item) =>
-          item.details.type === ToolConfirmationType.Create &&
-          item.details.filePath === outputPath
-      );
-      const onlyEditsTempFile = params.toolUses.every(
-        (item) =>
-          item.details.type === ToolConfirmationType.ApplyPatch &&
-          item.details.filePath === outputPath
-      );
-      const onlyRunsTempCommand = params.toolUses.every(
-        (item) =>
-          item.details.type === ToolConfirmationType.Execute &&
-          item.details.fullCommand.includes(outputPath) &&
-          item.details.fullCommand.includes(tempDir)
+      const allApproved = params.toolUses.every((item) =>
+        isScopedToTempDir(item.details)
       );
 
-      return canExitSpec ||
-        onlyCreatesFile ||
-        onlyEditsTempFile ||
-        onlyRunsTempCommand
-        ? ToolConfirmationOutcome.ProceedOnce
-        : ToolConfirmationOutcome.Cancel;
+      if (!allApproved) {
+        for (const item of params.toolUses) {
+          console.log(
+            `[Permission] Canceling unexpected tool request: ` +
+              `${item.toolUse.name} (${item.details.type})`
+          );
+        }
+        return ToolConfirmationOutcome.Cancel;
+      }
+
+      return ToolConfirmationOutcome.ProceedOnce;
     },
   });
 
@@ -66,7 +79,15 @@ try {
     await session.close();
   }
 
-  console.log(await readFile(outputPath, 'utf8'));
+  try {
+    console.log(await readFile(outputPath, 'utf8'));
+  } catch {
+    console.error(
+      `Expected ${outputPath} to exist after the turn, but it was not ` +
+        'created. Check the [Permission] log above for canceled tool calls.'
+    );
+    process.exitCode = 1;
+  }
 } finally {
   await rm(tempDir, { recursive: true, force: true });
 }

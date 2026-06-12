@@ -1,18 +1,31 @@
 /**
- * Manual smoke test for the daemon SDK — multiple concurrent sessions.
+ * Daemon: multiple concurrent sessions.
  *
- * Spawns a local daemon, creates two sessions in separate /tmp directories,
- * and runs them concurrently over a single WebSocket connection.
+ * Connects to a local daemon, creates two sessions in separate /tmp
+ * directories, and runs them concurrently over a single WebSocket
+ * connection.
  *
  * Usage:
  *   npx tsx examples/daemon-multi-session.ts
+ *
+ * Requirements: droid CLI installed, plus a real FACTORY_API_KEY.
+ * Daemon authentication has no stored-credential fallback, so this
+ * example skips itself when the env var is unset.
  */
 
 import { connectDaemon, DroidMessageType } from '@factory/droid-sdk';
 
 async function main(): Promise<void> {
+  if (!process.env.FACTORY_API_KEY) {
+    console.log(
+      'FACTORY_API_KEY is not set. Daemon authentication requires a real ' +
+        'API key (stored CLI credentials are not used). Skipping.'
+    );
+    return;
+  }
+
   console.log('Connecting to local daemon...\n');
-  const daemon = await connectDaemon({ apiKey: process.env.FACTORY_API_KEY! });
+  const daemon = await connectDaemon({ apiKey: process.env.FACTORY_API_KEY });
   console.log('Connected!\n');
 
   const frontend = await daemon.createSession({

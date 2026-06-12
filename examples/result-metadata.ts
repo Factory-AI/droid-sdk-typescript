@@ -8,6 +8,9 @@
  * Usage:
  *   npx tsx examples/result-metadata.ts
  *   npx tsx examples/result-metadata.ts "Reply with metadata details."
+ *
+ * Requirements: droid CLI installed and logged in. FACTORY_API_KEY is
+ * optional; stored CLI credentials are used when it is unset.
  */
 
 import assert from 'node:assert/strict';

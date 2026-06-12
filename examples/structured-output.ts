@@ -7,6 +7,9 @@
  * Usage:
  *   npx tsx examples/structured-output.ts
  *   npx tsx examples/structured-output.ts "Pick a favorite number between 1 and 42"
+ *
+ * Requirements: droid CLI installed and logged in. FACTORY_API_KEY is
+ * optional; stored CLI credentials are used when it is unset.
  */
 
 import assert from 'node:assert/strict';

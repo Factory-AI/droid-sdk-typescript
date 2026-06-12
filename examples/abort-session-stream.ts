@@ -1,8 +1,14 @@
 /**
  * Abort a running turn with AbortController.
  *
+ * Demonstrates passing an `abortSignal` to `session.stream()` and
+ * stopping a turn after a timeout.
+ *
  * Usage:
  *   npx tsx examples/abort-session-stream.ts
+ *
+ * Requirements: droid CLI installed and logged in. FACTORY_API_KEY is
+ * optional; stored CLI credentials are used when it is unset.
  */
 
 import { createSession } from '@factory/droid-sdk';

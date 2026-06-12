@@ -8,6 +8,9 @@
  *
  * Usage:
  *   npx tsx examples/fork-session.ts
+ *
+ * Requirements: droid CLI installed and logged in. FACTORY_API_KEY is
+ * optional; stored CLI credentials are used when it is unset.
  */
 
 import {

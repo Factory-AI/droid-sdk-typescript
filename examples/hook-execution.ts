@@ -3,25 +3,28 @@
  *
  * Demonstrates how to handle hook execution messages in a session stream.
  *
+ * IMPORTANT: Hook messages only appear if hooks are configured in your
+ * droid settings. Without configured hooks the example still runs, but
+ * no `[Hook ...]` lines are printed.
+ *
  * Usage:
  *   npx tsx examples/hook-execution.ts
+ *
+ * Requirements: droid CLI installed and logged in. FACTORY_API_KEY is
+ * optional; stored CLI credentials are used when it is unset.
  */
 
-import { DroidMessageType, createSession } from '../src/index.js';
+import { DroidMessageType, createSession } from '@factory/droid-sdk';
 
 async function main(): Promise<void> {
   const prompt = 'Run a simple shell command using Execute tool.';
 
   console.log(`Sending prompt: "${prompt}"\n`);
 
-  // Note: To actually see hooks, you need to have hooks configured in your droid settings.
-  const apiKey = process.env.FACTORY_API_KEY;
-  if (!apiKey) {
-    console.error('Set FACTORY_API_KEY environment variable.');
-    process.exit(1);
-  }
-
-  const session = await createSession({ apiKey, cwd: process.cwd() });
+  const session = await createSession({
+    apiKey: process.env.FACTORY_API_KEY!,
+    cwd: process.cwd(),
+  });
 
   try {
     for await (const msg of session.stream(prompt)) {
