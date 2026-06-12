@@ -160,7 +160,12 @@ export const PermissionResolvedNotificationSchema = z
     type: z.literal(SessionNotificationType.PERMISSION_RESOLVED),
     requestId: z.string(),
     toolUseIds: z.array(z.string()),
-    selectedOption: z.nativeEnum(ToolConfirmationOutcome),
+    // Accept values beyond ToolConfirmationOutcome so newer CLI versions can
+    // resolve permissions with options the SDK does not know about yet.
+    selectedOption: z.union([
+      z.nativeEnum(ToolConfirmationOutcome),
+      z.string(),
+    ]),
   })
   .passthrough();
 
@@ -726,7 +731,10 @@ export type RequestPermissionRequest = z.infer<
 
 export type RequestPermissionSelection =
   | ToolConfirmationOutcome
-  | `${ToolConfirmationOutcome}`;
+  | `${ToolConfirmationOutcome}`
+  // Preserve autocomplete for known outcomes while allowing handlers to echo
+  // back any option value offered by newer CLI versions.
+  | (string & {});
 
 export type RequestPermissionHandlerResult =
   | RequestPermissionSelection
@@ -738,7 +746,12 @@ export type RequestPermissionHandlerResult =
 /** Result for droid.request_permission response. */
 export const RequestPermissionResultSchema = z
   .object({
-    selectedOption: z.nativeEnum(ToolConfirmationOutcome),
+    // Accept values beyond ToolConfirmationOutcome so handlers can echo back
+    // options offered by newer CLI versions.
+    selectedOption: z.union([
+      z.nativeEnum(ToolConfirmationOutcome),
+      z.string(),
+    ]),
     comment: z.string().optional(),
   })
   .strict();

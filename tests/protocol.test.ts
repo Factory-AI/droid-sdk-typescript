@@ -22,6 +22,7 @@ import {
   ServerRequestHandlerType,
   ToolConfirmationOutcome,
 } from '../src/schemas/index.js';
+import type { RequestPermissionRequestParams } from '../src/schemas/server.js';
 import {
   InMemoryTransport,
   makeErrorResponse,
@@ -408,6 +409,39 @@ describe('ProtocolEngine', () => {
         const response = transport.sentMessages[0] as Record<string, unknown>;
         expect(response['result']).toEqual({
           selectedOption: ToolConfirmationOutcome.ProceedNewSessionHigh,
+        });
+      });
+
+      it('handles option values outside ToolConfirmationOutcome', async () => {
+        const handler = vi.fn((params: RequestPermissionRequestParams) => {
+          const always = params.options.find(
+            (option) => option.value === 'proceed_always_tools'
+          );
+          return always ? always.value : ToolConfirmationOutcome.Cancel;
+        });
+        engine.setPermissionHandler(handler);
+
+        transport.injectMessage(
+          makeServerRequest('perm-7', DroidClientMethod.REQUEST_PERMISSION, {
+            toolUses: [],
+            options: [
+              { label: 'Always allow tool', value: 'proceed_always_tools' },
+              { label: 'Cancel', value: ToolConfirmationOutcome.Cancel },
+            ],
+          })
+        );
+
+        await vi.waitFor(() => {
+          expect(transport.sentMessages).toHaveLength(1);
+        });
+
+        expect(handler).toHaveBeenCalledOnce();
+
+        const response = transport.sentMessages[0] as Record<string, unknown>;
+        expect(response['type']).toBe('response');
+        expect(response['error']).toBeUndefined();
+        expect(response['result']).toEqual({
+          selectedOption: 'proceed_always_tools',
         });
       });
     });

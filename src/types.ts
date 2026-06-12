@@ -23,7 +23,7 @@ export interface ProcessTransportOptions {
 
   cwd?: string;
 
-  env?: Record<string, string>;
+  env?: Record<string, string | undefined>;
 
   gracePeriod?: number;
 }

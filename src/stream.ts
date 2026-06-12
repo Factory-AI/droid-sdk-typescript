@@ -153,7 +153,9 @@ export interface PermissionResolved {
   readonly type: 'permission_resolved';
   readonly requestId: string;
   readonly toolUseIds: string[];
-  readonly selectedOption: ToolConfirmationOutcome;
+  // Known outcomes keep autocomplete, but newer CLI versions may resolve
+  // permissions with option values the SDK does not know about yet.
+  readonly selectedOption: ToolConfirmationOutcome | (string & {});
 }
 
 export interface SettingsUpdated {

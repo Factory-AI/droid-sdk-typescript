@@ -24,7 +24,7 @@ export class ProcessTransport implements DroidClientTransport {
   private readonly execPath: string;
   private readonly execArgs: string[];
   private readonly cwd: string | undefined;
-  private readonly env: Record<string, string> | undefined;
+  private readonly env: Record<string, string | undefined> | undefined;
   private readonly gracePeriodMs: number;
 
   private childProcess: ChildProcess | null = null;
