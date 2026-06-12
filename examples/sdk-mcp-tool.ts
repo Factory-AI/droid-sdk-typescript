@@ -4,7 +4,8 @@
  * Demonstrates `createSdkMcpServer()` and `tool()`: registers an
  * in-process MCP tool, asks the model to call it, and prints the tool
  * call, tool result, and final assistant answer. The permission
- * handler approves the MCP tool call and logs anything else it sees.
+ * handler approves only MCP tool confirmations, cancels everything
+ * else, and logs each decision.
  *
  * Usage:
  *   npx tsx examples/sdk-mcp-tool.ts
@@ -17,6 +18,7 @@
 import {
   DroidMessageType,
   ToolConfirmationOutcome,
+  ToolConfirmationType,
   createSession,
   createSdkMcpServer,
   tool,
@@ -43,10 +45,16 @@ const session = await createSession({
   mcpServers: [sdkTools],
   cwd: process.cwd(),
   permissionHandler(params) {
+    const allMcp = params.toolUses.every(
+      (item) => item.details.type === ToolConfirmationType.McpTool
+    );
+    const decision = allMcp ? 'proceed_once' : 'cancel';
     for (const item of params.toolUses) {
-      console.log(`[Permission] ${item.toolUse.name} -> proceed_once`);
+      console.log(`[Permission] ${item.toolUse.name} -> ${decision}`);
     }
-    return ToolConfirmationOutcome.ProceedOnce;
+    return allMcp
+      ? ToolConfirmationOutcome.ProceedOnce
+      : ToolConfirmationOutcome.Cancel;
   },
 });
 

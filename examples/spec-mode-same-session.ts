@@ -29,6 +29,8 @@ import {
 const tempDir = await mkdtemp(join(tmpdir(), 'droid-sdk-spec-'));
 const outputPath = join(tempDir, 'hello.txt');
 
+// Demo heuristic for keeping the example self-contained, not a
+// security boundary.
 function isScopedToTempDir(details: ToolConfirmationDetails): boolean {
   switch (details.type) {
     case ToolConfirmationType.ExitSpecMode:
@@ -51,12 +53,12 @@ try {
     interactionMode: DroidInteractionMode.Spec,
     specModeReasoningEffort: ReasoningEffort.High,
     permissionHandler(params) {
-      const allApproved = params.toolUses.every((item) =>
-        isScopedToTempDir(item.details)
+      const rejected = params.toolUses.filter(
+        (item) => !isScopedToTempDir(item.details)
       );
 
-      if (!allApproved) {
-        for (const item of params.toolUses) {
+      if (rejected.length > 0) {
+        for (const item of rejected) {
           console.log(
             `[Permission] Canceling unexpected tool request: ` +
               `${item.toolUse.name} (${item.details.type})`

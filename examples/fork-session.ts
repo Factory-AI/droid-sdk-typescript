@@ -61,7 +61,7 @@ async function main(): Promise<void> {
   } finally {
     await fork?.close();
     await session.close();
-    console.log('\nBoth sessions closed.');
+    console.log('\nCleaned up sessions.');
   }
 }
 

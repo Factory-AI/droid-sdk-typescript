@@ -7,8 +7,8 @@
  * Usage:
  *   npx tsx examples/list-sessions.ts
  *
- * Requirements: droid CLI installed and logged in. FACTORY_API_KEY is
- * optional; stored CLI credentials are used when it is unset.
+ * Requirements: droid CLI installed (reads local session files); no
+ * credentials needed.
  */
 
 import { listSessions } from '@factory/droid-sdk';

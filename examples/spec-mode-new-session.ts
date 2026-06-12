@@ -62,7 +62,15 @@ try {
     await session.close();
   }
 
-  console.log(await readFile(outputPath, 'utf8'));
+  try {
+    console.log(await readFile(outputPath, 'utf8'));
+  } catch {
+    console.error(
+      `Expected ${outputPath} to exist after the turn, but it was not ` +
+        'created.'
+    );
+    process.exitCode = 1;
+  }
 } finally {
   await rm(tempDir, { recursive: true, force: true });
 }
