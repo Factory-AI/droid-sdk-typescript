@@ -289,7 +289,12 @@ export async function createTransport(
     execPath: options.execPath,
     execArgs: options.execArgs,
     cwd: options.cwd,
-    env: { ...options.env, FACTORY_API_KEY: options.apiKey },
+    // Spreading FACTORY_API_KEY: undefined would make spawn() delete an
+    // ambient FACTORY_API_KEY, so only override when a key was provided.
+    env:
+      options.apiKey !== undefined
+        ? { ...options.env, FACTORY_API_KEY: options.apiKey }
+        : options.env,
   };
   const processTransport = new ProcessTransport(transportOptions);
   await processTransport.connect();

@@ -444,6 +444,34 @@ describe('ProtocolEngine', () => {
           selectedOption: 'proceed_always_tools',
         });
       });
+
+      it('handles object results with unknown option values', async () => {
+        engine.setPermissionHandler(() => ({
+          selectedOption: 'proceed_always_tools',
+          comment: 'ok',
+        }));
+
+        transport.injectMessage(
+          makeServerRequest('perm-8', DroidClientMethod.REQUEST_PERMISSION, {
+            toolUses: [],
+            options: [
+              { label: 'Always allow tool', value: 'proceed_always_tools' },
+            ],
+          })
+        );
+
+        await vi.waitFor(() => {
+          expect(transport.sentMessages).toHaveLength(1);
+        });
+
+        const response = transport.sentMessages[0] as Record<string, unknown>;
+        expect(response['type']).toBe('response');
+        expect(response['error']).toBeUndefined();
+        expect(response['result']).toEqual({
+          selectedOption: 'proceed_always_tools',
+          comment: 'ok',
+        });
+      });
     });
 
     describe('ask-user requests', () => {
