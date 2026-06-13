@@ -1,8 +1,8 @@
 # @factory/droid-sdk
 
-TypeScript SDK for the [Factory](https://factory.ai) Droid CLI. Provides a high-level API for interacting with Droid as a subprocess, with one-shot prompts, streaming messages, multi-turn sessions, structured output, SDK-backed MCP tools, spec mode, tool controls, initialization metadata, session forking, session discovery, and tool permission handling.
+TypeScript SDK for the [Factory](https://factory.ai) Droid CLI. Provides a high-level API for interacting with Droid as a subprocess: one-shot prompts, streaming, multi-turn sessions, structured output, in-process MCP tools, and tool permission control.
 
-For in-depth documentation, see the [SDK usage guide](./docs/sdk-usage-guide.md). To control a long-running droid daemon over WebSocket (multiple concurrent sessions, remote machines), see the [daemon usage guide](./docs/daemon-usage-guide.md). Low-level JSON-RPC protocol types and schemas are available from the `@factory/droid-sdk/protocol` subpath export.
+For in-depth documentation, see the [SDK usage guide](./docs/sdk-usage-guide.md). To control a long-running `droid` daemon over WebSocket (multiple concurrent sessions, remote machines), see the [daemon usage guide](./docs/daemon-usage-guide.md). Low-level JSON-RPC protocol types and schemas are available from the `@factory/droid-sdk/protocol` subpath export.
 
 ## Requirements
 
@@ -30,7 +30,7 @@ const result = await run('What files are in the current directory?', {
 console.log(result.text);
 ```
 
-`apiKey` is a required option. When `FACTORY_API_KEY` is undefined, the droid CLI falls back to its stored login credentials, so `apiKey: process.env.FACTORY_API_KEY!` works on any machine where `droid` is logged in.
+`apiKey` is required by the type signature, but its runtime value may be `undefined`: the `!` only satisfies TypeScript. When the value is undefined, the `droid` CLI falls back to its stored login credentials, so `apiKey: process.env.FACTORY_API_KEY!` works on any machine where `droid` is logged in.
 
 Create a session when you want to stream one or more turns:
 
@@ -204,6 +204,8 @@ for await (const msg of session.stream(
 await session.close();
 ```
 
+MCP tool calls request confirmation even at the default autonomy level, so the session supplies a `permissionHandler` to approve them (see [Permission Handling](#permission-handling)).
+
 `createSdkMcpServer()` is managed by the SDK session lifecycle. Use `tool()` with a Zod object shape for typed tool input validation.
 
 ## Initialization Metadata
@@ -253,6 +255,7 @@ for await (const _msg of session.stream(
   // spec-mode approval flow (a permissionHandler confirmation).
 }
 
+// Alternatively, switch an existing session into spec mode:
 await session.enterSpecMode({
   specModeReasoningEffort: ReasoningEffort.High,
 });
@@ -260,11 +263,11 @@ await session.enterSpecMode({
 await session.close();
 ```
 
-When handling spec-mode approval in a `permissionHandler`, you can approve implementation in the same session with `ToolConfirmationOutcome.ProceedOnce`, or hand off to a fresh session with `ToolConfirmationOutcome.ProceedNewSessionHigh`. See [`examples/spec-mode-same-session.ts`](./examples/spec-mode-same-session.ts) and [`examples/spec-mode-new-session.ts`](./examples/spec-mode-new-session.ts) for complete flows.
+When handling spec-mode approval in a `permissionHandler` (see [Permission Handling](#permission-handling)), you can approve implementation in the same session with `ToolConfirmationOutcome.ProceedOnce`, or hand off to a fresh session with `ToolConfirmationOutcome.ProceedNewSessionHigh`. See [`examples/spec-mode-same-session.ts`](./examples/spec-mode-same-session.ts) and [`examples/spec-mode-new-session.ts`](./examples/spec-mode-new-session.ts) for complete flows.
 
 ## Tool Controls
 
-Override which exec tools are available at session start, inspect the current tool catalog, and update tool overrides later. Tool IDs are the CLI's internal IDs such as `'read-cli'`, `'execute-cli'`, and `'grep_tool_cli'` (not model-facing names like `'Read'`); call `session.listTools()` to discover them:
+Override which exec tools are available at session start, inspect the current tool catalog, and update tool overrides later. Tool IDs are the CLI's internal IDs such as `'read-cli'`, `'execute-cli'`, and `'grep_tool_cli'` (not model-facing names like `'Read'`). Call `session.listTools()` to discover them:
 
 ```ts
 import { createSession } from '@factory/droid-sdk';
@@ -329,7 +332,7 @@ await session.close();
 
 ## Listing Sessions
 
-Discover droid sessions saved on disk (mirrors the CLI's `/sessions` command). Reads `~/.factory/sessions/` directly — no droid process is spawned, so this works even when no session is running:
+Discover `droid` sessions saved on disk (mirrors the CLI's `/sessions` command). Reads `~/.factory/sessions/` directly — no `droid` process is spawned, so this works even when no session is running:
 
 ```ts
 import { listSessions } from '@factory/droid-sdk';
@@ -403,14 +406,14 @@ try {
 
 ### Top-Level Functions
 
-| Function                      | Description                                                      |
-| ----------------------------- | ---------------------------------------------------------------- |
-| `run(prompt, options)`        | One-shot prompt → aggregated `DroidResult`                       |
-| `createSession(options)`      | Create a new multi-turn session → `DroidSession`                 |
-| `resumeSession(id, options?)` | Resume an existing session → `DroidSession`                      |
-| `listSessions(options?)`      | List droid sessions saved on disk → `Promise<SessionMetadata[]>` |
-| `createSdkMcpServer(options)` | Create an SDK-managed MCP server for in-process tools            |
-| `tool(...)`                   | Define a typed SDK-backed MCP tool                               |
+| Function                      | Description                                               |
+| ----------------------------- | --------------------------------------------------------- |
+| `run(prompt, options)`        | One-shot prompt → aggregated `DroidResult`                |
+| `createSession(options)`      | Create a new multi-turn session → `DroidSession`          |
+| `resumeSession(id, options?)` | Resume an existing session → `DroidSession`               |
+| `listSessions(options?)`      | List `droid` sessions saved on disk → `SessionMetadata[]` |
+| `createSdkMcpServer(options)` | Create an SDK-managed MCP server for in-process tools     |
+| `tool(...)`                   | Define a typed SDK-backed MCP tool                        |
 
 The package also exports a daemon-mode surface (`connectDaemon`, `DaemonClient`, `DaemonSession`, `ensureLocalDaemon`, ...) for managing multiple sessions over WebSocket — see the [daemon usage guide](./docs/daemon-usage-guide.md).
 
@@ -468,7 +471,7 @@ for await (const msg of session.stream(prompt, {
 }
 ```
 
-A default `session.stream()` yields only these message types:
+By default, `session.stream()` yields only these message types:
 
 | Type          | Description                                     |
 | ------------- | ----------------------------------------------- |
@@ -509,10 +512,10 @@ The remaining types are only yielded when streaming with `includePartialMessages
 
 Session creation options used by `run()` and `createSession()` include:
 
-- **`apiKey`** — Factory API key (required). Pass `process.env.FACTORY_API_KEY!`; when the variable is undefined, the droid CLI falls back to its stored login credentials
+- **`apiKey`** — Factory API key. Required by the type signature, but the runtime value may be `undefined` (the `!` only satisfies TypeScript); when undefined, the `droid` CLI falls back to its stored login credentials
 - **`cwd`** — working directory for the session
 - **`execPath`** — path to `droid` executable (default: `"droid"`)
-- **`execArgs`** — extra CLI arguments for the spawned droid process
+- **`execArgs`** — extra CLI arguments for the spawned `droid` process
 - **`env`** — environment variables for the spawned process
 - **`transport`** — provide a custom transport instead of spawning a process
 - **`machineId`** — machine identifier for initialization (default: `"default"`)
@@ -547,14 +550,14 @@ Low-level JSON-RPC client for advanced use. Provides typed methods for the under
 
 ### Error Types
 
-| Error                  | Description                            |
-| ---------------------- | -------------------------------------- |
-| `ConnectionError`      | Failed to connect to the droid process |
-| `ProtocolError`        | JSON-RPC protocol error                |
-| `SessionError`         | Base session error                     |
-| `SessionNotFoundError` | Session ID not found                   |
-| `TimeoutError`         | Request timed out                      |
-| `ProcessExitError`     | Droid subprocess exited unexpectedly   |
+| Error                  | Description                              |
+| ---------------------- | ---------------------------------------- |
+| `ConnectionError`      | Failed to connect to the `droid` process |
+| `ProtocolError`        | JSON-RPC protocol error                  |
+| `SessionError`         | Base session error                       |
+| `SessionNotFoundError` | Session ID not found                     |
+| `TimeoutError`         | Request timed out                        |
+| `ProcessExitError`     | Droid subprocess exited unexpectedly     |
 
 ## Examples
 
@@ -576,9 +579,9 @@ See the [`examples/`](./examples) directory for runnable examples:
 - **[`sdk-mcp-tool.ts`](./examples/sdk-mcp-tool.ts)** — expose SDK-defined tools to Droid through MCP
 - **[`hook-execution.ts`](./examples/hook-execution.ts)** — observe file hook execution events
 - **[`fork-session.ts`](./examples/fork-session.ts)** — fork a session and continue from the new session ID
-- **[`list-sessions.ts`](./examples/list-sessions.ts)** — discover droid sessions saved on disk
+- **[`list-sessions.ts`](./examples/list-sessions.ts)** — discover `droid` sessions saved on disk
 - **[`compact-session.ts`](./examples/compact-session.ts)** — compact session history
-- **[`daemon-multi-session.ts`](./examples/daemon-multi-session.ts)** — run multiple sessions against a local droid daemon
+- **[`daemon-multi-session.ts`](./examples/daemon-multi-session.ts)** — run multiple sessions against a local `droid` daemon
 
 ## License
 
