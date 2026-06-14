@@ -42,7 +42,7 @@ This guide covers **exec mode** (`run()`, `createSession()`), which spawns a `dr
 - [Low-level APIs](#low-level-apis)
 - [Configuration Reference](#configuration-reference)
 
-> **Convention used in this guide:** most examples create a session with `apiKey` and `cwd`, run a turn, and then `close()`. The two creation options are repeated for copy-paste convenience; in your own code you typically create one session and reuse it across turns.
+> **Convention used in this guide:** most examples create a session with `apiKey` and `cwd`, run a turn, and then `close()`. The two creation options are repeated for copy-paste convenience; in your own code you typically create one session and reuse it across turns. For brevity, examples call `close()` directly after the turn; in production, wrap turns in `try`/`finally` (as shown in the [README](../README.md)) so the subprocess is always closed even if a turn throws.
 
 ---
 
@@ -329,7 +329,9 @@ const session = await createSession({
 });
 for await (const msg of session.stream('Write a long essay.')) {
   if (msg.type === DroidMessageType.Assistant) {
+    // Interrupt once, after the first chunk of output, then stop reading.
     await session.interrupt();
+    break;
   }
 }
 await session.close();
