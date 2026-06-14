@@ -531,8 +531,8 @@ try {
 | `specModeModelId`         | `string`                 | Override model for spec mode.                                                                                 |
 | `specModeReasoningEffort` | `ReasoningEffort`        | Override reasoning effort for spec mode.                                                                      |
 | `mcpServers`              | `DroidMcpServerConfig[]` | MCP server configurations.                                                                                    |
-| `enabledToolIds`          | `string[]`               | Tool allowlist.                                                                                               |
-| `disabledToolIds`         | `string[]`               | Tool denylist.                                                                                                |
+| `enabledToolIds`          | `string[]`               | Tool IDs to enable on top of the default set (not an exclusive allowlist). Use real CLI IDs like `read-cli`.  |
+| `disabledToolIds`         | `string[]`               | Tool IDs to disable. Use real CLI IDs like `execute-cli`.                                                     |
 | `tags`                    | `SessionTag[]`           | Session tags for categorization.                                                                              |
 | `permissionHandler`       | `PermissionHandler`      | Tool confirmation callback.                                                                                   |
 | `askUserHandler`          | `AskUserHandler`         | Structured user-input callback.                                                                               |
@@ -591,4 +591,4 @@ try {
 
 ### Low-level Exports
 
-For advanced use, the package root also exports the daemon primitives used internally: `ensureLocalDaemon()` (discover or spawn a local daemon), `resolveWebSocketUrl()` (compute the WebSocket URL from `ConnectDaemonOptions`), and the constants `DEFAULT_DAEMON_PORT` (`37643`) and `DEFAULT_RELAY_BASE_URL` (`wss://relay.factory.ai`).
+For advanced use, the package root also exports the daemon primitives used internally: `ensureLocalDaemon()` (discover or spawn a local daemon) and `resolveWebSocketUrl()` (compute the WebSocket URL from `ConnectDaemonOptions`). The default port (`37643`) and relay URL (`wss://relay.factory.ai`) are the values shown in the [`ConnectDaemonOptions`](#connectdaemonoptions) table.
