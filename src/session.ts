@@ -64,7 +64,6 @@ export interface CreateSessionOptions
 
 export interface ResumeSessionOptions extends Pick<
   CreateSessionOptions,
-  | 'apiKey'
   | 'execPath'
   | 'execArgs'
   | 'env'
@@ -73,6 +72,11 @@ export interface ResumeSessionOptions extends Pick<
   | 'transport'
   | 'abortSignal'
 > {
+  /**
+   * Optional on resume: when omitted, the droid CLI falls back to its stored
+   * credentials.
+   */
+  apiKey?: CreateSessionOptions['apiKey'];
   mcpServers?: DroidMcpServerConfig[];
 }
 
@@ -328,6 +332,9 @@ export async function createSession(
 /**
  * Resumes an existing Droid session.
  *
+ * The `options` argument is optional. When `apiKey` is omitted, the droid CLI
+ * falls back to its stored credentials.
+ *
  * The resumed session always runs in the working directory that was persisted
  * with the session at creation time. `resumeSession()` intentionally does not
  * accept a `cwd` option: the persisted session cwd is authoritative. The
@@ -340,7 +347,7 @@ export async function createSession(
  */
 export async function resumeSession(
   sessionId: string,
-  options: ResumeSessionOptions
+  options: ResumeSessionOptions = {}
 ): Promise<DroidSession> {
   const { client } = await createConfiguredClient(options);
   let sdkMcpServers: Awaited<ReturnType<typeof startSdkMcpServers>> | undefined;

@@ -8,6 +8,9 @@
  *
  * Usage:
  *   npx tsx examples/fork-session.ts
+ *
+ * Requirements: droid CLI installed and logged in. FACTORY_API_KEY is
+ * optional; stored CLI credentials are used when it is unset.
  */
 
 import {
@@ -58,7 +61,7 @@ async function main(): Promise<void> {
   } finally {
     await fork?.close();
     await session.close();
-    console.log('\nBoth sessions closed.');
+    console.log('\nCleaned up sessions.');
   }
 }
 

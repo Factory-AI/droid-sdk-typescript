@@ -6,6 +6,9 @@
  *
  * Usage:
  *   npx tsx examples/session-stream.ts
+ *
+ * Requirements: droid CLI installed and logged in. FACTORY_API_KEY is
+ * optional; stored CLI credentials are used when it is unset.
  */
 
 import { DroidMessageType, createSession } from '@factory/droid-sdk';

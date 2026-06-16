@@ -1,8 +1,15 @@
 /**
  * Permission handler example.
  *
+ * Demonstrates approving or canceling tool calls with a
+ * `permissionHandler`: only file creation at the expected temp path is
+ * allowed.
+ *
  * Usage:
  *   npx tsx examples/permission-handler.ts
+ *
+ * Requirements: droid CLI installed and logged in. FACTORY_API_KEY is
+ * optional; stored CLI credentials are used when it is unset.
  */
 
 import { mkdtemp, readFile, rm } from 'node:fs/promises';

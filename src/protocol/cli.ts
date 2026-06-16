@@ -110,7 +110,9 @@ const PermissionResolvedNotificationSchema = z.object({
   type: z.literal(SessionNotificationType.PERMISSION_RESOLVED),
   requestId: z.string(),
   toolUseIds: z.array(z.string()), // Array to match batched permission requests
-  selectedOption: z.nativeEnum(ToolConfirmationOutcome),
+  // Accept values beyond ToolConfirmationOutcome so newer CLI versions can
+  // resolve permissions with options the SDK does not know about yet.
+  selectedOption: z.union([z.nativeEnum(ToolConfirmationOutcome), z.string()]),
 });
 
 const SettingsUpdatedNotificationSchema = z.object({
@@ -526,7 +528,12 @@ export const AskUserResponseSchema = z.union([
 
 export const RequestPermissionResultSchema = z
   .object({
-    selectedOption: z.nativeEnum(ToolConfirmationOutcome),
+    // Accept values beyond ToolConfirmationOutcome so handlers can echo back
+    // options offered by newer CLI versions.
+    selectedOption: z.union([
+      z.nativeEnum(ToolConfirmationOutcome),
+      z.string(),
+    ]),
     comment: z.string().optional(),
     editedSpecContent: z.string().optional(),
   })

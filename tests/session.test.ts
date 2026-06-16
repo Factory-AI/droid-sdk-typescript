@@ -331,6 +331,32 @@ describe('resumeSession()', () => {
     });
   });
 
+  describe('optional options', () => {
+    it('accepts a single argument at the type level', () => {
+      // Compile-time check: calling without options must typecheck. Not
+      // invoked, since a real call without a transport would spawn the CLI.
+      const oneArg: (sessionId: string) => Promise<DroidSession> =
+        resumeSession;
+      expect(oneArg).toBe(resumeSession);
+    });
+
+    it('resumes without apiKey, falling back to stored credentials', async () => {
+      const transport = new InMemoryTransport();
+      await transport.connect();
+
+      setupLoadResponder(transport, 'sess-resume-no-key');
+
+      const session = await resumeSession('sess-resume-no-key', {
+        transport,
+      });
+
+      expect(session).toBeInstanceOf(DroidSession);
+      expect(session.sessionId).toBe('sess-resume-no-key');
+
+      await session.close();
+    });
+  });
+
   describe('VAL-API-014: resumeSession with invalid ID throws SessionNotFoundError', () => {
     it('throws SessionNotFoundError for non-existent session', async () => {
       const transport = new InMemoryTransport();

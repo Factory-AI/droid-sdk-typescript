@@ -7,7 +7,10 @@
  * and removedCount.
  *
  * Usage:
- *   npx tsx examples/test-compact.ts
+ *   npx tsx examples/compact-session.ts
+ *
+ * Requirements: droid CLI installed and logged in. FACTORY_API_KEY is
+ * optional; stored CLI credentials are used when it is unset.
  */
 
 import { createSession, DroidMessageType } from '@factory/droid-sdk';
@@ -43,7 +46,7 @@ async function main(): Promise<void> {
     }
 
     console.log('=== Compacting session ===');
-    const compactResult = await session.compactSession({});
+    const compactResult = await session.compactSession();
     console.log(`Original session: ${session.sessionId}`);
     console.log(`New session:      ${compactResult.newSessionId}`);
     console.log(`Removed messages: ${compactResult.removedCount}`);

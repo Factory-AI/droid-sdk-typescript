@@ -10,7 +10,9 @@ import { ToolConfirmationOutcome } from './enums.js';
  */
 export const ToolConfirmationListItemSchema = z.object({
   label: z.string(),
-  value: z.nativeEnum(ToolConfirmationOutcome),
+  // Accept values beyond ToolConfirmationOutcome so newer CLI versions can
+  // offer options the SDK does not know about yet.
+  value: z.union([z.nativeEnum(ToolConfirmationOutcome), z.string()]),
 });
 
 export type ToolConfirmationListItem = z.infer<

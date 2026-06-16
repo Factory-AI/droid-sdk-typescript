@@ -646,6 +646,13 @@ describe('MCP schemas', () => {
       'proceed_once'
     );
   });
+
+  it('ToolConfirmationListItemSchema accepts unknown outcome values', () => {
+    const item = { label: 'Always allow tool', value: 'proceed_always_tools' };
+    expect(ToolConfirmationListItemSchema.parse(item).value).toBe(
+      'proceed_always_tools'
+    );
+  });
 });
 
 describe('mission schemas', () => {
@@ -1120,6 +1127,18 @@ describe('server notification schemas', () => {
     );
   });
 
+  it('PermissionResolvedNotificationSchema accepts unknown outcome values', () => {
+    const n = {
+      type: 'permission_resolved',
+      requestId: 'req-1',
+      toolUseIds: ['tu-1'],
+      selectedOption: 'proceed_always_tools',
+    };
+    expect(PermissionResolvedNotificationSchema.parse(n).selectedOption).toBe(
+      'proceed_always_tools'
+    );
+  });
+
   it('SettingsUpdatedNotificationSchema parses valid notification', () => {
     const n = {
       type: 'settings_updated',
@@ -1309,6 +1328,18 @@ describe('server→client request schemas', () => {
     expect(result.options).toHaveLength(1);
   });
 
+  it('RequestPermissionRequestParamsSchema accepts unknown option values', () => {
+    const params = {
+      toolUses: [],
+      options: [
+        { label: 'Always allow tool', value: 'proceed_always_tools' },
+        { label: 'Cancel', value: 'cancel' },
+      ],
+    };
+    const result = RequestPermissionRequestParamsSchema.parse(params);
+    expect(result.options[0]?.value).toBe('proceed_always_tools');
+  });
+
   it('RequestPermissionResultSchema parses valid result', () => {
     const result = {
       selectedOption: 'proceed_once',
@@ -1341,9 +1372,16 @@ describe('server→client request schemas', () => {
     }
   });
 
-  it('RequestPermissionResultSchema rejects invalid outcome', () => {
+  it('RequestPermissionResultSchema accepts unknown outcome values', () => {
+    const parsed = RequestPermissionResultSchema.parse({
+      selectedOption: 'proceed_always_tools',
+    });
+    expect(parsed.selectedOption).toBe('proceed_always_tools');
+  });
+
+  it('RequestPermissionResultSchema rejects non-string outcome', () => {
     expect(() =>
-      RequestPermissionResultSchema.parse({ selectedOption: 'invalid' })
+      RequestPermissionResultSchema.parse({ selectedOption: 42 })
     ).toThrow();
   });
 

@@ -267,8 +267,19 @@ export interface TransportCreationOptions extends Pick<
   transport?: DroidClientTransport;
 }
 
+/**
+ * Internal variant of {@link TransportCreationOptions} where `apiKey` may be
+ * omitted (resume path); the CLI then falls back to its stored credentials.
+ */
+export type OptionalApiKeyTransportCreationOptions = Omit<
+  TransportCreationOptions,
+  'apiKey'
+> & {
+  apiKey?: string;
+};
+
 export async function createTransport(
-  options: TransportCreationOptions
+  options: OptionalApiKeyTransportCreationOptions
 ): Promise<DroidClientTransport> {
   if (options.transport) {
     return options.transport;
@@ -278,7 +289,12 @@ export async function createTransport(
     execPath: options.execPath,
     execArgs: options.execArgs,
     cwd: options.cwd,
-    env: { ...options.env, FACTORY_API_KEY: options.apiKey },
+    // Spreading FACTORY_API_KEY: undefined would make spawn() delete an
+    // ambient FACTORY_API_KEY, so only override when a key was provided.
+    env:
+      options.apiKey !== undefined
+        ? { ...options.env, FACTORY_API_KEY: options.apiKey }
+        : options.env,
   };
   const processTransport = new ProcessTransport(transportOptions);
   await processTransport.connect();
@@ -303,7 +319,7 @@ export function setupClientHandlers(
 }
 
 interface ClientCreationOptions
-  extends TransportCreationOptions, HandlerOptions {}
+  extends OptionalApiKeyTransportCreationOptions, HandlerOptions {}
 
 export async function createConfiguredClient(
   options: ClientCreationOptions

@@ -1,8 +1,15 @@
 /**
  * Interrupt a running turn.
  *
+ * Demonstrates `session.interrupt()`: requests the interrupt after the
+ * fifth streamed text delta. Because the interrupt is asynchronous, a
+ * few more deltas may arrive before the turn actually stops.
+ *
  * Usage:
  *   npx tsx examples/interrupt-session.ts
+ *
+ * Requirements: droid CLI installed and logged in. FACTORY_API_KEY is
+ * optional; stored CLI credentials are used when it is unset.
  */
 
 import { createSession, DroidMessageType } from '@factory/droid-sdk';
@@ -25,6 +32,8 @@ try {
     deltaCount++;
 
     if (deltaCount === 5) {
+      // Asynchronous: the stream may deliver a few more deltas before
+      // the interrupt takes effect.
       await session.interrupt();
     }
   }

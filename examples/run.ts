@@ -1,12 +1,15 @@
 /**
- * Manual smoke test for the one-shot `run()` API.
+ * One-shot `run()` example.
  *
- * Sends a single prompt, prints the aggregated result, and exits after the
- * underlying session has been closed by `run()`.
+ * Sends a single prompt, prints the aggregated result, and exits after
+ * the underlying session has been closed by `run()`.
  *
  * Usage:
  *   npx tsx examples/run.ts
  *   npx tsx examples/run.ts "What is 2 + 2?"
+ *
+ * Requirements: droid CLI installed and logged in. FACTORY_API_KEY is
+ * optional; stored CLI credentials are used when it is unset.
  */
 
 import { run } from '@factory/droid-sdk';

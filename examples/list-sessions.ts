@@ -1,8 +1,14 @@
 /**
  * List saved sessions example.
  *
+ * Demonstrates `listSessions()` to fetch recent sessions for the
+ * current project.
+ *
  * Usage:
  *   npx tsx examples/list-sessions.ts
+ *
+ * Requirements: droid CLI installed (reads local session files); no
+ * credentials needed.
  */
 
 import { listSessions } from '@factory/droid-sdk';

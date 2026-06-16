@@ -259,6 +259,54 @@ describe('createTransport', () => {
 
     expect(result).toStrictEqual(customTransport);
   });
+
+  describe('FACTORY_API_KEY environment handling', () => {
+    /** Spawn `node -e` that reports its FACTORY_API_KEY, return the value. */
+    async function spawnAndReadApiKey(options: {
+      apiKey?: string;
+    }): Promise<string | null> {
+      const script = `
+        console.log(
+          JSON.stringify({ key: process.env.FACTORY_API_KEY ?? null })
+        );
+        setTimeout(() => {}, 10000);
+      `;
+      const transport = await createTransport({
+        ...options,
+        execPath: 'node',
+        execArgs: ['-e', script],
+      });
+
+      try {
+        return await new Promise<string | null>((resolve, reject) => {
+          const timer = setTimeout(() => {
+            reject(new Error('Timeout waiting for child env report'));
+          }, 5_000);
+          transport.onMessage((msg) => {
+            clearTimeout(timer);
+            resolve((msg as { key: string | null }).key);
+          });
+        });
+      } finally {
+        await transport.close();
+      }
+    }
+
+    it('overrides FACTORY_API_KEY when apiKey is provided', async () => {
+      const key = await spawnAndReadApiKey({ apiKey: 'explicit-key' });
+      expect(key).toBe('explicit-key');
+    });
+
+    it('preserves ambient FACTORY_API_KEY when apiKey is omitted', async () => {
+      vi.stubEnv('FACTORY_API_KEY', 'ambient-key');
+      try {
+        const key = await spawnAndReadApiKey({});
+        expect(key).toBe('ambient-key');
+      } finally {
+        vi.unstubAllEnvs();
+      }
+    });
+  });
 });
 
 describe('setupClientHandlers', () => {

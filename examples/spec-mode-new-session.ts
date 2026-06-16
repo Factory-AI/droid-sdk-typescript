@@ -1,8 +1,15 @@
 /**
  * Spec mode: approve and hand off implementation to a new session.
  *
+ * Demonstrates starting a session in spec (planning) mode and answering
+ * the ExitSpecMode confirmation with `ProceedNewSessionHigh`, which
+ * implements the plan in a fresh session.
+ *
  * Usage:
  *   npx tsx examples/spec-mode-new-session.ts
+ *
+ * Requirements: droid CLI installed and logged in. FACTORY_API_KEY is
+ * optional; stored CLI credentials are used when it is unset.
  */
 
 import { mkdtemp, readFile, rm } from 'node:fs/promises';
@@ -55,7 +62,15 @@ try {
     await session.close();
   }
 
-  console.log(await readFile(outputPath, 'utf8'));
+  try {
+    console.log(await readFile(outputPath, 'utf8'));
+  } catch {
+    console.error(
+      `Expected ${outputPath} to exist after the turn, but it was not ` +
+        'created.'
+    );
+    process.exitCode = 1;
+  }
 } finally {
   await rm(tempDir, { recursive: true, force: true });
 }
