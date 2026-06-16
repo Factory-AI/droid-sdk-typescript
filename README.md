@@ -1,5 +1,7 @@
 # @factory/droid-sdk
 
+> **Status: major overhaul in progress.** This SDK is undergoing a significant overhaul. This public repository will not be updated for the next couple of weeks while that work lands. After that, it will be upgraded to our first official stable release. In the meantime, APIs are subject to change and the code here may lag behind active development.
+
 TypeScript SDK for the [Factory](https://factory.ai) Droid CLI. Provides a high-level API for interacting with Droid as a subprocess: one-shot prompts, streaming, multi-turn sessions, structured output, in-process MCP tools, and tool permission control.
 
 For in-depth documentation, see the [SDK usage guide](./docs/sdk-usage-guide.md). To control a long-running `droid` daemon over WebSocket (multiple concurrent sessions, remote machines), see the [daemon usage guide](./docs/daemon-usage-guide.md). Low-level JSON-RPC protocol types and schemas are available from the `@factory/droid-sdk/protocol` subpath export.
