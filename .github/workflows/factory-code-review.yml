@@ -1,0 +1,27 @@
+# factory-automation: 2a9e0026-b0f1-4b00-bae0-cba25c1ca60e
+name: Code Review
+"on":
+  workflow_dispatch: {}
+  pull_request:
+    types:
+      - opened
+permissions:
+  contents: write
+  pull-requests: write
+  issues: write
+  id-token: write
+  actions: read
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Run Factory droid-action
+        uses: Factory-AI/droid-action@main
+        with:
+          factory_api_key: ${{ secrets.FACTORY_API_KEY }}
+          automatic_review: true
+          automatic_security_review: true
+          reasoning: medium
+          prompt: Automatic code review with security review enabled on pull requests.
