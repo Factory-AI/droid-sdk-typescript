@@ -13,7 +13,6 @@
  */
 
 import { mkdtemp, readFile, rm } from 'node:fs/promises';
-import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
 import {
@@ -24,8 +23,29 @@ import {
   createSession,
 } from '@factory/droid-sdk';
 
-const tempDir = await mkdtemp(join(tmpdir(), 'droid-sdk-spec-'));
+const tempDir = await mkdtemp(join(process.cwd(), '.droid-sdk-spec-'));
 const outputPath = join(tempDir, 'hello.txt');
+
+async function waitForFile(path: string, timeoutMs = 120_000): Promise<string> {
+  const deadline = Date.now() + timeoutMs;
+
+  while (Date.now() < deadline) {
+    try {
+      return await readFile(path, 'utf8');
+    } catch (error) {
+      if (
+        !(error instanceof Error) ||
+        !('code' in error) ||
+        error.code !== 'ENOENT'
+      ) {
+        throw error;
+      }
+      await new Promise<void>((resolve) => setTimeout(resolve, 500));
+    }
+  }
+
+  throw new Error(`Timed out waiting for ${path}`);
+}
 
 try {
   const session = await createSession({
@@ -58,18 +78,16 @@ try {
     )) {
       // Consume the stream until the handoff implementation finishes.
     }
-  } finally {
-    await session.close();
-  }
 
-  try {
-    console.log(await readFile(outputPath, 'utf8'));
-  } catch {
+    console.log(await waitForFile(outputPath));
+  } catch (error) {
     console.error(
       `Expected ${outputPath} to exist after the turn, but it was not ` +
-        'created.'
+        `created: ${error instanceof Error ? error.message : String(error)}`
     );
     process.exitCode = 1;
+  } finally {
+    await session.close();
   }
 } finally {
   await rm(tempDir, { recursive: true, force: true });

@@ -1,9 +1,8 @@
 /**
  * Daemon: multiple concurrent sessions.
  *
- * Connects to a local daemon, creates two sessions in separate /tmp
- * directories, and runs them concurrently over a single WebSocket
- * connection.
+ * Connects to a local daemon, creates two sessions in separate temporary
+ * directories, and runs them concurrently over a single WebSocket connection.
  *
  * Usage:
  *   npx tsx examples/daemon-multi-session.ts
@@ -13,7 +12,31 @@
  * example skips itself when the env var is unset.
  */
 
-import { connectDaemon, DroidMessageType } from '@factory/droid-sdk';
+import { mkdtemp, mkdir, readFile, rm } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+
+import {
+  connectDaemon,
+  DroidMessageType,
+  ToolConfirmationOutcome,
+  ToolConfirmationType,
+  type ToolConfirmationDetails,
+} from '@factory/droid-sdk';
+
+function canWriteFile(
+  filePath: string,
+  details: ToolConfirmationDetails
+): boolean {
+  switch (details.type) {
+    case ToolConfirmationType.Create:
+    case ToolConfirmationType.Edit:
+    case ToolConfirmationType.ApplyPatch:
+      return details.filePath === filePath;
+    default:
+      return false;
+  }
+}
 
 async function main(): Promise<void> {
   if (!process.env.FACTORY_API_KEY) {
@@ -27,13 +50,36 @@ async function main(): Promise<void> {
   console.log('Connecting to local daemon...\n');
   const daemon = await connectDaemon({ apiKey: process.env.FACTORY_API_KEY });
   console.log('Connected!\n');
+  const tempDir = await mkdtemp(join(tmpdir(), 'droid-sdk-daemon-'));
+  const frontendDir = join(tempDir, 'frontend');
+  const backendDir = join(tempDir, 'backend');
+  const frontendFile = join(frontendDir, 'hello.md');
+  const backendFile = join(backendDir, 'notes.md');
+  await Promise.all([
+    mkdir(frontendDir, { recursive: true }),
+    mkdir(backendDir, { recursive: true }),
+  ]);
 
   try {
     const frontend = await daemon.createSession({
-      cwd: '/tmp/daemon-test-frontend',
+      cwd: frontendDir,
+      permissionHandler(params) {
+        return params.toolUses.every((item) =>
+          canWriteFile(frontendFile, item.details)
+        )
+          ? ToolConfirmationOutcome.ProceedOnce
+          : ToolConfirmationOutcome.Cancel;
+      },
     });
     const backend = await daemon.createSession({
-      cwd: '/tmp/daemon-test-backend',
+      cwd: backendDir,
+      permissionHandler(params) {
+        return params.toolUses.every((item) =>
+          canWriteFile(backendFile, item.details)
+        )
+          ? ToolConfirmationOutcome.ProceedOnce
+          : ToolConfirmationOutcome.Cancel;
+      },
     });
 
     console.log('Two sessions created. Running concurrently...\n');
@@ -76,11 +122,17 @@ async function main(): Promise<void> {
     ]);
   } finally {
     await daemon.close();
+    try {
+      const [greeting, notes] = await Promise.all([
+        readFile(frontendFile, 'utf8'),
+        readFile(backendFile, 'utf8'),
+      ]);
+      console.log(`\n=== hello.md ===\n${greeting.trim()}`);
+      console.log(`\n=== notes.md ===\n${notes.trim()}`);
+    } finally {
+      await rm(tempDir, { recursive: true, force: true });
+    }
   }
-
-  console.log(
-    '\nDone. Check /tmp/daemon-test-frontend/hello.md and /tmp/daemon-test-backend/notes.md'
-  );
 }
 
 main().catch((err: unknown) => {
