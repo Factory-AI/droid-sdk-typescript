@@ -1,0 +1,29 @@
+examples/browser/config.ts
+  a89ea69e310ac623 1-204
+examples/browser/daemon-multi-session.ts
+  a89ea69e310ac623 1-70
+examples/browser/index.html
+  a89ea69e310ac623 1-73
+examples/browser/daemon-session.ts
+  a89ea69e310ac623 1-132
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.2.2",
+  "base_commit_sha": "14cfdf671263a020cf112726a80f152171b7186f",
+  "prompts": {
+    "a89ea69e310ac623": {
+      "agent_id": {
+        "tool": "droid",
+        "id": "9e3ad882-3442-44f1-b8a0-044bf047c1ee",
+        "model": "gpt-5.6-sol"
+      },
+      "human_author": "factory-davidgu",
+      "messages": [],
+      "total_additions": 0,
+      "total_deletions": 0,
+      "accepted_lines": 1531,
+      "overriden_lines": 0
+    }
+  }
+}
