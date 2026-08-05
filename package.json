@@ -1,61 +1,17 @@
 {
-  "name": "@factory/droid-sdk",
-  "version": "0.6.0",
-  "private": false,
-  "description": "TypeScript SDK for the Factory Droid CLI",
-  "keywords": [
-    "factory",
-    "droid",
-    "cli",
-    "ai",
-    "agent",
-    "sdk"
-  ],
+  "name": "@factory/droid-sdk-examples",
+  "version": "0.7.0",
+  "private": true,
+  "description": "Guides and runnable examples for the Factory Droid SDK",
   "license": "Apache-2.0",
   "type": "module",
-  "main": "./dist/index.cjs",
-  "module": "./dist/index.js",
-  "types": "./dist/index.d.ts",
-  "exports": {
-    ".": {
-      "import": {
-        "types": "./dist/index.d.ts",
-        "default": "./dist/index.js"
-      },
-      "require": {
-        "types": "./dist/index.d.cts",
-        "default": "./dist/index.cjs"
-      }
-    },
-    "./protocol": {
-      "import": {
-        "types": "./dist/protocol/index.d.ts",
-        "default": "./dist/protocol/index.js"
-      },
-      "require": {
-        "types": "./dist/protocol/index.d.cts",
-        "default": "./dist/protocol/index.cjs"
-      }
-    }
-  },
-  "files": [
-    "dist",
-    "docs",
-    "examples",
-    "README.md",
-    "LICENSE"
-  ],
   "scripts": {
-    "build": "tsup",
-    "prepack": "npm run build",
     "typecheck": "tsc --noEmit",
-    "typecheck:examples": "tsc --noEmit -p tsconfig.examples.json",
-    "test": "vitest run",
-    "test:coverage": "vitest run --coverage",
-    "lint": "eslint src/ tests/ examples/",
-    "fix": "eslint --fix src/ tests/ examples/",
+    "lint": "eslint examples/",
+    "fix": "eslint --fix examples/",
     "format": "prettier --write .",
-    "format:check": "prettier --check ."
+    "format:check": "prettier --check .",
+    "serve:browser-example": "node scripts/serve-browser-example.mjs"
   },
   "repository": {
     "type": "git",
@@ -65,27 +21,21 @@
     "node": ">=18.0.0"
   },
   "dependencies": {
-    "@modelcontextprotocol/sdk": "^1.29.0",
-    "uuid": "^11.1.0",
-    "ws": "^8.21.0",
+    "@factory/droid-sdk": "0.7.0",
     "zod": "^3.24.0"
   },
   "devDependencies": {
     "@eslint/js": "^9.39.4",
     "@types/node": "^22.15.0",
-    "@types/uuid": "^10.0.0",
-    "@types/ws": "^8.18.1",
-    "@vitest/coverage-v8": "^3.1.0",
+    "esbuild": "^0.25.0",
     "eslint": "^9.24.0",
     "eslint-import-resolver-typescript": "^4.4.4",
     "eslint-plugin-import": "^2.32.0",
     "eslint-plugin-unused-imports": "^4.4.1",
     "prettier": "^3.8.1",
-    "tsup": "^8.4.0",
     "tsx": "^4.23.1",
     "typescript": "^5.8.0",
-    "typescript-eslint": "^8.57.2",
-    "vitest": "^3.1.0"
+    "typescript-eslint": "^8.57.2"
   },
   "homepage": "https://github.com/Factory-AI/droid-sdk-typescript#readme",
   "bugs": {

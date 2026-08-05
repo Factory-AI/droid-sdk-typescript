@@ -1,0 +1,204 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>Droid SDK browser examples</title>
+    <style>
+      body {
+        font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+        max-width: 64rem;
+        margin: 2rem;
+        line-height: 1.5;
+      }
+      form {
+        display: grid;
+        gap: 1rem;
+        margin-block: 2rem;
+      }
+      label {
+        display: grid;
+        gap: 0.25rem;
+      }
+      input {
+        box-sizing: border-box;
+        font: inherit;
+        max-width: 48rem;
+        padding: 0.5rem;
+        width: 100%;
+      }
+      .actions {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.75rem;
+      }
+      button {
+        font: inherit;
+        padding: 0.5rem 0.75rem;
+      }
+      pre {
+        background: #f4f4f5;
+        padding: 0.75rem;
+        overflow-x: auto;
+        white-space: pre-wrap;
+      }
+      #error:empty {
+        display: none;
+      }
+      #error {
+        background: #fee2e2;
+        padding: 0.75rem;
+        white-space: pre-wrap;
+      }
+      #output:empty::before {
+        color: #71717a;
+        content: 'Choose an example to run.';
+      }
+    </style>
+  </head>
+  <body>
+    <h1>Droid SDK browser examples</h1>
+    <p>
+      Start the Droid daemon separately, enter your local connection details,
+      then choose an example. Values stay in this page's memory and are not
+      stored or sent to the example server.
+    </p>
+
+    <form id="launcher">
+      <label>
+        Daemon WebSocket URL
+        <input
+          id="daemon-url"
+          name="daemonUrl"
+          type="url"
+          value="ws://127.0.0.1:37643"
+          required
+        />
+      </label>
+      <label>
+        Factory API key
+        <input
+          id="api-key"
+          name="apiKey"
+          type="password"
+          autocomplete="off"
+          spellcheck="false"
+          placeholder="fk-..."
+          required
+        />
+      </label>
+      <label>
+        Session working directory
+        <input
+          id="cwd"
+          name="cwd"
+          type="text"
+          autocomplete="off"
+          spellcheck="false"
+          placeholder="/absolute/path/to/a/repo"
+        />
+      </label>
+      <div class="actions">
+        <button type="button" data-example="daemon-session" data-needs-cwd>
+          Run daemon session
+        </button>
+        <button
+          type="button"
+          data-example="daemon-multi-session"
+          data-needs-cwd
+        >
+          Run two sessions
+        </button>
+        <button type="button" data-example="daemon-lifecycle" data-needs-cwd>
+          Run lifecycle operations
+        </button>
+        <button type="button" data-example="list-sessions">
+          List sessions
+        </button>
+      </div>
+    </form>
+
+    <div id="error"></div>
+    <h2>Output</h2>
+    <div id="output"></div>
+
+    <script type="module">
+      const form = document.querySelector('#launcher');
+      const daemonUrlInput = document.querySelector('#daemon-url');
+      const apiKeyInput = document.querySelector('#api-key');
+      const cwdInput = document.querySelector('#cwd');
+      const errorBox = document.querySelector('#error');
+      const output = document.querySelector('#output');
+      const buttons = [...form.querySelectorAll('[data-example]')];
+
+      const showError = (err) => {
+        errorBox.textContent = String(
+          (err && (err.stack || err.message)) || err
+        );
+      };
+
+      window.addEventListener('error', (e) => showError(e.error ?? e.message));
+      window.addEventListener('unhandledrejection', (e) => showError(e.reason));
+
+      const setRunning = (running) => {
+        for (const button of buttons) button.disabled = running;
+      };
+
+      const renderRunning = (example) => {
+        const entry = document.createElement('pre');
+        entry.textContent = `Running ${example}…`;
+        output.replaceChildren(entry);
+      };
+
+      const isWebSocketUrl = (value) => {
+        try {
+          return ['ws:', 'wss:'].includes(new URL(value).protocol);
+        } catch {
+          return false;
+        }
+      };
+
+      const isAbsolutePath = (value) =>
+        value.startsWith('/') ||
+        /^[A-Za-z]:[\\/]/.test(value) ||
+        value.startsWith('\\\\');
+
+      const runExample = async (button) => {
+        errorBox.textContent = '';
+        const daemonUrl = daemonUrlInput.value.trim();
+        const apiKey = apiKeyInput.value;
+        const cwd = cwdInput.value.trim();
+        const needsCwd = button.hasAttribute('data-needs-cwd');
+
+        daemonUrlInput.setCustomValidity(
+          isWebSocketUrl(daemonUrl) ? '' : 'Enter a ws:// or wss:// daemon URL.'
+        );
+        cwdInput.setCustomValidity(
+          !needsCwd || isAbsolutePath(cwd)
+            ? ''
+            : 'Enter an absolute working directory for this example.'
+        );
+        if (!form.reportValidity()) {
+          return;
+        }
+
+        const example = button.dataset.example;
+        globalThis.__DROID_EXAMPLE_CONFIG__ = { daemonUrl, apiKey, cwd };
+        renderRunning(example);
+        setRunning(true);
+
+        try {
+          await import(`./${example}.js?run=${Date.now()}`);
+        } catch (error) {
+          showError(error);
+        } finally {
+          delete globalThis.__DROID_EXAMPLE_CONFIG__;
+          setRunning(false);
+        }
+      };
+
+      for (const button of buttons) {
+        button.addEventListener('click', () => void runExample(button));
+      }
+    </script>
+  </body>
+</html>
