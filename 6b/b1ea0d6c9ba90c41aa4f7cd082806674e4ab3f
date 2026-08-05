@@ -1,0 +1,21 @@
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.2.2",
+  "base_commit_sha": "6bb1ea0d6c9ba90c41aa4f7cd082806674e4ab3f",
+  "prompts": {
+    "a89ea69e310ac623": {
+      "agent_id": {
+        "tool": "droid",
+        "id": "9e3ad882-3442-44f1-b8a0-044bf047c1ee",
+        "model": "gpt-5.6-sol"
+      },
+      "human_author": "factory-davidgu",
+      "messages": [],
+      "total_additions": 0,
+      "total_deletions": 0,
+      "accepted_lines": 39,
+      "overriden_lines": 0
+    }
+  }
+}
