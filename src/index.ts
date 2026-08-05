@@ -7,7 +7,7 @@ export * from './errors.js';
 export * from './types.js';
 export { ProcessTransport } from './transport.js';
 
-export { dispatchNotification, ProtocolEngine } from './protocol.js';
+export { dispatchNotification, ProtocolEngine, setGlobalMetaProvider } from './protocol.js';
 export type {
   AskUserHandler,
   NotificationCallback,
