@@ -1,13 +1,6 @@
 # Dependencies
 node_modules/
 
-# Build output
-dist/
-*.tgz
-
-# Coverage
-coverage/
-
 # IDE
 .vscode/
 .idea/
