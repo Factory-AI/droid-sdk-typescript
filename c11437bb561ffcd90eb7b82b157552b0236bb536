@@ -1,0 +1,23 @@
+examples/node/model-discovery.ts
+  308e4d8e8699659e 1-28
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.2.2",
+  "base_commit_sha": "c11437bb561ffcd90eb7b82b157552b0236bb536",
+  "prompts": {
+    "308e4d8e8699659e": {
+      "agent_id": {
+        "tool": "droid",
+        "id": "071715d1-6508-4c28-8fdf-5b891584c715",
+        "model": "gpt-5.6-sol-fast"
+      },
+      "human_author": "User",
+      "messages": [],
+      "total_additions": 28,
+      "total_deletions": 0,
+      "accepted_lines": 28,
+      "overriden_lines": 0
+    }
+  }
+}
