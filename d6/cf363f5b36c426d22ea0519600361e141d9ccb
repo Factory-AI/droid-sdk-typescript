@@ -1,0 +1,72 @@
+tests/integration.test.ts
+  3bb9d2b12c8d057c 1811-1812
+src/stream.ts
+  3bb9d2b12c8d057c 62-66,73,79,86,93,98,105,110,116,121,129,137,145-146,149,157,164,169,174,180,185,190,195,200,205,211,219,226,245-247,252,268,347-348,361,370,378,387,396,403,415,426,434,451,460,467,473,487,496,505,512,519,527,534,541,548,555,562,570,580,589,602,618
+tests/stream.test.ts
+  3bb9d2b12c8d057c 15,51-55,106,120,132,146,161,175,185,203,218,230,240,250,268,278,298,308,318,328,339,352,364,379,392,423,435,446,456,463,469,476,482,492,500,507-510,513,522,527-528,531,535-552,556,564,571,585,1228,1239,1278,1310,1335,1371,1373,1500-1503,1508-1516
+tests/helpers.test.ts
+  3bb9d2b12c8d057c 171-195
+tests/run.test.ts
+  3bb9d2b12c8d057c 293
+src/helpers.ts
+  3bb9d2b12c8d057c 87-90
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.2.2",
+  "base_commit_sha": "d6cf363f5b36c426d22ea0519600361e141d9ccb",
+  "prompts": {
+    "2cae08e90bea9c7b": {
+      "agent_id": {
+        "tool": "droid",
+        "id": "2563af36-b4f9-4401-a6c8-f2f4f3803d5f",
+        "model": "claude-opus-4-7-fast"
+      },
+      "human_author": "User",
+      "messages": [],
+      "total_additions": 228,
+      "total_deletions": 0,
+      "accepted_lines": 226,
+      "overriden_lines": 0
+    },
+    "2e88bdd8c535764a": {
+      "agent_id": {
+        "tool": "droid",
+        "id": "14ca27e3-74ba-4045-9259-129f6821fb10",
+        "model": "claude-opus-4-7-fast"
+      },
+      "human_author": "User",
+      "messages": [],
+      "total_additions": 102,
+      "total_deletions": 0,
+      "accepted_lines": 102,
+      "overriden_lines": 0
+    },
+    "37cca0421f3d43a8": {
+      "agent_id": {
+        "tool": "droid",
+        "id": "047a50e0-cb9c-4176-b101-3d3fbbf16267",
+        "model": "claude-opus-4-7-fast"
+      },
+      "human_author": "User",
+      "messages": [],
+      "total_additions": 140,
+      "total_deletions": 0,
+      "accepted_lines": 140,
+      "overriden_lines": 0
+    },
+    "3bb9d2b12c8d057c": {
+      "agent_id": {
+        "tool": "droid",
+        "id": "53b3323f-5652-4e41-9c42-54b8855166a6",
+        "model": "gpt-5.5-fast"
+      },
+      "human_author": "User",
+      "messages": [],
+      "total_additions": 401,
+      "total_deletions": 53,
+      "accepted_lines": 400,
+      "overriden_lines": 0
+    }
+  }
+}

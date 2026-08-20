@@ -1,0 +1,25 @@
+examples/spec-mode-new-session.ts
+  2f1848d93a70c34d 26,29-49,82-83,86,89-90
+examples/daemon-multi-session.ts
+  2f1848d93a70c34d 4-5,15-17,19-39,53-61,65-72,75-82,125-134
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.2.2",
+  "base_commit_sha": "cb9d5665570b32c8becb4d78395f2fa45a87a335",
+  "prompts": {
+    "2f1848d93a70c34d": {
+      "agent_id": {
+        "tool": "droid",
+        "id": "c41c4546-ae9e-418f-b3ef-49eca163025e",
+        "model": "gpt-5.6-sol"
+      },
+      "human_author": "factory-davidgu",
+      "messages": [],
+      "total_additions": 98,
+      "total_deletions": 28,
+      "accepted_lines": 89,
+      "overriden_lines": 0
+    }
+  }
+}

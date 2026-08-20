@@ -1,0 +1,29 @@
+examples/node/abort-session-stream.ts
+  a89ea69e310ac623 4-5,33
+examples/node/run.ts
+  a89ea69e310ac623 27-32
+examples/node/structured-output.ts
+  a89ea69e310ac623 49-54
+examples/node/hook-execution.ts
+  a89ea69e310ac623 6-9,29,43,66-71
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.2.2",
+  "base_commit_sha": "f3d5ac434ed6db95d38692670913d8361fe2aef2",
+  "prompts": {
+    "a89ea69e310ac623": {
+      "agent_id": {
+        "tool": "droid",
+        "id": "9e3ad882-3442-44f1-b8a0-044bf047c1ee",
+        "model": "gpt-5.6-sol"
+      },
+      "human_author": "factory-davidgu",
+      "messages": [],
+      "total_additions": 407,
+      "total_deletions": 652,
+      "accepted_lines": 689,
+      "overriden_lines": 117
+    }
+  }
+}

@@ -1,0 +1,42 @@
+examples/node/sdk-mcp-tool.ts
+  4414322d26c25a02 42,47-48
+examples/browser/daemon-lifecycle.ts
+  4414322d26c25a02 1-90
+README.md
+  4414322d26c25a02 3-4,12,14,16-19,21-23,25,30,32-33,36,39-41,43,45-46,48-53,55-56,58-62,64,66-68
+package.json
+  4414322d26c25a02 24
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.2.2",
+  "base_commit_sha": "30195a1023e043ec46bd5c814e1c373e57c706a9",
+  "prompts": {
+    "4414322d26c25a02": {
+      "agent_id": {
+        "tool": "droid",
+        "id": "7e089788-1725-4898-8ec0-6393fb69575c",
+        "model": "gpt-5.6-sol"
+      },
+      "human_author": "factory-davidgu",
+      "messages": [],
+      "total_additions": 133,
+      "total_deletions": 704,
+      "accepted_lines": 133,
+      "overriden_lines": 0
+    },
+    "a89ea69e310ac623": {
+      "agent_id": {
+        "tool": "droid",
+        "id": "9e3ad882-3442-44f1-b8a0-044bf047c1ee",
+        "model": "gpt-5.6-sol"
+      },
+      "human_author": "factory-davidgu",
+      "messages": [],
+      "total_additions": 0,
+      "total_deletions": 0,
+      "accepted_lines": 39,
+      "overriden_lines": 0
+    }
+  }
+}
