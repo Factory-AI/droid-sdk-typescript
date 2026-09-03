@@ -1,0 +1,23 @@
+examples/node/daemon-session.ts
+  418ab52315f2abd3 1-10,12-36
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.2.2",
+  "base_commit_sha": "40c49be686dc2a40bf7fb220984885f95987f2ae",
+  "prompts": {
+    "418ab52315f2abd3": {
+      "agent_id": {
+        "tool": "droid",
+        "id": "d9453eff-abaa-4e5f-b2c7-efe460947cd4",
+        "model": "gpt-5.6-sol"
+      },
+      "human_author": "factory-davidgu",
+      "messages": [],
+      "total_additions": 688,
+      "total_deletions": 46,
+      "accepted_lines": 640,
+      "overriden_lines": 1
+    }
+  }
+}
