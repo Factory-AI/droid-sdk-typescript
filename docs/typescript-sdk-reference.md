@@ -108,6 +108,13 @@ Use a session when later prompts need context from earlier turns.
 
 **Runtime: Node or trusted local browser**
 
+Set `FACTORY_API_KEY`, start a local daemon, and run the complete
+[`daemon-session.ts`](../examples/node/daemon-session.ts) Node example:
+
+```bash
+FACTORY_API_KEY=... npx tsx examples/node/daemon-session.ts
+```
+
 ```ts
 import { connectToDaemon, DroidMessageType } from '@factory/droid-sdk';
 
@@ -1250,7 +1257,7 @@ switch (result.subtype) {
 The package includes runnable examples for one-shot runs, streaming, sessions,
 permissions, AskUser, attachments, structured output, MCP tools, hooks,
 observability, spec mode, replacement lifecycle, daemon sessions, concurrent
-browser sessions, and daemon lifecycle operations.
+browser sessions, daemon lifecycle operations, and missions.
 
 All examples are under:
 
@@ -1263,6 +1270,12 @@ Run a Node example directly:
 
 ```bash
 npx tsx examples/node/run.ts
+```
+
+Start a mission and print orchestrator and worker progress:
+
+```bash
+npx tsx examples/node/mission.ts
 ```
 
 Browser examples use an interactive local launcher. Start a daemon and the
