@@ -55,11 +55,16 @@ single user-facing guide to:
 Runnable examples are available under [`examples/node`](./examples/node) and
 [`examples/browser`](./examples/browser).
 
-Run Node examples with `npx tsx examples/node/<file>.ts`. For browser examples,
-start a local daemon and run `npm run serve:browser-example`, then open
-`http://127.0.0.1:8420/`. The launcher accepts the daemon URL, API key, and
-working directory as page inputs instead of requiring source edits or
-environment-injected credentials.
+Run Node examples with `npx tsx examples/node/<file>.ts`. To connect a Node
+application to a running daemon with an API key, run
+`FACTORY_API_KEY=... npx tsx examples/node/daemon-session.ts`.
+To start a mission with orchestrator and worker progress, run
+`npx tsx examples/node/mission.ts`.
+
+For browser examples, start a local daemon and run
+`npm run serve:browser-example`, then open `http://127.0.0.1:8420/`. The
+launcher accepts the daemon URL, API key, and working directory as page inputs
+instead of requiring source edits or environment-injected credentials.
 
 ## Browser security
 

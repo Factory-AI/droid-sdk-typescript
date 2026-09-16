@@ -1,6 +1,6 @@
 {
   "name": "@factory/droid-sdk-examples",
-  "version": "0.7.0",
+  "version": "0.9.1",
   "private": true,
   "description": "Guides and runnable examples for the Factory Droid SDK",
   "license": "Apache-2.0",
@@ -21,7 +21,7 @@
     "node": ">=18.0.0"
   },
   "dependencies": {
-    "@factory/droid-sdk": "0.7.0",
+    "@factory/droid-sdk": "0.9.1",
     "zod": "^3.24.0"
   },
   "devDependencies": {
