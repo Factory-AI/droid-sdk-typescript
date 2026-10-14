@@ -30,6 +30,7 @@ import { join } from 'node:path';
 import {
   DroidMessageType,
   ToolConfirmationOutcome,
+  ToolConfirmationType,
   createSession,
 } from '@factory/droid-sdk/node';
 
@@ -46,6 +47,7 @@ const hookSettings = {
 const projectDir = await mkdtemp(join(tmpdir(), 'droid-sdk-hook-project-'));
 
 let hookCount = 0;
+const expectedCommand = 'echo hello';
 
 try {
   await mkdir(join(projectDir, '.factory'), { recursive: true });
@@ -56,24 +58,43 @@ try {
 
   const session = await createSession({
     cwd: projectDir,
-    permissionHandler: () => ToolConfirmationOutcome.ProceedOnce,
+    permissionHandler({ toolUses, options }) {
+      const [toolUse] = toolUses;
+      const approvesExpectedCommand =
+        toolUses.length === 1 &&
+        toolUse?.details.type === ToolConfirmationType.Execute &&
+        toolUse.details.fullCommand === expectedCommand;
+      const desired = approvesExpectedCommand
+        ? ToolConfirmationOutcome.ProceedOnce
+        : ToolConfirmationOutcome.Cancel;
+
+      if (!options.some((option) => option.value === desired)) {
+        throw new Error(`Outcome not offered: ${desired}`);
+      }
+      return desired;
+    },
   });
 
   try {
-    for await (const msg of session.stream(
-      'Run the shell command `echo hello` using the Execute tool.'
+    for await (const message of session.stream(
+      `Run the shell command \`${expectedCommand}\` using the Execute tool.`
     )) {
-      if (msg.type !== DroidMessageType.Hook) {
-        continue;
-      }
-
-      hookCount++;
-      if (msg.status === 'started') {
-        console.log(`[hook started] ${msg.eventName}: ${msg.command}`);
-      } else {
-        console.log(
-          `[hook ${msg.status}] exit code ${String(msg.exitCode)}: ${(msg.stdout ?? '').trim()}`
+      if (message.type === DroidMessageType.Result && !message.success) {
+        throw new Error(
+          message.error?.message ?? `Turn ended: ${message.subtype}`
         );
+      }
+      if (message.type === DroidMessageType.Hook) {
+        hookCount++;
+        if (message.status === 'started') {
+          console.log(
+            `[hook started] ${message.eventName}: ${message.command}`
+          );
+        } else {
+          console.log(
+            `[hook ${message.status}] exit code ${String(message.exitCode)}: ${(message.stdout ?? '').trim()}`
+          );
+        }
       }
     }
   } finally {
@@ -88,7 +109,6 @@ if (hookCount === 0) {
   throw new Error(
     'No hook messages arrived: the registered PreToolUse hook never ran. ' +
       'The most likely cause is that the droid answered this turn without ' +
-      'calling the Execute tool, so the `Execute` matcher never fired. ' +
-      'Re-run, or widen the matcher to the tool the droid actually used.'
+      'calling the Execute tool, so the `Execute` matcher never fired.'
   );
 }

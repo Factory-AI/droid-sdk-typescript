@@ -2,12 +2,11 @@
  * Enter spec mode on a live session.
  *
  * The other spec-mode examples start the session in spec mode. This one starts
- * in the default mode and switches mid-session with `enterSpecMode()`, which is
- * what a host app does when the user toggles spec mode on an open conversation.
+ * in Auto mode and switches mid-session with `enterSpecMode()`, which is what a
+ * host app does when the user toggles spec mode on an open conversation.
  *
- * The switch is observable in the confirmations Droid asks for: it proposes a
- * plan (`ExitSpecMode`) before touching the filesystem, instead of going
- * straight to `Create`.
+ * The permission handler prints the proposed plan (`ExitSpecMode`), approves
+ * it, and lets implementation run in the same session.
  *
  * Usage:
  *   npx tsx examples/node/enter-spec-mode.ts
@@ -18,6 +17,9 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
 import {
+  type ClientPermissionHandler,
+  DroidInteractionMode,
+  DroidMessageType,
   ToolConfirmationOutcome,
   ToolConfirmationType,
   createSession,
@@ -26,41 +28,48 @@ import {
 const tempDir = await mkdtemp(join(tmpdir(), 'droid-sdk-enter-spec-'));
 const outputPath = join(tempDir, 'hello.txt');
 
+const handlePermissionRequest: ClientPermissionHandler = ({
+  toolUses,
+  options,
+}) => {
+  for (const toolUse of toolUses) {
+    if (toolUse.details.type === ToolConfirmationType.ExitSpecMode) {
+      console.log(toolUse.details.plan);
+    }
+  }
+
+  // This example approves every call to keep the focus on spec mode. See
+  // permission-handler.ts for a handler that approves only expected calls.
+  const outcome = ToolConfirmationOutcome.ProceedOnce;
+  if (!options.some((option) => option.value === outcome)) {
+    throw new Error(`Outcome not offered: ${outcome}`);
+  }
+  return outcome;
+};
+
 try {
   const session = await createSession({
-    permissionHandler(params) {
-      for (const toolUse of params.toolUses) {
-        const label =
-          toolUse.details.type === ToolConfirmationType.ExitSpecMode
-            ? 'plan proposed'
-            : 'implementing';
-        console.log(`[${label}] ${toolUse.details.type}`);
-      }
-      // Approving ExitSpecMode accepts the plan and lets implementation run.
-      return ToolConfirmationOutcome.ProceedOnce;
-    },
+    interactionMode: DroidInteractionMode.Auto,
+    permissionHandler: handlePermissionRequest,
   });
 
   try {
-    console.log(
-      `mode at creation: ${String(session.settings.interactionMode)}`
-    );
-
     await session.enterSpecMode();
-    console.log('switched to spec mode\n');
 
-    for await (const _msg of session.stream(
+    for await (const message of session.stream(
       `Create ${outputPath} containing "hello".`
     )) {
-      // Consume the stream until the plan is approved and implemented.
+      if (message.type === DroidMessageType.Result && !message.success) {
+        throw new Error(
+          message.error?.message ?? `Turn ended: ${message.subtype}`
+        );
+      }
     }
   } finally {
     await session.close();
   }
 
-  console.log(
-    `\nfile contents: ${JSON.stringify(await readFile(outputPath, 'utf8'))}`
-  );
+  console.log(await readFile(outputPath, 'utf8'));
 } finally {
   await rm(tempDir, { recursive: true, force: true });
 }

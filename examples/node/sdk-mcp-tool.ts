@@ -47,6 +47,9 @@ try {
     if (msg.type === DroidMessageType.Assistant) {
       console.log(msg.text);
     }
+    if (msg.type === DroidMessageType.Result && !msg.success) {
+      throw new Error(msg.error?.message ?? `Turn ended: ${msg.subtype}`);
+    }
   }
 } finally {
   await session.close();

@@ -19,6 +19,31 @@ interface CodeReview {
   }>;
 }
 
+function isCodeReview(value: unknown): value is CodeReview {
+  if (
+    value === null ||
+    typeof value !== 'object' ||
+    !('summary' in value) ||
+    typeof value.summary !== 'string' ||
+    !('findings' in value) ||
+    !Array.isArray(value.findings)
+  ) {
+    return false;
+  }
+
+  return value.findings.every(
+    (finding) =>
+      finding !== null &&
+      typeof finding === 'object' &&
+      'line' in finding &&
+      typeof finding.line === 'number' &&
+      'severity' in finding &&
+      ['low', 'medium', 'high'].includes(String(finding.severity)) &&
+      'message' in finding &&
+      typeof finding.message === 'string'
+  );
+}
+
 const result = await run(
   `Review this code for correctness issues:
 
@@ -49,6 +74,7 @@ function getDisplayName(user) {
           },
         },
         required: ['summary', 'findings'],
+        additionalProperties: false,
       },
     },
   }
@@ -62,12 +88,9 @@ if (!result.success) {
   throw new Error(`run() failed (${result.subtype}): ${detail}`);
 }
 
-// A successful run can still omit structured output, for example when the
-// model answers in prose instead of the requested schema.
-if (!result.structuredOutput) {
-  throw new Error('run() succeeded but returned no structured output.');
+// The SDK returns `unknown`; validate it before reading fields.
+if (!isCodeReview(result.structuredOutput)) {
+  throw new Error('run() returned an unexpected structured output shape.');
 }
 
-const review = result.structuredOutput as CodeReview;
-
-console.log(JSON.stringify(review, null, 2));
+console.log(JSON.stringify(result.structuredOutput, null, 2));

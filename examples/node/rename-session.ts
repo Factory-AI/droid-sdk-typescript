@@ -9,14 +9,18 @@
  *   npx tsx examples/node/rename-session.ts
  */
 
-import { createSession } from '@factory/droid-sdk/node';
+import { DroidMessageType, createSession } from '@factory/droid-sdk/node';
 
 const session = await createSession();
 
 try {
   // A session needs at least one turn before it has a title to replace.
-  for await (const _msg of session.stream('Reply with exactly: OK')) {
-    // Consume the stream so the turn completes.
+  for await (const message of session.stream('Reply with exactly: OK')) {
+    if (message.type === DroidMessageType.Result && !message.success) {
+      throw new Error(
+        message.error?.message ?? `Turn ended: ${message.subtype}`
+      );
+    }
   }
 
   await session.rename({

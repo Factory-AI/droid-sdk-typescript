@@ -1,18 +1,14 @@
 /**
  * Session settings example.
  *
- * Reads settings from a live session, updates them with `updateSettings()`,
- * and reads the updated values back.
+ * Reads settings from a live session, updates them, and changes between Auto
+ * and Spec modes.
  *
  * Usage:
  *   npx tsx examples/node/session-settings.ts
  */
 
-import {
-  AutonomyLevel,
-  DroidInteractionMode,
-  createSession,
-} from '@factory/droid-sdk/node';
+import { AutonomyLevel, createSession } from '@factory/droid-sdk/node';
 
 const session = await createSession({ autonomyLevel: AutonomyLevel.Low });
 
@@ -25,11 +21,15 @@ try {
   printSettings('created with');
 
   await session.updateSettings({
-    interactionMode: DroidInteractionMode.Spec,
     autonomyLevel: AutonomyLevel.High,
   });
-
   printSettings('updated to  ');
+
+  await session.enterSpecMode();
+  printSettings('entered Spec');
+
+  await session.exitSpecMode();
+  printSettings('exited Spec ');
 } finally {
   await session.close();
 }

@@ -25,19 +25,24 @@ try {
     `Create ${outputPath} with the text "Hello, World!"`,
     {
       autonomyLevel: AutonomyLevel.Off,
-      permissionHandler(params) {
+      permissionHandler({ toolUses, options }) {
         handledPermission = true;
         const onlyCreatesExpectedFile =
-          params.toolUses.length > 0 &&
-          params.toolUses.every(
+          toolUses.length > 0 &&
+          toolUses.every(
             (item) =>
               item.details.type === ToolConfirmationType.Create &&
               item.details.filePath === outputPath
           );
 
-        return onlyCreatesExpectedFile
+        const desired = onlyCreatesExpectedFile
           ? ToolConfirmationOutcome.ProceedOnce
           : ToolConfirmationOutcome.Cancel;
+
+        const offered = options.find((option) => option.value === desired);
+        if (!offered) throw new Error(`Outcome not offered: ${desired}`);
+
+        return desired;
       },
     }
   );

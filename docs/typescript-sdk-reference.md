@@ -1254,10 +1254,11 @@ switch (result.subtype) {
 
 ## Runnable examples
 
-The package includes runnable examples for one-shot runs, streaming, sessions,
-permissions, AskUser, attachments, structured output, MCP tools, hooks,
-observability, spec mode, replacement lifecycle, daemon sessions, concurrent
-browser sessions, daemon lifecycle operations, and missions.
+The package includes runnable examples for one-shot runs, streaming, partial
+events, sessions, resume, model selection, permissions, AskUser, image and
+document attachments, structured output, SDK and external MCP tools, skills,
+hooks, observability, spec mode, replacement lifecycle, daemon sessions,
+concurrent browser sessions, daemon lifecycle operations, and missions.
 
 All examples are under:
 
@@ -1271,6 +1272,20 @@ Run a Node example directly:
 ```bash
 npx tsx examples/node/run.ts
 ```
+
+| Topic                      | Node examples                                                                                                                    |
+| -------------------------- | -------------------------------------------------------------------------------------------------------------------------------- |
+| Runs and results           | `run.ts`, `result-metadata.ts`                                                                                                   |
+| Sessions                   | `multi-turn-session.ts`, `resume-session.ts`, `list-sessions.ts`, `rename-session.ts`, `init-metadata.ts`, `session-settings.ts` |
+| Streaming and cancellation | `session-stream.ts`, `partial-stream.ts`, `abort-session-stream.ts`, `interrupt-session.ts`                                      |
+| Models                     | `model-discovery.ts`, `model-selection.ts`                                                                                       |
+| Inputs and outputs         | `image-attachment.ts`, `document-input.ts`, `structured-output.ts`                                                               |
+| Permissions and user input | `permission-handler.ts`, `ask-user-elicitation.ts`, `tool-controls.ts`                                                           |
+| Extensions                 | `sdk-mcp-tool.ts`, `external-mcp.ts`, `skills.ts`, `hook-execution.ts`                                                           |
+| Session lifecycle          | `fork-session.ts`, `compact-session.ts`, `rewind-session.ts`                                                                     |
+| Spec mode                  | `enter-spec-mode.ts`, `spec-mode-same-session.ts`, `spec-mode-new-session.ts`                                                    |
+| Daemon and missions        | `daemon-session.ts`, `mission.ts`                                                                                                |
+| Observability              | `observability.ts`                                                                                                               |
 
 Start a mission and print orchestrator and worker progress:
 

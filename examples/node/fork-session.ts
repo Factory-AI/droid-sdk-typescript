@@ -1,8 +1,8 @@
 /**
  * Fork session example.
  *
- * Establishes context in one session, forks it with `fork()`, then
- * uses the returned fork handle and confirms the copied context carried over.
+ * Establishes context in one session, forks it with `fork()`, then uses the
+ * returned fork handle to show the copied context.
  *
  * Usage:
  *   npx tsx examples/node/fork-session.ts
@@ -19,6 +19,12 @@ async function streamText(
     if (msg.type === DroidMessageType.Assistant) {
       text += msg.text;
     }
+    if (msg.type === DroidMessageType.Result && !msg.success) {
+      throw new Error(msg.error?.message ?? `Turn ended: ${msg.subtype}`);
+    }
+  }
+  if (!text.trim()) {
+    throw new Error('The turn produced no assistant output.');
   }
   return text;
 }
@@ -30,15 +36,20 @@ try {
 
   const fork = await session.fork();
 
-  // `session` is now a retired wrapper. Its persisted ID can still be passed
-  // to resumeSession() later if the original branch is needed again.
-  console.log(`original session: ${session.id}`);
-  console.log(`forked session:   ${fork.id}`);
-  console.log(
-    `fork recalls:     ${await streamText(fork, 'What phrase did I ask you to remember?')}`
-  );
+  try {
+    // `session` is now a retired wrapper. Its persisted ID can still be passed
+    // to resumeSession() later if the original branch is needed again.
+    console.log(`original session: ${session.id}`);
+    console.log(`forked session:   ${fork.id}`);
 
-  await fork.close();
+    const recalled = await streamText(
+      fork,
+      'What phrase did I ask you to remember?'
+    );
+    console.log(`fork recalls:     ${recalled}`);
+  } finally {
+    await fork.close();
+  }
 } finally {
   // Closes the active source, or does nothing if it was retired.
   await session.close();

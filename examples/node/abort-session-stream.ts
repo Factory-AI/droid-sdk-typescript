@@ -24,7 +24,9 @@ try {
   )) {
     // Consume the stream until the abort signal cuts it short.
   }
+  console.log('The turn completed before the abort signal fired.');
 } catch (error) {
+  if (!controller.signal.aborted) throw error;
   console.log(error instanceof Error ? error.message : String(error));
 } finally {
   clearTimeout(timeout);

@@ -29,6 +29,15 @@ if (result.error) {
 
 if (result.tokenUsage) {
   console.log(
-    `tokens:   ${result.tokenUsage.inputTokens} in, ${result.tokenUsage.outputTokens} out`
+    `turn tokens: ${result.tokenUsage.inputTokens} in, ${result.tokenUsage.outputTokens} out`
+  );
+  console.log(
+    `turn cache:  ${result.tokenUsage.cacheReadTokens} read, ${result.tokenUsage.cacheCreationTokens} created`
+  );
+}
+
+if (!result.success) {
+  throw new Error(
+    result.error?.message ?? `The turn failed (${result.subtype}).`
   );
 }

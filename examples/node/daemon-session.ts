@@ -20,17 +20,25 @@ const droid = await connectToDaemon({
   auth: { apiKey },
 });
 
-const session = await droid.sessions.create({
-  cwd: process.env.DROID_SESSION_CWD ?? process.cwd(),
-});
-
 try {
-  for await (const message of session.stream('Summarize this repository.')) {
-    if (message.type === DroidMessageType.Assistant) {
-      process.stdout.write(message.text);
+  const session = await droid.sessions.create({
+    cwd: process.env.DROID_SESSION_CWD ?? process.cwd(),
+  });
+
+  try {
+    for await (const message of session.stream('Summarize this repository.')) {
+      if (message.type === DroidMessageType.Assistant) {
+        process.stdout.write(message.text);
+      }
+      if (message.type === DroidMessageType.Result && !message.success) {
+        throw new Error(
+          message.error?.message ?? `Turn ended: ${message.subtype}`
+        );
+      }
     }
+  } finally {
+    await session.close();
   }
 } finally {
-  await session.close();
   droid.disconnect();
 }

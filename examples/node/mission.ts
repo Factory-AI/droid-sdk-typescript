@@ -21,23 +21,27 @@ import {
 const session = await createSession({
   interactionMode: DroidInteractionMode.Mission,
   autonomyLevel: AutonomyLevel.High,
-  permissionHandler(request) {
+  permissionHandler({ toolUses, options }) {
     const missionControl =
-      request.toolUses.length > 0 &&
-      request.toolUses.every(
+      toolUses.length > 0 &&
+      toolUses.every(
         (toolUse) =>
           toolUse.details.type === ToolConfirmationType.ProposeMission ||
           toolUse.details.type === ToolConfirmationType.StartMissionRun
       );
-
-    return missionControl
+    const outcome = missionControl
       ? ToolConfirmationOutcome.ProceedOnce
       : ToolConfirmationOutcome.Cancel;
+
+    if (!options.some((option) => option.value === outcome)) {
+      throw new Error(`Outcome not offered: ${outcome}`);
+    }
+    return outcome;
   },
 });
 
 const prompt =
-  process.argv[2] ??
+  process.argv.slice(2).join(' ') ||
   'Review this repository and propose one useful documentation improvement.';
 
 try {
@@ -64,6 +68,11 @@ try {
         break;
 
       case DroidMessageType.Result:
+        if (!message.success) {
+          throw new Error(
+            message.error?.message ?? `Turn ended: ${message.subtype}`
+          );
+        }
         console.log(`\n[result] ${message.subtype}`);
         break;
     }

@@ -1,8 +1,8 @@
 /**
  * Session streaming example.
  *
- * Sends a prompt with `session.stream()` and handles each message type:
- * assistant text, tool calls, tool results, and the final result.
+ * Sends a prompt with `session.stream()` and handles every message type
+ * emitted by a default (non-partial) stream.
  *
  * Usage:
  *   npx tsx examples/node/session-stream.ts
@@ -14,12 +14,18 @@ import { DroidMessageType, createSession } from '@factory/droid-sdk/node';
 const session = await createSession();
 
 try {
-  const prompt = process.argv[2] ?? 'What files are in the current directory?';
+  const prompt =
+    process.argv.slice(2).join(' ') ||
+    'What files are in the current directory?';
 
   for await (const msg of session.stream(prompt)) {
     switch (msg.type) {
       case DroidMessageType.Assistant:
         process.stdout.write(msg.text);
+        break;
+
+      case DroidMessageType.User:
+        console.log('\n[user message accepted]');
         break;
 
       case DroidMessageType.ToolCall:
@@ -30,7 +36,18 @@ try {
         console.log(`[tool result] ${msg.isError ? 'error' : 'ok'}`);
         break;
 
+      case DroidMessageType.Hook:
+        console.log(`\n[hook] ${msg.hookId}: ${msg.status}`);
+        break;
+
+      case DroidMessageType.Error:
+        console.error(`\n[error] ${msg.message}`);
+        break;
+
       case DroidMessageType.Result:
+        if (!msg.success) {
+          throw new Error(msg.error?.message ?? `Turn ended: ${msg.subtype}`);
+        }
         if (msg.tokenUsage) {
           console.log(
             `\n\ntokens: ${msg.tokenUsage.inputTokens} in, ${msg.tokenUsage.outputTokens} out`

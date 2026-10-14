@@ -21,7 +21,9 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
 import {
+  type ClientPermissionHandler,
   DroidInteractionMode,
+  DroidMessageType,
   ReasoningEffort,
   SessionNotificationSchema,
   ToolConfirmationOutcome,
@@ -33,11 +35,21 @@ const outputPath = join(tempDir, 'hello.txt');
 
 let handoffSessionId: string | null = null;
 
+const handlePermissionRequest: ClientPermissionHandler = ({ options }) => {
+  // This example approves every call to keep the focus on spec mode. See
+  // permission-handler.ts for a handler that approves only expected calls.
+  const outcome = ToolConfirmationOutcome.ProceedOnce;
+  if (!options.some((option) => option.value === outcome)) {
+    throw new Error(`Outcome not offered: ${outcome}`);
+  }
+  return outcome;
+};
+
 try {
   const session = await createSession({
     interactionMode: DroidInteractionMode.Spec,
     specModeReasoningEffort: ReasoningEffort.High,
-    permissionHandler: () => ToolConfirmationOutcome.ProceedOnce,
+    permissionHandler: handlePermissionRequest,
   });
 
   // The typed message stream carries no per-message session id, and the
@@ -54,10 +66,14 @@ try {
   });
 
   try {
-    for await (const _msg of session.stream(
+    for await (const message of session.stream(
       `Plan then create ${outputPath} containing "Hello from Droid".`
     )) {
-      // Consume the stream until implementation finishes.
+      if (message.type === DroidMessageType.Result && !message.success) {
+        throw new Error(
+          message.error?.message ?? `Turn ended: ${message.subtype}`
+        );
+      }
     }
   } finally {
     unsubscribe();
