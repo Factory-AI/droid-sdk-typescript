@@ -22,7 +22,7 @@
   },
   "dependencies": {
     "@factory/droid-sdk": "0.9.1",
-    "zod": "^3.24.0"
+    "zod": "^3.25.0"
   },
   "devDependencies": {
     "@eslint/js": "^9.39.4",
