@@ -17,6 +17,7 @@ import {
 } from '@factory/droid-sdk/node';
 import { z } from 'zod';
 
+let toolCalled = false;
 const sdkTools = createSdkMcpServer({
   name: 'sdk-tools',
   tools: [
@@ -24,7 +25,10 @@ const sdkTools = createSdkMcpServer({
       'favorite_number',
       'Returns a favorite number for a person',
       { name: z.string() },
-      ({ name }) => `${name}'s favorite number is 42.`
+      ({ name }) => {
+        toolCalled = true;
+        return `${name}'s favorite number is 42.`;
+      }
     ),
   ],
 });
@@ -50,6 +54,9 @@ try {
     if (msg.type === DroidMessageType.Result && !msg.success) {
       throw new Error(msg.error?.message ?? `Turn ended: ${msg.subtype}`);
     }
+  }
+  if (!toolCalled) {
+    throw new Error('The turn finished without calling favorite_number.');
   }
 } finally {
   await session.close();

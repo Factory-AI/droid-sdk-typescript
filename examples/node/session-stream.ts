@@ -1,8 +1,8 @@
 /**
  * Session streaming example.
  *
- * Sends a prompt with `session.stream()` and handles every message type
- * emitted by a default (non-partial) stream.
+ * Sends a prompt with `session.stream()` and handles common messages from a
+ * default (non-partial) stream.
  *
  * Usage:
  *   npx tsx examples/node/session-stream.ts
@@ -17,10 +17,12 @@ try {
   const prompt =
     process.argv.slice(2).join(' ') ||
     'What files are in the current directory?';
+  let sawAssistantText = false;
 
   for await (const msg of session.stream(prompt)) {
     switch (msg.type) {
       case DroidMessageType.Assistant:
+        sawAssistantText ||= msg.text.trim().length > 0;
         process.stdout.write(msg.text);
         break;
 
@@ -55,6 +57,11 @@ try {
         }
         break;
     }
+  }
+  if (!sawAssistantText) {
+    throw new Error(
+      'No assistant text arrived. Check SDK and CLI compatibility.'
+    );
   }
 } finally {
   await session.close();

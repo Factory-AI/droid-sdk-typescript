@@ -24,15 +24,23 @@ try {
   const result = await run(
     `Create ${outputPath} with the text "Hello, World!"`,
     {
+      cwd: tempDir,
       autonomyLevel: AutonomyLevel.Off,
       permissionHandler({ toolUses, options }) {
         handledPermission = true;
+        // A Script request batches several tool calls; approve it only when
+        // every call in the batch is allowed.
+        const confirmations = toolUses.flatMap((item) =>
+          item.details.type === ToolConfirmationType.Script
+            ? item.details.calls.map((call) => call.confirmation)
+            : [item.details]
+        );
         const onlyCreatesExpectedFile =
-          toolUses.length > 0 &&
-          toolUses.every(
-            (item) =>
-              item.details.type === ToolConfirmationType.Create &&
-              item.details.filePath === outputPath
+          confirmations.length > 0 &&
+          confirmations.every(
+            (details) =>
+              details.type === ToolConfirmationType.Create &&
+              details.filePath === outputPath
           );
 
         const desired = onlyCreatesExpectedFile

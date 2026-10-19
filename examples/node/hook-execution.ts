@@ -34,19 +34,20 @@ import {
   createSession,
 } from '@factory/droid-sdk/node';
 
+const hookCommand = 'echo hook-from-sdk-example';
 const hookSettings = {
   hooksDisabled: false,
   PreToolUse: [
     {
       matcher: 'Execute',
-      hooks: [{ type: 'command', command: 'echo hook-from-sdk-example' }],
+      hooks: [{ type: 'command', command: hookCommand }],
     },
   ],
 };
 
 const projectDir = await mkdtemp(join(tmpdir(), 'droid-sdk-hook-project-'));
 
-let hookCount = 0;
+let hookCompleted = false;
 const expectedCommand = 'echo hello';
 
 try {
@@ -85,7 +86,12 @@ try {
         );
       }
       if (message.type === DroidMessageType.Hook) {
-        hookCount++;
+        if (message.command === hookCommand && message.status !== 'started') {
+          if (message.exitCode !== 0) {
+            throw new Error(`Example hook failed: ${String(message.exitCode)}`);
+          }
+          hookCompleted = true;
+        }
         if (message.status === 'started') {
           console.log(
             `[hook started] ${message.eventName}: ${message.command}`
@@ -104,11 +110,10 @@ try {
   await rm(projectDir, { recursive: true, force: true });
 }
 
-// A silent zero-hook run would look identical to a passing one, so fail loudly.
-if (hookCount === 0) {
+// User-level hooks do not prove that this example's hook ran.
+if (!hookCompleted) {
   throw new Error(
-    'No hook messages arrived: the registered PreToolUse hook never ran. ' +
-      'The most likely cause is that the droid answered this turn without ' +
-      'calling the Execute tool, so the `Execute` matcher never fired.'
+    'The example PreToolUse hook did not complete successfully. ' +
+      'Check that Droid called Execute and that the SDK supports the CLI protocol.'
   );
 }

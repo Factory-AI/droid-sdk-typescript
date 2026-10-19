@@ -1,5 +1,70 @@
 # Migration Guide
 
+## Migrating from 0.9.x to 0.10.0
+
+### 1. Upgrade the package
+
+```bash
+npm install @factory/droid-sdk@^0.10.0
+```
+
+Applications that use only `run()`, `createSession()`, `resumeSession()`, or
+`connectToDaemon()` with built-in transports need no transport changes.
+
+### 2. Update custom Node transports
+
+- `DroidClientOptions.transport` and the `transport` session option now require
+  a `DroidClientTransport`. Its `send` and `onMessage` methods exchange
+  `JsonRpcMessage` objects instead of strings.
+- `ProcessTransport` owns its stdio JSON codec. Direct callers of its `send` and
+  `onMessage` methods must pass and receive objects.
+- To keep an existing `StringFramedDroidClientTransport`, wrap it with
+  `withJsonRpcCodec()` from `@factory/droid-sdk/node`. Do not wrap a transport
+  that already exchanges objects.
+
+```ts
+import { createSession, withJsonRpcCodec } from '@factory/droid-sdk/node';
+
+const session = await createSession({
+  transport: withJsonRpcCodec(stringTransport),
+});
+```
+
+### 3. Update daemon client transports
+
+- Replace `DaemonClient.onMessage` with `DaemonClient.onTransportMessage`, and
+  remove `JSON.parse` from those handlers.
+- Custom `DaemonClientTransport.send` implementations and `message` listeners
+  now exchange `JsonRpcMessage` objects. Encode and decode messages inside
+  transports that cross a serialized boundary.
+
+The wire format between the SDK, the CLI, and the daemon does not change.
+
+### 4. Handle Script permission requests
+
+Current CLI releases can batch several tool calls into one permission request
+with `ToolConfirmationType.Script`. Inspect each entry in `details.calls` and
+approve the request only when every call is allowed:
+
+```ts
+const confirmations = request.toolUses.flatMap((use) =>
+  use.details.type === ToolConfirmationType.Script
+    ? use.details.calls.map((call) => call.confirmation)
+    : [use.details]
+);
+```
+
+A handler that checks only the top-level `details.type` cancels these requests.
+
+### 5. Verify the migration
+
+```bash
+npm run typecheck
+npm run lint
+npm run format:check
+npx tsx examples/node/list-sessions.ts
+```
+
 ## Migrating from 0.6.0 to 0.7.0
 
 ### 1. Upgrade the package

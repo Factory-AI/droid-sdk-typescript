@@ -1,8 +1,8 @@
 /**
  * External MCP server example.
  *
- * Connects an HTTP MCP server to one Node session, then lists its status and
- * discovered tools.
+ * Connects an HTTP MCP server to one Node session and lists its tools.
+ * Set MCP_SERVER_TOKEN if the endpoint needs a bearer token.
  *
  * Usage:
  *   MCP_SERVER_URL=https://example.com/mcp \
@@ -31,13 +31,16 @@ const session = await createSession({
 });
 
 try {
-  const { servers } = await session.listMcpServers();
   const tools = await session.listMcpTools();
-  const server = servers.find((item) => item.name === 'external');
+  const externalTools = tools.filter((item) => item.serverName === 'external');
 
-  console.log(`status: ${server?.status ?? 'unknown'}`);
+  if (externalTools.length === 0) {
+    throw new Error(
+      'No external tools found. Check MCP_SERVER_URL and authentication.'
+    );
+  }
 
-  for (const tool of tools.filter((item) => item.serverName === 'external')) {
+  for (const tool of externalTools) {
     console.log(tool.name);
   }
 } finally {

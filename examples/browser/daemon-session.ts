@@ -41,16 +41,28 @@ try {
   report('session created', session.id);
 
   try {
+    let sawAssistantText = false;
     for await (const message of session.stream(
       'Run `echo hello from the browser example` and show me the output.'
     )) {
       if (message.type === DroidMessageType.Assistant) {
+        sawAssistantText ||= message.text.trim().length > 0;
         report('assistant', message.text);
+      }
+      if (message.type === DroidMessageType.Result && !message.success) {
+        throw new Error(
+          message.error?.message ?? `Turn ended: ${message.subtype}`
+        );
       }
     }
 
     if (!approvedPermission) {
       throw new Error('Turn finished without requesting permission.');
+    }
+    if (!sawAssistantText) {
+      throw new Error(
+        'No assistant text arrived. Check SDK and CLI compatibility.'
+      );
     }
     report('status', 'Turn completed.');
   } finally {

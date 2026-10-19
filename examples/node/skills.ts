@@ -14,6 +14,9 @@ const session = await createSession();
 try {
   const { skills } = await session.listSkills();
 
+  if (skills.length === 0) {
+    console.log('No skills are available to this session.');
+  }
   for (const skill of skills) {
     console.log(
       `${skill.name}: ${skill.enabled === false ? 'disabled' : 'enabled'}`

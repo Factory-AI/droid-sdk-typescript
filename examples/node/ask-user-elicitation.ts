@@ -10,11 +10,13 @@
 
 import { run } from '@factory/droid-sdk/node';
 
+let answeredQuestion = false;
 const result = await run(
   'Use the AskUser tool to ask me which color I prefer, then reply with the color I picked.',
   {
     askUserHandler({ questions }) {
       for (const question of questions) {
+        answeredQuestion = true;
         console.log(`[asked] ${question.question}`);
         console.log(`[options] ${question.options.join(', ')}`);
       }
@@ -34,6 +36,9 @@ const result = await run(
 
 if (!result.success) {
   throw new Error(result.error?.message ?? 'The turn was interrupted.');
+}
+if (!answeredQuestion) {
+  throw new Error('The turn finished without an AskUser question.');
 }
 
 console.log(`\n${result.text}`);

@@ -17,12 +17,14 @@ try {
   const prompt =
     process.argv.slice(2).join(' ') || 'Explain this repository briefly.';
   let sawSuccessfulResult = false;
+  let sawAssistantText = false;
 
   for await (const event of session.stream(prompt, {
     includePartialMessages: true,
   })) {
     switch (event.type) {
       case DroidMessageType.AssistantTextDelta:
+        sawAssistantText ||= event.text.trim().length > 0;
         process.stdout.write(event.text);
         break;
 
@@ -50,6 +52,9 @@ try {
 
   if (!sawSuccessfulResult) {
     throw new Error('The stream ended without a successful result.');
+  }
+  if (!sawAssistantText) {
+    throw new Error('The stream produced no assistant text deltas.');
   }
 } finally {
   await session.close();

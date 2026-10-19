@@ -229,7 +229,7 @@ Common options:
 | `execPath`                     | Droid executable path                          |
 | `execArgs`                     | Additional Droid process arguments             |
 | `env`                          | Additional Droid process environment variables |
-| `transport`                    | Custom string-framed transport                 |
+| `transport`                    | Custom typed JSON-RPC transport                |
 
 ## Sessions
 
@@ -536,10 +536,15 @@ import {
 const session = await createSession({
   autonomyLevel: AutonomyLevel.Off,
   permissionHandler(request) {
+    const confirmations = request.toolUses.flatMap((use) =>
+      use.details.type === ToolConfirmationType.Script
+        ? use.details.calls.map((call) => call.confirmation)
+        : [use.details]
+    );
     const safe =
-      request.toolUses.length > 0 &&
-      request.toolUses.every(
-        (use) => use.details.type === ToolConfirmationType.Create
+      confirmations.length > 0 &&
+      confirmations.every(
+        (details) => details.type === ToolConfirmationType.Create
       );
 
     return safe
@@ -548,6 +553,10 @@ const session = await createSession({
   },
 });
 ```
+
+A `Script` request batches several tool calls into one confirmation. Inspect
+each entry in `details.calls` and approve the request only when every call is
+allowed.
 
 The handler must return an outcome supplied by the request. Invalid results and
 handler errors cancel the request.
@@ -970,8 +979,14 @@ function createInProcessClient(
 }
 ```
 
-The root also exports `WebSocketDaemonTransport`; the `/node` entrypoint exports
+In-process transports exchange `JsonRpcMessage` objects directly, so the
+handlers do not parse or stringify messages. The root also exports
+`WebSocketDaemonTransport`; the `/node` entrypoint exports
 `IpcDaemonClientTransport`.
+
+To observe raw daemon traffic, register a handler with
+`DaemonClient.onTransportMessage()`. The handler receives `JsonRpcMessage`
+objects.
 
 Hosts can inject daemon-core logging, metrics, tracing, and domain helpers once
 at startup:
@@ -1001,9 +1016,9 @@ complete request events, while high-level session handlers receive request
 parameters.
 
 `ProcessTransport` uses `droidExecPath` and `droidExecExtraArgs` for executable
-configuration. A custom `StringFramedDroidClientTransport` exchanges
-newline-delimited JSON-RPC strings and can replace subprocess transport
-entirely.
+configuration and owns its stdio JSON codec. Its `send` and `onMessage` methods
+exchange `JsonRpcMessage` objects. A custom `DroidClientTransport` can replace
+subprocess transport entirely.
 
 ### Context and token usage
 
@@ -1207,10 +1222,10 @@ Node-only errors:
 **Runtime: Node, advanced**
 
 ```ts
-interface StringFramedDroidClientTransport {
-  isConnected: boolean;
-  send(message: string): Promise<void>;
-  onMessage(handler: (message: string) => void): void;
+interface DroidClientTransport {
+  readonly isConnected: boolean;
+  send(message: JsonRpcMessage): Promise<void>;
+  onMessage(handler: (message: JsonRpcMessage) => void): void;
   onError(handler: (error: Error) => void): void;
   close(): Promise<void>;
 }
@@ -1219,6 +1234,26 @@ interface StringFramedDroidClientTransport {
 Pass a ready transport through `run()`, `createSession()`, or
 `resumeSession()`. A custom transport bypasses subprocess creation and the
 Node API-key requirement.
+
+A transport that crosses a serialized boundary must encode and decode messages
+itself. To reuse a transport that exchanges newline-delimited JSON-RPC strings,
+wrap it with `withJsonRpcCodec()`:
+
+```ts
+import {
+  type StringFramedDroidClientTransport,
+  createSession,
+  withJsonRpcCodec,
+} from '@factory/droid-sdk/node';
+
+declare const stringTransport: StringFramedDroidClientTransport;
+
+const session = await createSession({
+  transport: withJsonRpcCodec(stringTransport),
+});
+```
+
+Do not wrap a transport that already exchanges `JsonRpcMessage` objects.
 
 ## Errors and limitations
 
@@ -1273,6 +1308,25 @@ Run a Node example directly:
 npx tsx examples/node/run.ts
 ```
 
+Set `FACTORY_API_KEY` and put `droid` on `PATH` before you run the examples.
+Use an API key for the same environment as the CLI.
+The examples inherit your CLI settings, hooks, and MCP configuration.
+Use a test project for examples that inspect or change files.
+
+Some examples need additional input:
+
+- `resume-session.ts`: pass an ID from a session you can safely continue.
+- `model-selection.ts`: pass an ID from `model-discovery.ts`.
+- `document-input.ts`: optionally pass a text or PDF path.
+- `external-mcp.ts`: set `MCP_SERVER_URL` and, if necessary, `MCP_SERVER_TOKEN`.
+- `daemon-session.ts`: start a daemon first. Set `DROID_DAEMON_URL` for a non-default address.
+
+Use compatible SDK and CLI versions. SDK 0.9.1 and earlier can reject newer
+protocol messages, including model providers and Script permission requests.
+Use SDK 0.10.0 or later with current CLI releases.
+A successful result without assistant text does not prove that streaming works.
+Do not remove permission checks to bypass a protocol mismatch.
+
 | Topic                      | Node examples                                                                                                                    |
 | -------------------------- | -------------------------------------------------------------------------------------------------------------------------------- |
 | Runs and results           | `run.ts`, `result-metadata.ts`                                                                                                   |
@@ -1287,7 +1341,13 @@ npx tsx examples/node/run.ts
 | Daemon and missions        | `daemon-session.ts`, `mission.ts`                                                                                                |
 | Observability              | `observability.ts`                                                                                                               |
 
-Start a mission and print orchestrator and worker progress:
+Start a mission in a test project and print orchestrator and worker progress.
+`interactionMode: DroidInteractionMode.Mission` alone does not give the session
+the mission tools. The example also passes a `mission-session` tag with
+`role: DecompSessionType.Orchestrator` and a `missionId`, which makes the
+session a mission orchestrator.
+The default prompt asks the mission to create `CONTRIBUTING.md`.
+The example fails if no worker starts.
 
 ```bash
 npx tsx examples/node/mission.ts

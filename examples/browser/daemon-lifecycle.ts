@@ -32,6 +32,7 @@ async function send(
   prompt: string
 ): Promise<string> {
   let messageId: string | undefined;
+  let sawAssistantText = false;
 
   for await (const message of session.stream(prompt)) {
     if (
@@ -41,11 +42,22 @@ async function send(
       messageId ??= message.message.id;
     }
     if (message.type === DroidMessageType.Assistant) {
+      sawAssistantText ||= message.text.trim().length > 0;
       report('assistant', message.text);
+    }
+    if (message.type === DroidMessageType.Result && !message.success) {
+      throw new Error(
+        message.error?.message ?? `Turn ended: ${message.subtype}`
+      );
     }
   }
 
   if (!messageId) throw new Error('The turn produced no user message ID.');
+  if (!sawAssistantText) {
+    throw new Error(
+      'No assistant text arrived. Check SDK and CLI compatibility.'
+    );
+  }
   return messageId;
 }
 

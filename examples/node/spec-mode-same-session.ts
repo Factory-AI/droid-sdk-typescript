@@ -47,6 +47,7 @@ const handlePermissionRequest: ClientPermissionHandler = ({ options }) => {
 
 try {
   const session = await createSession({
+    cwd: tempDir,
     interactionMode: DroidInteractionMode.Spec,
     specModeReasoningEffort: ReasoningEffort.High,
     permissionHandler: handlePermissionRequest,

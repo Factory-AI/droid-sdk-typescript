@@ -49,6 +49,7 @@ const handlePermissionRequest: ClientPermissionHandler = ({
 
 try {
   const session = await createSession({
+    cwd: tempDir,
     interactionMode: DroidInteractionMode.Auto,
     permissionHandler: handlePermissionRequest,
   });
