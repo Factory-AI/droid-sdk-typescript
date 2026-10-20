@@ -11,12 +11,14 @@
 import {
   DroidMessageType,
   ToolConfirmationOutcome,
+  ToolConfirmationType,
   createSession,
   createSdkMcpServer,
   tool,
 } from '@factory/droid-sdk/node';
 import { z } from 'zod';
 
+let toolCalled = false;
 const sdkTools = createSdkMcpServer({
   name: 'sdk-tools',
   tools: [
@@ -24,17 +26,43 @@ const sdkTools = createSdkMcpServer({
       'favorite_number',
       'Returns a favorite number for a person',
       { name: z.string() },
-      ({ name }) => `${name}'s favorite number is 42.`
+      ({ name }) => {
+        toolCalled = true;
+        return `${name}'s favorite number is 42.`;
+      }
     ),
   ],
 });
 
 const session = await createSession({
   mcpServers: [sdkTools],
-  // Not the focus of this example, but required: without a handler every
-  // permission request resolves to Cancel, so a tool needing approval would
-  // never run.
-  permissionHandler: () => ToolConfirmationOutcome.ProceedOnce,
+  // Without a handler every permission request resolves to Cancel, so a tool
+  // that needs approval never runs. This handler approves only
+  // sdk-tools/favorite_number. A tool with the `readOnlyHint: true` annotation skips the
+  // prompt at Low autonomy or above.
+  permissionHandler({ toolUses, options }) {
+    // A Script request batches tool calls; see permission-handler.ts.
+    const confirmations = toolUses.flatMap(({ details }) =>
+      details.type === ToolConfirmationType.Script
+        ? details.calls.map((call) => call.confirmation)
+        : [details]
+    );
+    const onlyFavoriteNumber =
+      confirmations.length > 0 &&
+      confirmations.every(
+        (details) =>
+          details.type === ToolConfirmationType.McpTool &&
+          details.serverName === 'sdk-tools' &&
+          details.actualToolName === 'favorite_number'
+      );
+    const outcome = onlyFavoriteNumber
+      ? ToolConfirmationOutcome.ProceedOnce
+      : ToolConfirmationOutcome.Cancel;
+    if (!options.some((option) => option.value === outcome)) {
+      throw new Error(`Outcome not offered: ${outcome}`);
+    }
+    return outcome;
+  },
 });
 
 try {
@@ -47,6 +75,12 @@ try {
     if (msg.type === DroidMessageType.Assistant) {
       console.log(msg.text);
     }
+    if (msg.type === DroidMessageType.Result && !msg.success) {
+      throw new Error(msg.error?.message ?? `Turn ended: ${msg.subtype}`);
+    }
+  }
+  if (!toolCalled) {
+    throw new Error('The turn finished without calling favorite_number.');
   }
 } finally {
   await session.close();

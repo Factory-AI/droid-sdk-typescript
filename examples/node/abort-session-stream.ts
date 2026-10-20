@@ -17,6 +17,7 @@ const timeout = setTimeout(
   1000
 );
 
+let completed = false;
 try {
   for await (const _msg of session.stream(
     'Write a long explanation of how compilers work.',
@@ -24,9 +25,17 @@ try {
   )) {
     // Consume the stream until the abort signal cuts it short.
   }
+  completed = true;
 } catch (error) {
+  if (!controller.signal.aborted) throw error;
   console.log(error instanceof Error ? error.message : String(error));
 } finally {
   clearTimeout(timeout);
   await session.close();
+}
+
+if (completed) {
+  throw new Error(
+    'The turn completed before the abort signal fired, so nothing was aborted.'
+  );
 }

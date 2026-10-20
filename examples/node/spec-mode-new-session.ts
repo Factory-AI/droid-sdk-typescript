@@ -17,36 +17,86 @@
  *   npx tsx examples/node/spec-mode-new-session.ts
  */
 
-import { mkdtemp, readFile, rm } from 'node:fs/promises';
+import { mkdtemp, readFile, realpath, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
 import {
+  type ClientPermissionHandler,
   DroidInteractionMode,
+  DroidMessageType,
   ReasoningEffort,
   SessionNotificationSchema,
+  type ToolConfirmationDetails,
   ToolConfirmationOutcome,
   ToolConfirmationType,
   createSession,
 } from '@factory/droid-sdk/node';
 
-const tempDir = await mkdtemp(join(tmpdir(), 'droid-sdk-spec-'));
+// Resolve symlinks (for example /var -> /private/var on macOS) so the path in
+// the prompt is the same path that the permission request reports.
+const tempDir = await realpath(
+  await mkdtemp(join(tmpdir(), 'droid-sdk-spec-'))
+);
 const outputPath = join(tempDir, 'hello.txt');
+
+/** True when a tool call only writes the file that the prompt asks for. */
+function writesOnlyOutputFile(details: ToolConfirmationDetails): boolean {
+  switch (details.type) {
+    case ToolConfirmationType.Create:
+    case ToolConfirmationType.Edit:
+      return details.filePath === outputPath;
+    case ToolConfirmationType.ApplyPatch:
+      return (
+        details.files !== undefined &&
+        details.files.length > 0 &&
+        details.files.every(
+          (file) =>
+            file.filePath === outputPath &&
+            file.operation !== 'delete' &&
+            file.moveTo === undefined
+        )
+      );
+    default:
+      return false;
+  }
+}
 
 let handoffSessionId: string | null = null;
 
+const handlePermissionRequest: ClientPermissionHandler = ({
+  toolUses,
+  options,
+}) => {
+  // A Script request batches tool calls; see permission-handler.ts.
+  const confirmations = toolUses.flatMap((toolUse) =>
+    toolUse.details.type === ToolConfirmationType.Script
+      ? toolUse.details.calls.map((call) => call.confirmation)
+      : [toolUse.details]
+  );
+  const exitsSpecMode =
+    confirmations.length === 1 &&
+    confirmations[0]?.type === ToolConfirmationType.ExitSpecMode;
+
+  // Approve the plan into a new session, approve the write to outputPath, and
+  // cancel everything else.
+  const outcome = exitsSpecMode
+    ? ToolConfirmationOutcome.ProceedNewSessionHigh
+    : confirmations.length > 0 && confirmations.every(writesOnlyOutputFile)
+      ? ToolConfirmationOutcome.ProceedOnce
+      : ToolConfirmationOutcome.Cancel;
+  if (!options.some((option) => option.value === outcome)) {
+    throw new Error(`Outcome not offered: ${outcome}`);
+  }
+  return outcome;
+};
+
 try {
   const session = await createSession({
+    cwd: tempDir,
     interactionMode: DroidInteractionMode.Spec,
     specModeReasoningEffort: ReasoningEffort.High,
-    permissionHandler(params) {
-      const canExitSpec = params.toolUses.some(
-        (item) => item.details.type === ToolConfirmationType.ExitSpecMode
-      );
-      return canExitSpec
-        ? ToolConfirmationOutcome.ProceedNewSessionHigh
-        : ToolConfirmationOutcome.ProceedOnce;
-    },
+    permissionHandler: handlePermissionRequest,
   });
 
   // The typed message stream carries no per-message session id, and the
@@ -63,10 +113,16 @@ try {
   });
 
   try {
-    for await (const _msg of session.stream(
-      `Plan then create ${outputPath} containing "Hello from Droid".`
+    // The handler cancels shell commands, so the prompt asks for a file tool.
+    for await (const message of session.stream(
+      `Plan then create ${outputPath} containing "Hello from Droid". ` +
+        'Write it with a file editing tool, not a shell command.'
     )) {
-      // Consume the stream until the handoff implementation finishes.
+      if (message.type === DroidMessageType.Result && !message.success) {
+        throw new Error(
+          message.error?.message ?? `Turn ended: ${message.subtype}`
+        );
+      }
     }
   } finally {
     unsubscribe();

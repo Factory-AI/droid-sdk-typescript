@@ -19,7 +19,11 @@ async function streamText(
     if (msg.type === DroidMessageType.Assistant) {
       text += msg.text;
     }
+    if (msg.type === DroidMessageType.Result && !msg.success) {
+      throw new Error(msg.error?.message ?? `Turn ended: ${msg.subtype}`);
+    }
   }
+  if (!text.trim()) throw new Error('The turn produced no assistant text.');
   return text;
 }
 

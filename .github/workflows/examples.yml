@@ -1,0 +1,133 @@
+name: Examples
+
+# Pull requests and pushes run only the static checks. The live example jobs
+# use real credits, so they run on the daily schedule or when someone starts
+# the workflow by hand.
+on:
+  pull_request:
+  push:
+    branches: [main]
+  schedule:
+    # Daily, to catch breakage from new droid CLI releases.
+    - cron: '17 6 * * *'
+  workflow_dispatch:
+    inputs:
+      runs:
+        description: Runs per example
+        default: '1'
+      retries:
+        description: Retries for a failed example (0 shows raw flakiness)
+        default: '1'
+      droid-version:
+        description: droid CLI version from npm
+        default: latest
+
+permissions:
+  contents: read
+
+concurrency:
+  group: examples-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  static:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Run regression checks without model calls
+        run: npm test
+      - run: npm run typecheck
+      - run: npm run lint
+      - run: npm run format:check
+      - name: Type-check code blocks in the docs
+        run: npm run check:docs
+      - name: Bundle browser examples
+        run: >
+          npx esbuild examples/browser/*.ts --bundle --platform=browser
+          --format=esm --target=es2022 --outdir="$RUNNER_TEMP/browser-bundles"
+
+  node-examples:
+    needs: static
+    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { os: ubuntu-latest, node: 20 }
+          - { os: ubuntu-latest, node: 22 }
+          - { os: macos-latest, node: 22 }
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 60
+    env:
+      FACTORY_API_KEY: ${{ secrets.FACTORY_API_KEY }}
+      RUNS: ${{ inputs.runs || '1' }}
+      RETRIES: ${{ inputs.retries || '1' }}
+      DROID_VERSION: ${{ inputs.droid-version || 'latest' }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node }}
+          cache: npm
+      - run: npm ci
+      - name: Install the droid CLI
+        run: |
+          npm install --global "droid@${DROID_VERSION}"
+          droid --version
+      - name: Run the Node examples
+        run: npm run test:examples -- --runs "$RUNS" --retries "$RETRIES" --concurrency 4 --out "$RUNNER_TEMP/example-runs"
+      - name: Write the job summary
+        if: always()
+        run: cat "$RUNNER_TEMP/example-runs/report.md" >> "$GITHUB_STEP_SUMMARY" || true
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: example-runs-${{ matrix.os }}-node${{ matrix.node }}
+          path: |
+            ${{ runner.temp }}/example-runs/report.md
+            ${{ runner.temp }}/example-runs/results.json
+            ${{ runner.temp }}/example-runs/*/*.log
+          if-no-files-found: ignore
+
+  browser-examples:
+    needs: static
+    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      FACTORY_API_KEY: ${{ secrets.FACTORY_API_KEY }}
+      DROID_VERSION: ${{ inputs.droid-version || 'latest' }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Install the droid CLI and Playwright
+        run: |
+          npm install --global "droid@${DROID_VERSION}"
+          droid --version
+          npm install --no-save playwright@1
+          npx playwright install --with-deps chromium
+      - name: Run the browser examples
+        run: npm run test:browser-examples -- --out "$RUNNER_TEMP/browser-runs"
+      - name: Write the job summary
+        if: always()
+        run: cat "$RUNNER_TEMP/browser-runs/browser-report.md" >> "$GITHUB_STEP_SUMMARY" || true
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: browser-runs
+          path: |
+            ${{ runner.temp }}/browser-runs/*.md
+            ${{ runner.temp }}/browser-runs/*.json
+            ${{ runner.temp }}/browser-runs/*.png
+            ${{ runner.temp }}/browser-runs/*.txt
+          if-no-files-found: ignore

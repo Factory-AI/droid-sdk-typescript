@@ -30,22 +30,25 @@ import { join } from 'node:path';
 import {
   DroidMessageType,
   ToolConfirmationOutcome,
+  ToolConfirmationType,
   createSession,
 } from '@factory/droid-sdk/node';
 
+const hookCommand = 'echo hook-from-sdk-example';
 const hookSettings = {
   hooksDisabled: false,
   PreToolUse: [
     {
       matcher: 'Execute',
-      hooks: [{ type: 'command', command: 'echo hook-from-sdk-example' }],
+      hooks: [{ type: 'command', command: hookCommand }],
     },
   ],
 };
 
 const projectDir = await mkdtemp(join(tmpdir(), 'droid-sdk-hook-project-'));
 
-let hookCount = 0;
+let hookCompleted = false;
+const expectedCommand = 'echo hello';
 
 try {
   await mkdir(join(projectDir, '.factory'), { recursive: true });
@@ -56,24 +59,54 @@ try {
 
   const session = await createSession({
     cwd: projectDir,
-    permissionHandler: () => ToolConfirmationOutcome.ProceedOnce,
+    permissionHandler({ toolUses, options }) {
+      // A Script request batches tool calls; see permission-handler.ts.
+      const confirmations = toolUses.flatMap((toolUse) =>
+        toolUse.details.type === ToolConfirmationType.Script
+          ? toolUse.details.calls.map((call) => call.confirmation)
+          : [toolUse.details]
+      );
+      const [details] = confirmations;
+      const approvesExpectedCommand =
+        confirmations.length === 1 &&
+        details?.type === ToolConfirmationType.Execute &&
+        details.fullCommand === expectedCommand;
+      const desired = approvesExpectedCommand
+        ? ToolConfirmationOutcome.ProceedOnce
+        : ToolConfirmationOutcome.Cancel;
+
+      if (!options.some((option) => option.value === desired)) {
+        throw new Error(`Outcome not offered: ${desired}`);
+      }
+      return desired;
+    },
   });
 
   try {
-    for await (const msg of session.stream(
-      'Run the shell command `echo hello` using the Execute tool.'
+    for await (const message of session.stream(
+      `Run the shell command \`${expectedCommand}\` using the Execute tool.`
     )) {
-      if (msg.type !== DroidMessageType.Hook) {
-        continue;
-      }
-
-      hookCount++;
-      if (msg.status === 'started') {
-        console.log(`[hook started] ${msg.eventName}: ${msg.command}`);
-      } else {
-        console.log(
-          `[hook ${msg.status}] exit code ${String(msg.exitCode)}: ${(msg.stdout ?? '').trim()}`
+      if (message.type === DroidMessageType.Result && !message.success) {
+        throw new Error(
+          message.error?.message ?? `Turn ended: ${message.subtype}`
         );
+      }
+      if (message.type === DroidMessageType.Hook) {
+        if (message.command === hookCommand && message.status !== 'started') {
+          if (message.exitCode !== 0) {
+            throw new Error(`Example hook failed: ${String(message.exitCode)}`);
+          }
+          hookCompleted = true;
+        }
+        if (message.status === 'started') {
+          console.log(
+            `[hook started] ${message.eventName}: ${message.command}`
+          );
+        } else {
+          console.log(
+            `[hook ${message.status}] exit code ${String(message.exitCode)}: ${(message.stdout ?? '').trim()}`
+          );
+        }
       }
     }
   } finally {
@@ -83,12 +116,10 @@ try {
   await rm(projectDir, { recursive: true, force: true });
 }
 
-// A silent zero-hook run would look identical to a passing one, so fail loudly.
-if (hookCount === 0) {
+// User-level hooks do not prove that this example's hook ran.
+if (!hookCompleted) {
   throw new Error(
-    'No hook messages arrived: the registered PreToolUse hook never ran. ' +
-      'The most likely cause is that the droid answered this turn without ' +
-      'calling the Execute tool, so the `Execute` matcher never fired. ' +
-      'Re-run, or widen the matcher to the tool the droid actually used.'
+    'The example PreToolUse hook did not complete successfully. ' +
+      'Check that Droid called Execute and that the SDK supports the CLI protocol.'
   );
 }

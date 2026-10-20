@@ -1,6 +1,6 @@
 {
   "name": "@factory/droid-sdk-examples",
-  "version": "0.9.1",
+  "version": "0.10.0",
   "private": true,
   "description": "Guides and runnable examples for the Factory Droid SDK",
   "license": "Apache-2.0",
@@ -11,18 +11,22 @@
     "fix": "eslint --fix examples/",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
-    "serve:browser-example": "node scripts/serve-browser-example.mjs"
+    "serve:browser-example": "node scripts/serve-browser-example.mjs",
+    "check:docs": "node scripts/check-doc-snippets.mjs",
+    "test": "node --test scripts/*.test.mjs",
+    "test:examples": "node scripts/run-examples.mjs",
+    "test:browser-examples": "node scripts/run-browser-examples.mjs"
   },
   "repository": {
     "type": "git",
     "url": "git+https://github.com/Factory-AI/droid-sdk-typescript.git"
   },
   "engines": {
-    "node": ">=18.0.0"
+    "node": ">=20.0.0"
   },
   "dependencies": {
-    "@factory/droid-sdk": "0.9.1",
-    "zod": "^3.24.0"
+    "@factory/droid-sdk": "0.10.0",
+    "zod": "^3.25.0"
   },
   "devDependencies": {
     "@eslint/js": "^9.39.4",

@@ -19,6 +19,11 @@ try {
   console.log(`model:            ${String(settings.modelId)}`);
   console.log(`interaction mode: ${String(settings.interactionMode)}`);
   console.log(`autonomy level:   ${String(settings.autonomyLevel)}`);
+
+  // Droid fills these in when the session starts, before any prompt.
+  if (!settings.modelId || !settings.interactionMode) {
+    throw new Error('The session started without a model or a mode.');
+  }
 } finally {
   await session.close();
 }

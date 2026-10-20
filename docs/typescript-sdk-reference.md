@@ -32,7 +32,9 @@ Install the package:
 npm install @factory/droid-sdk
 ```
 
-The SDK requires Node.js 18 or later.
+Use Node.js 20 or later. The SDK package declares Node.js 18, but version
+0.10.0 needs the global Web Crypto API, which Node.js 18 provides only with the
+`--experimental-global-webcrypto` flag.
 
 By default, Node session APIs start the `droid` CLI from `PATH`. You can provide
 a different executable with `execPath`. Supplying a custom `transport` bypasses
@@ -175,9 +177,12 @@ Node and daemon replacement operations intentionally behave differently.
 
 | Behavior                        | Node session                                               | Daemon session                 |
 | ------------------------------- | ---------------------------------------------------------- | ------------------------------ |
-| Successor response              | `fork`: handle; `compact`/`rewind`: outcome with `session` | Outcome with `newSessionId`    |
+| Successor response              | `fork`: handle; `handoff`/`rewind`: outcome with `session` | Outcome with `newSessionId`    |
 | Source handle after replacement | Retired                                                    | Still usable                   |
 | Load successor                  | Automatic                                                  | Call `droid.sessions.resume()` |
+
+Current Droid performs `compact()` in place. It keeps the source session ID
+and handle. Use `handoff()` to create a new session with a summary.
 
 See [Session lifecycle](#session-lifecycle) for examples.
 
@@ -186,7 +191,10 @@ See [Session lifecycle](#session-lifecycle) for examples.
 **Runtime: Node**
 
 ```ts
-function run(prompt: string, options?: RunOptions): Promise<DroidResult>;
+declare function run(
+  prompt: string,
+  options?: RunOptions
+): Promise<DroidResult>;
 ```
 
 `run()` supports the same creation and message options as a Node session,
@@ -229,7 +237,7 @@ Common options:
 | `execPath`                     | Droid executable path                          |
 | `execArgs`                     | Additional Droid process arguments             |
 | `env`                          | Additional Droid process environment variables |
-| `transport`                    | Custom string-framed transport                 |
+| `transport`                    | Custom typed JSON-RPC transport                |
 
 ## Sessions
 
@@ -529,17 +537,24 @@ choose the default.
 
 ```ts
 import {
+  AutonomyLevel,
   ToolConfirmationOutcome,
   ToolConfirmationType,
+  createSession,
 } from '@factory/droid-sdk/node';
 
 const session = await createSession({
   autonomyLevel: AutonomyLevel.Off,
   permissionHandler(request) {
+    const confirmations = request.toolUses.flatMap((use) =>
+      use.details.type === ToolConfirmationType.Script
+        ? use.details.calls.map((call) => call.confirmation)
+        : [use.details]
+    );
     const safe =
-      request.toolUses.length > 0 &&
-      request.toolUses.every(
-        (use) => use.details.type === ToolConfirmationType.Create
+      confirmations.length > 0 &&
+      confirmations.every(
+        (details) => details.type === ToolConfirmationType.Create
       );
 
     return safe
@@ -548,6 +563,15 @@ const session = await createSession({
   },
 });
 ```
+
+A `Script` request batches several tool calls into one confirmation. Inspect
+each entry in `details.calls` and approve the request only when every call is
+allowed.
+
+The tool that Droid uses for a task depends on the model. For example, some
+models create files with `ApplyPatch` instead of `Create`. Each
+`ApplyPatch` request lists its files in `details.files`; see
+`examples/node/permission-handler.ts`.
 
 The handler must return an outcome supplied by the request. Invalid results and
 handler errors cancel the request.
@@ -571,6 +595,8 @@ const result = await run('Ask me which environment to deploy.', {
 ```
 
 To decline:
+
+<!-- snippet-skip -->
 
 ```ts
 return { cancelled: true, answers: [] };
@@ -605,12 +631,14 @@ restrictive allowlist.
 ### Skills
 
 ```ts
+import { SettingsLevel } from '@factory/droid-sdk/node';
+
 const { skills } = await session.listSkills();
 
 await session.setSkillDisabled({
   skillName: 'skill-name',
   disabled: true,
-  settingsLevel: 'project',
+  settingsLevel: SettingsLevel.Project,
 });
 ```
 
@@ -706,9 +734,12 @@ need.
 
 ### Node replacement handles
 
-Node `fork()` returns a ready successor handle. `compact()` and `rewind()`
-return outcome objects containing a ready successor in `session`. Each
-operation retires its source wrapper.
+Node `fork()` returns a ready successor handle. `handoff()` and `rewind()`
+return outcome objects with a ready successor in `session`. These operations
+retire the source wrapper.
+
+Current Droid performs `compact()` in place. Its outcome contains the source
+handle in `session` and a `removedCount`. The source handle stays active.
 
 ```ts
 const forked = await session.fork();
@@ -736,14 +767,23 @@ Do not replace a session while it has an active stream.
 
 ### Daemon replacement IDs
 
-Daemon operations return a new session ID. The source handle remains usable.
+Daemon operations return a session ID. The source handle remains usable.
+`fork()`, `handoff()`, and `rewind()` return a new ID; resume it to get a handle.
+Current Droid performs `compact()` in place and returns the source ID as
+`newSessionId`. One `ConnectedDroid` allows one handle per session ID, so keep
+the source handle after compaction:
 
 ```ts
-const { newSessionId } = await source.compact();
-const compacted = await droid.sessions.resume(newSessionId);
+const { removedCount } = await source.compact();
+// Continue with source. Do not resume its ID into another handle.
 ```
 
-The same rule applies to `fork()` and `rewind()`.
+Use `handoff()` when you need a new session with a summary:
+
+```ts
+const { newSessionId } = await source.handoff();
+const successor = await droid.sessions.resume(newSessionId);
+```
 
 ```ts
 const forkResult = await source.fork();
@@ -970,8 +1010,14 @@ function createInProcessClient(
 }
 ```
 
-The root also exports `WebSocketDaemonTransport`; the `/node` entrypoint exports
+In-process transports exchange `JsonRpcMessage` objects directly, so the
+handlers do not parse or stringify messages. The root also exports
+`WebSocketDaemonTransport`; the `/node` entrypoint exports
 `IpcDaemonClientTransport`.
+
+To observe raw daemon traffic, register a handler with
+`DaemonClient.onTransportMessage()`. The handler receives `JsonRpcMessage`
+objects.
 
 Hosts can inject daemon-core logging, metrics, tracing, and domain helpers once
 at startup:
@@ -1001,9 +1047,9 @@ complete request events, while high-level session handlers receive request
 parameters.
 
 `ProcessTransport` uses `droidExecPath` and `droidExecExtraArgs` for executable
-configuration. A custom `StringFramedDroidClientTransport` exchanges
-newline-delimited JSON-RPC strings and can replace subprocess transport
-entirely.
+configuration and owns its stdio JSON codec. Its `send` and `onMessage` methods
+exchange `JsonRpcMessage` objects. A custom `DroidClientTransport` can replace
+subprocess transport entirely.
 
 ### Context and token usage
 
@@ -1123,7 +1169,8 @@ await droid.unstable.crons.delete(cron.id);
 | `getContextStats()`       | Read context usage                    |
 | `getRewindInfo()`         | Inspect rewindable file changes       |
 | `rewind()`                | Create a rewound successor            |
-| `compact()`               | Create a compacted successor          |
+| `compact()`               | Summarize history in place            |
+| `handoff()`               | Create a successor with a summary     |
 | `fork()`                  | Create a forked successor             |
 | `rename()`                | Change the session title              |
 | `onNotification()`        | Subscribe to raw notifications        |
@@ -1141,7 +1188,7 @@ await droid.unstable.crons.delete(cron.id);
 Common result fields:
 
 ```ts
-{
+interface DroidResultFields {
   type: 'result';
   subtype:
     | 'success'
@@ -1207,10 +1254,10 @@ Node-only errors:
 **Runtime: Node, advanced**
 
 ```ts
-interface StringFramedDroidClientTransport {
-  isConnected: boolean;
-  send(message: string): Promise<void>;
-  onMessage(handler: (message: string) => void): void;
+interface DroidClientTransport {
+  readonly isConnected: boolean;
+  send(message: JsonRpcMessage): Promise<void>;
+  onMessage(handler: (message: JsonRpcMessage) => void): void;
   onError(handler: (error: Error) => void): void;
   close(): Promise<void>;
 }
@@ -1219,6 +1266,26 @@ interface StringFramedDroidClientTransport {
 Pass a ready transport through `run()`, `createSession()`, or
 `resumeSession()`. A custom transport bypasses subprocess creation and the
 Node API-key requirement.
+
+A transport that crosses a serialized boundary must encode and decode messages
+itself. To reuse a transport that exchanges newline-delimited JSON-RPC strings,
+wrap it with `withJsonRpcCodec()`:
+
+```ts
+import {
+  type StringFramedDroidClientTransport,
+  createSession,
+  withJsonRpcCodec,
+} from '@factory/droid-sdk/node';
+
+declare const stringTransport: StringFramedDroidClientTransport;
+
+const session = await createSession({
+  transport: withJsonRpcCodec(stringTransport),
+});
+```
+
+Do not wrap a transport that already exchanges `JsonRpcMessage` objects.
 
 ## Errors and limitations
 
@@ -1254,10 +1321,11 @@ switch (result.subtype) {
 
 ## Runnable examples
 
-The package includes runnable examples for one-shot runs, streaming, sessions,
-permissions, AskUser, attachments, structured output, MCP tools, hooks,
-observability, spec mode, replacement lifecycle, daemon sessions, concurrent
-browser sessions, daemon lifecycle operations, and missions.
+The package includes runnable examples for one-shot runs, streaming, partial
+events, sessions, resume, model selection, permissions, AskUser, image and
+document attachments, structured output, SDK and external MCP tools, skills,
+hooks, observability, spec mode, replacement lifecycle, daemon sessions,
+concurrent browser sessions, daemon lifecycle operations, and missions.
 
 All examples are under:
 
@@ -1272,7 +1340,46 @@ Run a Node example directly:
 npx tsx examples/node/run.ts
 ```
 
-Start a mission and print orchestrator and worker progress:
+Set `FACTORY_API_KEY` and put `droid` on `PATH` before you run the examples.
+Use an API key for the same environment as the CLI.
+The examples inherit your CLI settings, hooks, and MCP configuration.
+Use a test project for examples that inspect or change files.
+
+Some examples need additional input:
+
+- `resume-session.ts`: pass an ID from a session you can safely continue.
+- `model-selection.ts`: pass an ID from `model-discovery.ts`.
+- `document-input.ts`: optionally pass a text or PDF path.
+- `external-mcp.ts`: set `MCP_SERVER_URL` and, if necessary, `MCP_SERVER_TOKEN`.
+- `daemon-session.ts`: start a daemon first. Set `DROID_DAEMON_URL` for a non-default address.
+
+Use compatible SDK and CLI versions. SDK 0.9.1 and earlier can reject newer
+protocol messages, including model providers and Script permission requests.
+Use SDK 0.10.0 or later with current CLI releases.
+A successful result without assistant text does not prove that streaming works.
+Do not remove permission checks to bypass a protocol mismatch.
+
+| Topic                      | Node examples                                                                                                                    |
+| -------------------------- | -------------------------------------------------------------------------------------------------------------------------------- |
+| Runs and results           | `run.ts`, `result-metadata.ts`                                                                                                   |
+| Sessions                   | `multi-turn-session.ts`, `resume-session.ts`, `list-sessions.ts`, `rename-session.ts`, `init-metadata.ts`, `session-settings.ts` |
+| Streaming and cancellation | `session-stream.ts`, `partial-stream.ts`, `abort-session-stream.ts`, `interrupt-session.ts`                                      |
+| Models                     | `model-discovery.ts`, `model-selection.ts`                                                                                       |
+| Inputs and outputs         | `image-attachment.ts`, `document-input.ts`, `structured-output.ts`                                                               |
+| Permissions and user input | `permission-handler.ts`, `ask-user-elicitation.ts`, `tool-controls.ts`                                                           |
+| Extensions                 | `sdk-mcp-tool.ts`, `external-mcp.ts`, `skills.ts`, `hook-execution.ts`                                                           |
+| Session lifecycle          | `fork-session.ts`, `compact-session.ts`, `rewind-session.ts`                                                                     |
+| Spec mode                  | `enter-spec-mode.ts`, `spec-mode-same-session.ts`, `spec-mode-new-session.ts`                                                    |
+| Daemon and missions        | `daemon-session.ts`, `mission.ts`                                                                                                |
+| Observability              | `observability.ts`                                                                                                               |
+
+Start a mission in a test project and print orchestrator and worker progress.
+`interactionMode: DroidInteractionMode.Mission` alone does not give the session
+the mission tools. The example also passes a `mission-session` tag with
+`role: DecompSessionType.Orchestrator` and a `missionId`, which makes the
+session a mission orchestrator.
+The default prompt asks the mission to create `CONTRIBUTING.md`.
+The example fails if no worker starts.
 
 ```bash
 npx tsx examples/node/mission.ts

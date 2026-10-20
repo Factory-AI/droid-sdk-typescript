@@ -74,6 +74,9 @@ try {
     if (msg.type === DroidMessageType.Assistant) {
       console.log(`[assistant] ${msg.text}`);
     }
+    if (msg.type === DroidMessageType.Result && !msg.success) {
+      throw new Error(msg.error?.message ?? `Turn ended: ${msg.subtype}`);
+    }
   }
   // Measure before teardown: `session.close()` sends a `close_session` request,
   // which is itself logged, so counting after the `finally` would always find

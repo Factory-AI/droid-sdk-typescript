@@ -15,8 +15,9 @@ const session = await createSession();
 async function ask(
   activeSession: Awaited<ReturnType<typeof createSession>>,
   prompt: string
-): Promise<string> {
+): Promise<{ messageId: string; text: string }> {
   let messageId: string | undefined;
+  let text = '';
 
   for await (const message of activeSession.stream(prompt)) {
     if (
@@ -26,17 +27,24 @@ async function ask(
       messageId ??= message.message.id;
     }
     if (message.type === DroidMessageType.Assistant) {
+      text += message.text;
       console.log(message.text);
+    }
+    if (message.type === DroidMessageType.Result && !message.success) {
+      throw new Error(
+        message.error?.message ?? `Turn ended: ${message.subtype}`
+      );
     }
   }
 
   if (!messageId) throw new Error('The turn produced no user message ID.');
-  return messageId;
+  if (!text.trim()) throw new Error('The turn produced no assistant output.');
+  return { messageId, text };
 }
 
 try {
   await ask(session, 'Remember this phrase exactly: mango sunrise');
-  const secondTurn = await ask(
+  const { messageId: secondTurn } = await ask(
     session,
     'Now forget it and remember: cobalt harbor'
   );
@@ -56,13 +64,22 @@ try {
     forkTitle: 'Before the second phrase',
   });
 
-  // `session` is now a retired wrapper. Its persisted ID can still be passed
-  // to resumeSession() later if the pre-rewind history is needed again.
-  console.log(`rewound into session: ${successor.id}`);
+  try {
+    // `session` is now a retired wrapper. Its persisted ID can still be passed
+    // to resumeSession() later if the pre-rewind history is needed again.
+    console.log(`rewound into session: ${successor.id}`);
 
-  await ask(successor, 'What phrase did I ask you to remember?');
-
-  await successor.close();
+    const { text: recalled } = await ask(
+      successor,
+      'What phrase did I ask you to remember?'
+    );
+    // The rewind removed the second turn, so only the first phrase remains.
+    if (!/mango sunrise/i.test(recalled) || /cobalt harbor/i.test(recalled)) {
+      throw new Error('The rewound session did not drop the second turn.');
+    }
+  } finally {
+    await successor.close();
+  }
 } finally {
   // Closes the active source, or does nothing if it was retired.
   await session.close();

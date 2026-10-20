@@ -19,7 +19,7 @@ const PURPLE_SQUARE_PNG =
   'Bg0aNGjQoEGDFmjQAg0atECDFmjQoAUatECDBi3QoAUaNGiBBi3QoEELNGiBBn2g' +
   'AU2hHmFuN1AZAAAAAElFTkSuQmCC';
 
-const { text } = await run(
+const result = await run(
   'What single shape and color is in this image? Answer in five words or fewer.',
   {
     images: [
@@ -32,4 +32,15 @@ const { text } = await run(
   }
 );
 
-console.log(text);
+if (!result.success) {
+  throw new Error(
+    result.error?.message ?? `Image description failed (${result.subtype}).`
+  );
+}
+
+console.log(result.text);
+
+// The prompt has no color in it, so a correct color shows the model saw the image.
+if (!/purple|violet/i.test(result.text)) {
+  throw new Error('The answer does not name the color of the image.');
+}

@@ -9,7 +9,9 @@ stream work, control tools, and connect to a running Droid daemon.
 npm install @factory/droid-sdk
 ```
 
-The SDK requires Node.js 18 or later.
+Use Node.js 20 or later. The SDK package declares Node.js 18, but version
+0.10.0 needs the global Web Crypto API, which Node.js 18 provides only with the
+`--experimental-global-webcrypto` flag.
 
 ## Entrypoints
 
@@ -71,6 +73,21 @@ instead of requiring source edits or environment-injected credentials.
 The daemon client currently authenticates with a Factory API key. Browser
 integration is intended for trusted local tools. Do not ship a Factory API key
 in a public website, commit it to source control, or put it in a URL.
+
+## Verify the examples
+
+Run `npm test` for regression checks without API credentials or model calls.
+Run `npm run typecheck`, `npm run lint`, `npm run format:check`, and
+`npm run check:docs` for static checks.
+
+The live harness needs `FACTORY_API_KEY` and a Droid CLI on `PATH`:
+
+```bash
+npm run test:examples -- --only run,permission-handler --runs 1 --retries 0
+```
+
+Live examples use credits. See [the harness options](./scripts/run-examples.mjs)
+for example selection, retries, and reports.
 
 ## License
 

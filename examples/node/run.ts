@@ -11,15 +11,22 @@
 
 import { run } from '@factory/droid-sdk/node';
 
-const { text, messages, tokenUsage } = await run(
-  process.argv.slice(2).join(' ') || 'What is 2 + 2?'
-);
+const result = await run(process.argv.slice(2).join(' ') || 'What is 2 + 2?');
 
-console.log(text);
-console.log(`\nmessages: ${messages.length}`);
+if (!result.success) {
+  throw new Error(
+    result.error?.message ?? `The turn failed (${result.subtype}).`
+  );
+}
+if (!result.text.trim()) {
+  throw new Error('The turn produced no assistant output.');
+}
 
-if (tokenUsage) {
+console.log(result.text);
+console.log(`\nmessages: ${result.messages.length}`);
+
+if (result.tokenUsage) {
   console.log(
-    `tokens: ${tokenUsage.inputTokens} in, ${tokenUsage.outputTokens} out`
+    `tokens: ${result.tokenUsage.inputTokens} in, ${result.tokenUsage.outputTokens} out`
   );
 }
