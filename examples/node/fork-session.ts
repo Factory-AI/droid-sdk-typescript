@@ -2,7 +2,7 @@
  * Fork session example.
  *
  * Establishes context in one session, forks it with `fork()`, then uses the
- * returned fork handle to show the copied context.
+ * returned fork handle to check that the context was copied.
  *
  * Usage:
  *   npx tsx examples/node/fork-session.ts
@@ -47,6 +47,11 @@ try {
       'What phrase did I ask you to remember?'
     );
     console.log(`fork recalls:     ${recalled}`);
+    if (!/mango sunrise/i.test(recalled)) {
+      throw new Error(
+        'The fork did not keep the context of the original session.'
+      );
+    }
   } finally {
     await fork.close();
   }

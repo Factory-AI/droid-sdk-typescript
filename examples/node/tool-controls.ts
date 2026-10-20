@@ -15,11 +15,17 @@ const session = await createSession({
 
 try {
   const tools = await session.listTools();
+  const allowed = (id: string) => tools.find((tool) => tool.id === id)?.allowed;
 
-  for (const tool of tools) {
-    if (['Read', 'Grep', 'Execute'].includes(tool.id)) {
-      console.log(`${tool.id}: ${String(tool.allowed)}`);
-    }
+  for (const id of ['Read', 'Grep', 'Execute']) {
+    console.log(`${id}: ${String(allowed(id))}`);
+  }
+
+  if (allowed('Execute') !== false) {
+    throw new Error('Execute is still allowed after disabling it.');
+  }
+  if (allowed('Read') !== true) {
+    throw new Error('Read must stay allowed: only Execute was disabled.');
   }
 } finally {
   await session.close();

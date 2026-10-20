@@ -39,3 +39,8 @@ if (!result.success) {
 }
 
 console.log(result.text);
+
+// The prompt has no color in it, so a correct color shows the model saw the image.
+if (!/purple|violet/i.test(result.text)) {
+  throw new Error('The answer does not name the color of the image.');
+}

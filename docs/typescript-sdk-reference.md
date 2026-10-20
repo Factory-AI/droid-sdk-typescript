@@ -32,7 +32,9 @@ Install the package:
 npm install @factory/droid-sdk
 ```
 
-The SDK requires Node.js 18 or later.
+Use Node.js 20 or later. The SDK package declares Node.js 18, but version
+0.10.0 needs the global Web Crypto API, which Node.js 18 provides only with the
+`--experimental-global-webcrypto` flag.
 
 By default, Node session APIs start the `droid` CLI from `PATH`. You can provide
 a different executable with `execPath`. Supplying a custom `transport` bypasses
@@ -176,7 +178,7 @@ Node and daemon replacement operations intentionally behave differently.
 | Behavior                        | Node session                                               | Daemon session                 |
 | ------------------------------- | ---------------------------------------------------------- | ------------------------------ |
 | Successor response              | `fork`: handle; `compact`/`rewind`: outcome with `session` | Outcome with `newSessionId`    |
-| Source handle after replacement | Retired                                                    | Still usable                   |
+| Source handle after replacement | Retired (unless `compact` runs in place)                   | Still usable                   |
 | Load successor                  | Automatic                                                  | Call `droid.sessions.resume()` |
 
 See [Session lifecycle](#session-lifecycle) for examples.
@@ -186,7 +188,10 @@ See [Session lifecycle](#session-lifecycle) for examples.
 **Runtime: Node**
 
 ```ts
-function run(prompt: string, options?: RunOptions): Promise<DroidResult>;
+declare function run(
+  prompt: string,
+  options?: RunOptions
+): Promise<DroidResult>;
 ```
 
 `run()` supports the same creation and message options as a Node session,
@@ -529,8 +534,10 @@ choose the default.
 
 ```ts
 import {
+  AutonomyLevel,
   ToolConfirmationOutcome,
   ToolConfirmationType,
+  createSession,
 } from '@factory/droid-sdk/node';
 
 const session = await createSession({
@@ -558,6 +565,11 @@ A `Script` request batches several tool calls into one confirmation. Inspect
 each entry in `details.calls` and approve the request only when every call is
 allowed.
 
+The tool that Droid uses for a task depends on the model. For example, some
+models create files with `ApplyPatch` instead of `Create`. Each
+`ApplyPatch` request lists its files in `details.files`; see
+`examples/node/permission-handler.ts`.
+
 The handler must return an outcome supplied by the request. Invalid results and
 handler errors cancel the request.
 
@@ -580,6 +592,8 @@ const result = await run('Ask me which environment to deploy.', {
 ```
 
 To decline:
+
+<!-- snippet-skip -->
 
 ```ts
 return { cancelled: true, answers: [] };
@@ -614,12 +628,14 @@ restrictive allowlist.
 ### Skills
 
 ```ts
+import { SettingsLevel } from '@factory/droid-sdk/node';
+
 const { skills } = await session.listSkills();
 
 await session.setSkillDisabled({
   skillName: 'skill-name',
   disabled: true,
-  settingsLevel: 'project',
+  settingsLevel: SettingsLevel.Project,
 });
 ```
 
@@ -717,7 +733,10 @@ need.
 
 Node `fork()` returns a ready successor handle. `compact()` and `rewind()`
 return outcome objects containing a ready successor in `session`. Each
-operation retires its source wrapper.
+operation retires its source wrapper, with one exception: when Droid compacts
+in place and keeps the session ID, `compact()` returns the source handle
+itself, and that handle stays active. Compare `compacted === session` to tell
+the two cases apart.
 
 ```ts
 const forked = await session.fork();
@@ -745,14 +764,18 @@ Do not replace a session while it has an active stream.
 
 ### Daemon replacement IDs
 
-Daemon operations return a new session ID. The source handle remains usable.
+Daemon operations return a session ID. The source handle remains usable.
+`fork()` and `rewind()` always return a new ID; resume it to get a handle.
+`compact()` can run in place and return the source ID. One `ConnectedDroid`
+allows one handle per session ID, so resume only a different ID:
 
 ```ts
 const { newSessionId } = await source.compact();
-const compacted = await droid.sessions.resume(newSessionId);
+const compacted =
+  newSessionId === source.id
+    ? source
+    : await droid.sessions.resume(newSessionId);
 ```
-
-The same rule applies to `fork()` and `rewind()`.
 
 ```ts
 const forkResult = await source.fork();
@@ -1156,7 +1179,7 @@ await droid.unstable.crons.delete(cron.id);
 Common result fields:
 
 ```ts
-{
+interface DroidResultFields {
   type: 'result';
   subtype:
     | 'success'

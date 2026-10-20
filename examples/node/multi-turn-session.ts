@@ -23,7 +23,7 @@ async function streamText(
       throw new Error(msg.error?.message ?? `Turn ended: ${msg.subtype}`);
     }
   }
-  if (!text) throw new Error('The turn produced no assistant text.');
+  if (!text.trim()) throw new Error('The turn produced no assistant text.');
   return text;
 }
 

@@ -9,7 +9,9 @@ stream work, control tools, and connect to a running Droid daemon.
 npm install @factory/droid-sdk
 ```
 
-The SDK requires Node.js 18 or later.
+Use Node.js 20 or later. The SDK package declares Node.js 18, but version
+0.10.0 needs the global Web Crypto API, which Node.js 18 provides only with the
+`--experimental-global-webcrypto` flag.
 
 ## Entrypoints
 

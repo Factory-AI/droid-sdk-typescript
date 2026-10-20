@@ -11,6 +11,10 @@ npm install @factory/droid-sdk@^0.10.0
 Applications that use only `run()`, `createSession()`, `resumeSession()`, or
 `connectToDaemon()` with built-in transports need no transport changes.
 
+Version 0.10.0 fails at import on Node.js 18 with
+`globalThis.crypto.getRandomValues is not available`. Upgrade to Node.js 20 or
+later, or start Node.js 18 with `--experimental-global-webcrypto`.
+
 ### 2. Update custom Node transports
 
 - `DroidClientOptions.transport` and the `transport` session option now require
@@ -79,6 +83,8 @@ The package root is now browser-safe. APIs that spawn the Droid CLI, access the
 filesystem, or create local sessions moved to `@factory/droid-sdk/node`.
 
 Before:
+
+<!-- snippet-skip -->
 
 ```ts
 import { DroidMessageType, createSession, run } from '@factory/droid-sdk';

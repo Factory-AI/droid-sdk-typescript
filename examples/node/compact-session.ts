@@ -1,8 +1,8 @@
 /**
  * Compact session example.
  *
- * Builds up history over a few turns, then calls `compact()` to
- * summarize it into a new session.
+ * Builds up history over a few turns, calls `compact()` to summarize it,
+ * then checks that the compacted session still knows the earlier turns.
  *
  * Usage:
  *   npx tsx examples/node/compact-session.ts
@@ -43,10 +43,14 @@ try {
   const { session: compacted, removedCount } = await session.compact();
 
   try {
-    // `session` is now a retired wrapper. Its persisted ID can still be passed
-    // to resumeSession() later if the uncompacted history is needed again.
+    // Droid can compact in place. Then compact() returns the same handle and
+    // `session` stays active. Otherwise `session` is a retired wrapper, and
+    // resumeSession(session.id) still loads the uncompacted history.
+    const inPlace = compacted === session;
     console.log(`\noriginal session: ${session.id}`);
-    console.log(`compacted into:   ${compacted.id}`);
+    console.log(
+      `compacted into:   ${compacted.id}${inPlace ? ' (in place)' : ''}`
+    );
     console.log(`messages removed: ${removedCount}`);
 
     const continued = await streamText(
@@ -54,6 +58,12 @@ try {
       'Which numbers did I ask you to say?'
     );
     console.log(`continued:        ${continued}`);
+    const missing = ['one', 'two', 'three'].filter(
+      (word) => !continued.toLowerCase().includes(word)
+    );
+    if (missing.length > 0) {
+      throw new Error(`The compacted session forgot: ${missing.join(', ')}`);
+    }
   } finally {
     await compacted.close();
   }

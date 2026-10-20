@@ -11,6 +11,7 @@ import {
   connectToDaemon,
   DroidMessageType,
   ToolConfirmationOutcome,
+  ToolConfirmationType,
 } from '@factory/droid-sdk';
 
 import { readConfig, report, requireConfigValue } from './config.js';
@@ -26,15 +27,34 @@ const droid = await connectToDaemon({
   auth: { apiKey },
 });
 
+const expectedText = 'hello from the browser example';
 let approvedPermission = false;
 try {
   const session = await droid.sessions.create({
     cwd,
     // Off ensures even low-risk commands exercise the permission handler.
     autonomyLevel: AutonomyLevel.Off,
-    permissionHandler: () => {
+    permissionHandler: ({ toolUses }) => {
+      // Approve only the echo command from the prompt. A Script request
+      // batches tool calls, so check each call in it.
+      const confirmations = toolUses.flatMap(({ details }) =>
+        details.type === ToolConfirmationType.Script
+          ? details.calls.map((call) => call.confirmation)
+          : [details]
+      );
+      const onlyEcho =
+        confirmations.length > 0 &&
+        confirmations.every(
+          (details) =>
+            details.type === ToolConfirmationType.Execute &&
+            details.fullCommand.startsWith(`echo ${expectedText}`)
+        );
+      if (!onlyEcho) {
+        report('permission', 'Cancelled an unexpected tool use.');
+        return ToolConfirmationOutcome.Cancel;
+      }
       approvedPermission = true;
-      report('permission', 'Approved one tool use.');
+      report('permission', 'Approved the echo command.');
       return ToolConfirmationOutcome.ProceedOnce;
     },
   });
@@ -43,7 +63,7 @@ try {
   try {
     let sawAssistantText = false;
     for await (const message of session.stream(
-      'Run `echo hello from the browser example` and show me the output.'
+      `Run \`echo ${expectedText}\` and show me the output.`
     )) {
       if (message.type === DroidMessageType.Assistant) {
         sawAssistantText ||= message.text.trim().length > 0;

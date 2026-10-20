@@ -16,7 +16,7 @@
  *   npx tsx examples/node/spec-mode-same-session.ts
  */
 
-import { mkdtemp, readFile, rm } from 'node:fs/promises';
+import { mkdtemp, readFile, realpath, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -26,19 +26,58 @@ import {
   DroidMessageType,
   ReasoningEffort,
   SessionNotificationSchema,
+  type ToolConfirmationDetails,
   ToolConfirmationOutcome,
+  ToolConfirmationType,
   createSession,
 } from '@factory/droid-sdk/node';
 
-const tempDir = await mkdtemp(join(tmpdir(), 'droid-sdk-spec-'));
+// Resolve symlinks (for example /var -> /private/var on macOS) so the path in
+// the prompt is the same path that the permission request reports.
+const tempDir = await realpath(
+  await mkdtemp(join(tmpdir(), 'droid-sdk-spec-'))
+);
 const outputPath = join(tempDir, 'hello.txt');
+
+/** True when a tool call only writes the file that the prompt asks for. */
+function writesOnlyOutputFile(details: ToolConfirmationDetails): boolean {
+  switch (details.type) {
+    case ToolConfirmationType.Create:
+    case ToolConfirmationType.Edit:
+      return details.filePath === outputPath;
+    case ToolConfirmationType.ApplyPatch:
+      return (details.files ?? [details]).every(
+        (file) => file.filePath === outputPath
+      );
+    default:
+      return false;
+  }
+}
 
 let handoffSessionId: string | null = null;
 
-const handlePermissionRequest: ClientPermissionHandler = ({ options }) => {
-  // This example approves every call to keep the focus on spec mode. See
-  // permission-handler.ts for a handler that approves only expected calls.
-  const outcome = ToolConfirmationOutcome.ProceedOnce;
+const handlePermissionRequest: ClientPermissionHandler = ({
+  toolUses,
+  options,
+}) => {
+  // A Script request batches tool calls; see permission-handler.ts.
+  const confirmations = toolUses.flatMap((toolUse) =>
+    toolUse.details.type === ToolConfirmationType.Script
+      ? toolUse.details.calls.map((call) => call.confirmation)
+      : [toolUse.details]
+  );
+  // ProceedOnce on the plan keeps implementation in this session. Approve the
+  // plan and the write to outputPath. Cancel everything else.
+  const expected =
+    confirmations.length > 0 &&
+    confirmations.every(
+      (details) =>
+        details.type === ToolConfirmationType.ExitSpecMode ||
+        writesOnlyOutputFile(details)
+    );
+  const outcome = expected
+    ? ToolConfirmationOutcome.ProceedOnce
+    : ToolConfirmationOutcome.Cancel;
   if (!options.some((option) => option.value === outcome)) {
     throw new Error(`Outcome not offered: ${outcome}`);
   }
@@ -67,8 +106,10 @@ try {
   });
 
   try {
+    // The handler cancels shell commands, so the prompt asks for a file tool.
     for await (const message of session.stream(
-      `Plan then create ${outputPath} containing "Hello from Droid".`
+      `Plan then create ${outputPath} containing "Hello from Droid". ` +
+        'Write it with a file editing tool, not a shell command.'
     )) {
       if (message.type === DroidMessageType.Result && !message.success) {
         throw new Error(

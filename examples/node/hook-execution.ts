@@ -60,11 +60,17 @@ try {
   const session = await createSession({
     cwd: projectDir,
     permissionHandler({ toolUses, options }) {
-      const [toolUse] = toolUses;
+      // A Script request batches tool calls; see permission-handler.ts.
+      const confirmations = toolUses.flatMap((toolUse) =>
+        toolUse.details.type === ToolConfirmationType.Script
+          ? toolUse.details.calls.map((call) => call.confirmation)
+          : [toolUse.details]
+      );
+      const [details] = confirmations;
       const approvesExpectedCommand =
-        toolUses.length === 1 &&
-        toolUse?.details.type === ToolConfirmationType.Execute &&
-        toolUse.details.fullCommand === expectedCommand;
+        confirmations.length === 1 &&
+        details?.type === ToolConfirmationType.Execute &&
+        details.fullCommand === expectedCommand;
       const desired = approvesExpectedCommand
         ? ToolConfirmationOutcome.ProceedOnce
         : ToolConfirmationOutcome.Cancel;

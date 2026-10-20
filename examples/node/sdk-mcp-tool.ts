@@ -11,6 +11,7 @@
 import {
   DroidMessageType,
   ToolConfirmationOutcome,
+  ToolConfirmationType,
   createSession,
   createSdkMcpServer,
   tool,
@@ -35,10 +36,34 @@ const sdkTools = createSdkMcpServer({
 
 const session = await createSession({
   mcpServers: [sdkTools],
-  // Not the focus of this example, but required: without a handler every
-  // permission request resolves to Cancel, so a tool needing approval would
-  // never run.
-  permissionHandler: () => ToolConfirmationOutcome.ProceedOnce,
+  // Without a handler every permission request resolves to Cancel, so a tool
+  // that needs approval never runs. This handler approves only
+  // favorite_number. A tool with the `readOnlyHint: true` annotation skips the
+  // prompt at Low autonomy or above.
+  permissionHandler({ toolUses, options }) {
+    // A Script request batches tool calls; see permission-handler.ts.
+    const confirmations = toolUses.flatMap(({ details }) =>
+      details.type === ToolConfirmationType.Script
+        ? details.calls.map((call) => call.confirmation)
+        : [details]
+    );
+    const onlyFavoriteNumber =
+      confirmations.length > 0 &&
+      confirmations.every(
+        (details) =>
+          details.type === ToolConfirmationType.McpTool &&
+          (details.actualToolName ?? details.toolName).endsWith(
+            'favorite_number'
+          )
+      );
+    const outcome = onlyFavoriteNumber
+      ? ToolConfirmationOutcome.ProceedOnce
+      : ToolConfirmationOutcome.Cancel;
+    if (!options.some((option) => option.value === outcome)) {
+      throw new Error(`Outcome not offered: ${outcome}`);
+    }
+    return outcome;
+  },
 });
 
 try {

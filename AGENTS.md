@@ -9,8 +9,11 @@ This repository contains guides and runnable examples for `@factory/droid-sdk`. 
 - `npm run typecheck` — typecheck all examples
 - `npm run lint` — lint all examples
 - `npm run format:check` — verify Prettier formatting
+- `npm run check:docs` — type-check the TypeScript code blocks in the docs
+- `npm run test:examples` — run the Node examples against a real Droid CLI and check what they did (needs `FACTORY_API_KEY`; uses credits)
+- `npm run test:browser-examples` — run the browser examples in headless Chromium (needs Playwright; see the script header)
 
-Before finishing a change, run all three checks.
+Before finishing a change, run the first four checks. Run the example harness when you change an example.
 
 ## Coding Style & Naming Conventions
 

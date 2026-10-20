@@ -69,7 +69,14 @@ try {
     // to resumeSession() later if the pre-rewind history is needed again.
     console.log(`rewound into session: ${successor.id}`);
 
-    await ask(successor, 'What phrase did I ask you to remember?');
+    const { text: recalled } = await ask(
+      successor,
+      'What phrase did I ask you to remember?'
+    );
+    // The rewind removed the second turn, so only the first phrase remains.
+    if (!/mango sunrise/i.test(recalled) || /cobalt harbor/i.test(recalled)) {
+      throw new Error('The rewound session did not drop the second turn.');
+    }
   } finally {
     await successor.close();
   }
