@@ -46,8 +46,15 @@ function writesOnlyOutputFile(details: ToolConfirmationDetails): boolean {
     case ToolConfirmationType.Edit:
       return details.filePath === outputPath;
     case ToolConfirmationType.ApplyPatch:
-      return (details.files ?? [details]).every(
-        (file) => file.filePath === outputPath
+      return (
+        details.files !== undefined &&
+        details.files.length > 0 &&
+        details.files.every(
+          (file) =>
+            file.filePath === outputPath &&
+            file.operation !== 'delete' &&
+            file.moveTo === undefined
+        )
       );
     default:
       return false;

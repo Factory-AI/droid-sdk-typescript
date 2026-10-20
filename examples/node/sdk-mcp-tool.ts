@@ -38,7 +38,7 @@ const session = await createSession({
   mcpServers: [sdkTools],
   // Without a handler every permission request resolves to Cancel, so a tool
   // that needs approval never runs. This handler approves only
-  // favorite_number. A tool with the `readOnlyHint: true` annotation skips the
+  // sdk-tools/favorite_number. A tool with the `readOnlyHint: true` annotation skips the
   // prompt at Low autonomy or above.
   permissionHandler({ toolUses, options }) {
     // A Script request batches tool calls; see permission-handler.ts.
@@ -52,9 +52,8 @@ const session = await createSession({
       confirmations.every(
         (details) =>
           details.type === ToolConfirmationType.McpTool &&
-          (details.actualToolName ?? details.toolName).endsWith(
-            'favorite_number'
-          )
+          details.serverName === 'sdk-tools' &&
+          details.actualToolName === 'favorite_number'
       );
     const outcome = onlyFavoriteNumber
       ? ToolConfirmationOutcome.ProceedOnce

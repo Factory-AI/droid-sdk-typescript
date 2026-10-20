@@ -13,6 +13,7 @@
     "format:check": "prettier --check .",
     "serve:browser-example": "node scripts/serve-browser-example.mjs",
     "check:docs": "node scripts/check-doc-snippets.mjs",
+    "test": "node --test scripts/*.test.mjs",
     "test:examples": "node scripts/run-examples.mjs",
     "test:browser-examples": "node scripts/run-browser-examples.mjs"
   },

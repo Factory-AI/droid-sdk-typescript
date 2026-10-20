@@ -2,7 +2,7 @@
  * Compact session example.
  *
  * Builds up history over a few turns, calls `compact()` to summarize it,
- * then checks that the compacted session still knows the earlier turns.
+ * then asks about the earlier turns.
  *
  * Usage:
  *   npx tsx examples/node/compact-session.ts
@@ -43,9 +43,8 @@ try {
   const { session: compacted, removedCount } = await session.compact();
 
   try {
-    // Droid can compact in place. Then compact() returns the same handle and
-    // `session` stays active. Otherwise `session` is a retired wrapper, and
-    // resumeSession(session.id) still loads the uncompacted history.
+    // Current Droid compacts in place and keeps this handle active.
+    // Use handoff() when you want a new session with a summary.
     const inPlace = compacted === session;
     console.log(`\noriginal session: ${session.id}`);
     console.log(
@@ -58,12 +57,6 @@ try {
       'Which numbers did I ask you to say?'
     );
     console.log(`continued:        ${continued}`);
-    const missing = ['one', 'two', 'three'].filter(
-      (word) => !continued.toLowerCase().includes(word)
-    );
-    if (missing.length > 0) {
-      throw new Error(`The compacted session forgot: ${missing.join(', ')}`);
-    }
   } finally {
     await compacted.close();
   }

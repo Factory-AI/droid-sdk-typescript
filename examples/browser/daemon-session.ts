@@ -47,7 +47,7 @@ try {
         confirmations.every(
           (details) =>
             details.type === ToolConfirmationType.Execute &&
-            details.fullCommand.startsWith(`echo ${expectedText}`)
+            details.fullCommand === `echo ${expectedText}`
         );
       if (!onlyEcho) {
         report('permission', 'Cancelled an unexpected tool use.');

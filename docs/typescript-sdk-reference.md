@@ -177,9 +177,12 @@ Node and daemon replacement operations intentionally behave differently.
 
 | Behavior                        | Node session                                               | Daemon session                 |
 | ------------------------------- | ---------------------------------------------------------- | ------------------------------ |
-| Successor response              | `fork`: handle; `compact`/`rewind`: outcome with `session` | Outcome with `newSessionId`    |
-| Source handle after replacement | Retired (unless `compact` runs in place)                   | Still usable                   |
+| Successor response              | `fork`: handle; `handoff`/`rewind`: outcome with `session` | Outcome with `newSessionId`    |
+| Source handle after replacement | Retired                                                    | Still usable                   |
 | Load successor                  | Automatic                                                  | Call `droid.sessions.resume()` |
+
+Current Droid performs `compact()` in place. It keeps the source session ID
+and handle. Use `handoff()` to create a new session with a summary.
 
 See [Session lifecycle](#session-lifecycle) for examples.
 
@@ -731,12 +734,12 @@ need.
 
 ### Node replacement handles
 
-Node `fork()` returns a ready successor handle. `compact()` and `rewind()`
-return outcome objects containing a ready successor in `session`. Each
-operation retires its source wrapper, with one exception: when Droid compacts
-in place and keeps the session ID, `compact()` returns the source handle
-itself, and that handle stays active. Compare `compacted === session` to tell
-the two cases apart.
+Node `fork()` returns a ready successor handle. `handoff()` and `rewind()`
+return outcome objects with a ready successor in `session`. These operations
+retire the source wrapper.
+
+Current Droid performs `compact()` in place. Its outcome contains the source
+handle in `session` and a `removedCount`. The source handle stays active.
 
 ```ts
 const forked = await session.fork();
@@ -765,16 +768,21 @@ Do not replace a session while it has an active stream.
 ### Daemon replacement IDs
 
 Daemon operations return a session ID. The source handle remains usable.
-`fork()` and `rewind()` always return a new ID; resume it to get a handle.
-`compact()` can run in place and return the source ID. One `ConnectedDroid`
-allows one handle per session ID, so resume only a different ID:
+`fork()`, `handoff()`, and `rewind()` return a new ID; resume it to get a handle.
+Current Droid performs `compact()` in place and returns the source ID as
+`newSessionId`. One `ConnectedDroid` allows one handle per session ID, so keep
+the source handle after compaction:
 
 ```ts
-const { newSessionId } = await source.compact();
-const compacted =
-  newSessionId === source.id
-    ? source
-    : await droid.sessions.resume(newSessionId);
+const { removedCount } = await source.compact();
+// Continue with source. Do not resume its ID into another handle.
+```
+
+Use `handoff()` when you need a new session with a summary:
+
+```ts
+const { newSessionId } = await source.handoff();
+const successor = await droid.sessions.resume(newSessionId);
 ```
 
 ```ts
@@ -1161,7 +1169,8 @@ await droid.unstable.crons.delete(cron.id);
 | `getContextStats()`       | Read context usage                    |
 | `getRewindInfo()`         | Inspect rewindable file changes       |
 | `rewind()`                | Create a rewound successor            |
-| `compact()`               | Create a compacted successor          |
+| `compact()`               | Summarize history in place            |
+| `handoff()`               | Create a successor with a summary     |
 | `fork()`                  | Create a forked successor             |
 | `rename()`                | Change the session title              |
 | `onNotification()`        | Subscribe to raw notifications        |

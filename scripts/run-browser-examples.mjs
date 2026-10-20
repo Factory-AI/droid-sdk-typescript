@@ -13,10 +13,10 @@
 
 import { spawn, spawnSync } from 'node:child_process';
 import { mkdir, mkdtemp, realpath, writeFile } from 'node:fs/promises';
-import { connect, createServer } from 'node:net';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { childEnv, freePort, killTree, waitForPort } from './harness-utils.mjs';
 
 const repoRoot = dirname(dirname(fileURLToPath(import.meta.url)));
 
@@ -70,31 +70,6 @@ try {
   );
 }
 
-async function freePort() {
-  return new Promise((resolve, reject) => {
-    const server = createServer();
-    server.once('error', reject);
-    server.listen(0, '127.0.0.1', () => {
-      const { port } = server.address();
-      server.close(() => resolve(port));
-    });
-  });
-}
-
-async function waitForPort(port, timeoutMs = 30_000) {
-  const deadline = Date.now() + timeoutMs;
-  while (Date.now() < deadline) {
-    const open = await new Promise((resolve) => {
-      const socket = connect(port, '127.0.0.1');
-      socket.once('connect', () => (socket.destroy(), resolve(true)));
-      socket.once('error', () => resolve(false));
-    });
-    if (open) return;
-    await new Promise((r) => setTimeout(r, 250));
-  }
-  throw new Error(`Port ${port} did not open in ${timeoutMs}ms`);
-}
-
 const scratch = await realpath(await mkdtemp(join(out, 'scratch-')));
 const home = join(scratch, 'home');
 const project = join(scratch, 'project');
@@ -106,7 +81,7 @@ await writeFile(
 );
 spawnSync('git', ['init', '-q'], { cwd: project });
 
-const env = { ...process.env, HOME: home };
+const env = childEnv({ HOME: home });
 const daemonPort = await freePort();
 const webPort = await freePort();
 const children = [
@@ -134,7 +109,10 @@ const children = [
 
 const results = [];
 try {
-  await Promise.all([waitForPort(daemonPort), waitForPort(webPort)]);
+  await Promise.all([
+    waitForPort(daemonPort, 30_000, children[0]),
+    waitForPort(webPort, 30_000, children[1]),
+  ]);
   const browser = await chromium.launch();
   try {
     for (const example of EXAMPLES) {
@@ -195,13 +173,7 @@ try {
     await browser.close();
   }
 } finally {
-  for (const child of children) {
-    try {
-      process.kill(-child.pid, 'SIGTERM');
-    } catch {
-      // Already exited.
-    }
-  }
+  for (const child of children) killTree(child);
 }
 
 const lines = [

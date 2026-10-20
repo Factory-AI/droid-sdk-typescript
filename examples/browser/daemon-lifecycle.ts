@@ -2,8 +2,8 @@
  * Forks, compacts, and rewinds a daemon session.
  *
  * Daemon operations return a session ID. The source session stays usable,
- * and a successor with a new ID must be resumed explicitly. Compaction can run
- * in place and return the source ID; then the source handle is the result.
+ * and a successor with a new ID must be resumed explicitly. Current Droid
+ * compacts in place. Use handoff() to create a new session with a summary.
  *
  * Bundle this file with `platform: 'browser'`, serve it with index.html, and
  * click "Run lifecycle operations".
@@ -81,14 +81,11 @@ try {
   report('forked session', forked.id);
 
   const { newSessionId: compactedId } = await source.compact();
-  if (compactedId === source.id) {
-    // One ConnectedDroid allows one handle per session ID, so do not resume it.
-    report('compacted session', `${source.id} (in place)`);
-  } else {
-    const compacted = await droid.sessions.resume(compactedId);
-    sessions.push(compacted);
-    report('compacted session', compacted.id);
+  if (compactedId !== source.id) {
+    throw new Error('Expected compact() to keep the source session ID.');
   }
+  // One ConnectedDroid allows one handle per session ID, so do not resume it.
+  report('compacted session', `${source.id} (in place)`);
 
   const { newSessionId: rewoundId } = await source.rewind({
     messageId: secondTurn,

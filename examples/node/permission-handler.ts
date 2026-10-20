@@ -50,8 +50,13 @@ try {
               (details.type === ToolConfirmationType.Create &&
                 details.filePath === outputPath) ||
               (details.type === ToolConfirmationType.ApplyPatch &&
-                (details.files ?? [details]).every(
-                  (file) => file.filePath === outputPath
+                details.files !== undefined &&
+                details.files.length > 0 &&
+                details.files.every(
+                  (file) =>
+                    file.filePath === outputPath &&
+                    file.operation === 'create' &&
+                    file.moveTo === undefined
                 ))
           );
 

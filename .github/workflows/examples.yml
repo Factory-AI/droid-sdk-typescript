@@ -40,6 +40,8 @@ jobs:
           node-version: 22
           cache: npm
       - run: npm ci
+      - name: Run regression checks without model calls
+        run: npm test
       - run: npm run typecheck
       - run: npm run lint
       - run: npm run format:check

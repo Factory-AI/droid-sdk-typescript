@@ -74,6 +74,21 @@ The daemon client currently authenticates with a Factory API key. Browser
 integration is intended for trusted local tools. Do not ship a Factory API key
 in a public website, commit it to source control, or put it in a URL.
 
+## Verify the examples
+
+Run `npm test` for regression checks without API credentials or model calls.
+Run `npm run typecheck`, `npm run lint`, `npm run format:check`, and
+`npm run check:docs` for static checks.
+
+The live harness needs `FACTORY_API_KEY` and a Droid CLI on `PATH`:
+
+```bash
+npm run test:examples -- --only run,permission-handler --runs 1 --retries 0
+```
+
+Live examples use credits. See [the harness options](./scripts/run-examples.mjs)
+for example selection, retries, and reports.
+
 ## License
 
 Apache 2.0
