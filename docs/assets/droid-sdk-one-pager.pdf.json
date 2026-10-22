@@ -1,0 +1,293 @@
+{
+  "pageSize": "LETTER",
+  "pageMargins": [38, 24, 38, 24],
+  "defaultStyle": {
+    "font": "Roboto",
+    "fontSize": 10,
+    "color": "#151311",
+    "lineHeight": 1.18
+  },
+  "info": {
+    "title": "Droid SDK | Cal Hacks 13.0 starter",
+    "author": "Factory",
+    "subject": "Three ways to put a working agent inside your application"
+  },
+  "styles": {
+    "eyebrow": {
+      "fontSize": 9,
+      "bold": true,
+      "color": "#6B615C",
+      "characterSpacing": 1.3
+    },
+    "title": {
+      "fontSize": 30,
+      "bold": true,
+      "lineHeight": 1.02,
+      "margin": [0, 10, 0, 8]
+    },
+    "h2": { "fontSize": 14, "bold": true, "margin": [0, 0, 0, 3] },
+    "body": { "fontSize": 10, "lineHeight": 1.2 },
+    "muted": { "fontSize": 9, "color": "#564E4A", "lineHeight": 1.2 },
+    "code": { "fontSize": 9, "color": "#151311", "lineHeight": 1.15 }
+  },
+  "content": [
+    {
+      "columns": [
+        { "image": "factoryLockup", "width": 100 },
+        {
+          "text": "Droid SDK",
+          "fontSize": 16,
+          "bold": true,
+          "width": "*",
+          "margin": [14, 0, 0, 0]
+        },
+        {
+          "text": "CAL HACKS 13.0",
+          "style": "eyebrow",
+          "alignment": "right",
+          "width": "auto",
+          "margin": [0, 4, 0, 0]
+        }
+      ]
+    },
+    { "text": "Put an agent\ninside your app.", "style": "title" },
+    {
+      "text": "Use Droid’s agent harness from TypeScript. Bring the conversation, tools, and approval flow into the product you’re building.",
+      "fontSize": 11,
+      "color": "#564E4A",
+      "margin": [0, 0, 0, 10]
+    },
+    {
+      "table": {
+        "widths": ["*", "*"],
+        "body": [
+          [
+            {
+              "stack": [
+                {
+                  "text": "USE EXEC",
+                  "style": "eyebrow",
+                  "margin": [0, 0, 0, 4]
+                },
+                { "text": "Delegate a task from a script.", "bold": true },
+                {
+                  "text": "A natural fit for shell scripts and CI.",
+                  "style": "muted",
+                  "margin": [0, 4, 0, 0]
+                }
+              ],
+              "fillColor": "#F4F1EF",
+              "margin": [10, 8, 10, 8]
+            },
+            {
+              "stack": [
+                {
+                  "text": "USE THE SDK",
+                  "style": "eyebrow",
+                  "margin": [0, 0, 0, 4]
+                },
+                {
+                  "text": "Make Droid part of your application.",
+                  "bold": true
+                },
+                {
+                  "text": "Integrate sessions, functions, and your UI.",
+                  "style": "muted",
+                  "margin": [0, 4, 0, 0]
+                }
+              ],
+              "fillColor": "#F4F1EF",
+              "margin": [10, 8, 10, 8]
+            }
+          ]
+        ]
+      },
+      "layout": "noBorders",
+      "margin": [0, 0, 0, 10]
+    },
+    {
+      "columns": [
+        {
+          "text": "01",
+          "style": "eyebrow",
+          "color": "#FF5A00",
+          "width": 28,
+          "margin": [0, 3, 0, 0]
+        },
+        {
+          "width": "*",
+          "stack": [
+            { "text": "An agent inside your app", "style": "h2" },
+            {
+              "text": "Stream a study-buddy response, ask a follow-up, or stop the run.",
+              "style": "body"
+            },
+            {
+              "text": "BUILD WITH: sessions + streaming + cancellation",
+              "style": "muted",
+              "margin": [0, 4, 0, 0]
+            }
+          ]
+        }
+      ],
+      "margin": [0, 0, 0, 7]
+    },
+    {
+      "columns": [
+        {
+          "text": "02",
+          "style": "eyebrow",
+          "color": "#FF5A00",
+          "width": 28,
+          "margin": [0, 3, 0, 0]
+        },
+        {
+          "width": "*",
+          "stack": [
+            { "text": "An agent that uses your tools", "style": "h2" },
+            {
+              "text": "Plan an afternoon using a local activity dataset. Swap in your own data.",
+              "style": "body"
+            },
+            {
+              "text": "BUILD WITH: TypeScript functions exposed as MCP tools",
+              "style": "muted",
+              "margin": [0, 4, 0, 0]
+            }
+          ]
+        }
+      ],
+      "margin": [0, 0, 0, 7]
+    },
+    {
+      "columns": [
+        {
+          "text": "03",
+          "style": "eyebrow",
+          "color": "#FF5A00",
+          "width": 28,
+          "margin": [0, 3, 0, 0]
+        },
+        {
+          "width": "*",
+          "stack": [
+            { "text": "An agent that asks before acting", "style": "h2" },
+            {
+              "text": "Answer a team-size question, then approve or deny a simulated booking.",
+              "style": "body"
+            },
+            {
+              "text": "BUILD WITH: AskUser + permission handlers",
+              "style": "muted",
+              "margin": [0, 4, 0, 0]
+            }
+          ]
+        }
+      ],
+      "margin": [0, 0, 0, 10]
+    },
+    {
+      "table": {
+        "widths": ["*"],
+        "body": [
+          [
+            {
+              "fillColor": "#F4F1EF",
+              "margin": [12, 6, 12, 6],
+              "stack": [
+                {
+                  "text": "RUN THE STARTER",
+                  "style": "eyebrow",
+                  "margin": [0, 0, 0, 6]
+                },
+                {
+                  "text": "Open the supplied starter folder in your terminal:",
+                  "style": "body",
+                  "margin": [0, 0, 0, 5]
+                },
+                {
+                  "text": "npm ci\nexport FACTORY_API_KEY=\"your-own-key\"\nnpm run hackathon",
+                  "style": "code"
+                },
+                {
+                  "text": "Open http://127.0.0.1:8421 · Node 20+ and Droid CLI required.\nLive runs use Factory credits. Keep your API key on the server.",
+                  "style": "muted",
+                  "margin": [0, 7, 0, 0]
+                }
+              ]
+            }
+          ]
+        ]
+      },
+      "layout": "noBorders",
+      "margin": [0, 0, 0, 10]
+    },
+    {
+      "stack": [
+        {
+          "text": "COMPETE AT CAL HACKS 13.0",
+          "style": "eyebrow",
+          "margin": [0, 0, 0, 4]
+        },
+        {
+          "text": "Best Use of the Factory Droid SDK",
+          "fontSize": 12,
+          "bold": true,
+          "margin": [0, 0, 0, 4]
+        },
+        {
+          "text": "Build meaningful TypeScript or Python SDK use into your running product, not just your coding workflow. Explain where and how in your README.",
+          "style": "body"
+        },
+        {
+          "text": "$2,000 cash + Factory credits + swag. Prizes subject to change.",
+          "style": "muted",
+          "margin": [0, 4, 0, 0]
+        }
+      ],
+      "margin": [0, 0, 0, 10]
+    },
+    {
+      "columns": [
+        {
+          "qr": "https://docs.factory.com/sdk/typescript",
+          "fit": 60,
+          "width": 74
+        },
+        {
+          "width": "*",
+          "stack": [
+            {
+              "text": "Scan for the SDK guide",
+              "bold": true,
+              "fontSize": 12,
+              "margin": [0, 0, 0, 4]
+            },
+            {
+              "text": "docs.factory.com/sdk/typescript",
+              "link": "https://docs.factory.com/sdk/typescript",
+              "color": "#151311",
+              "fontSize": 10,
+              "margin": [0, 0, 0, 6]
+            },
+            {
+              "text": "No Wi-Fi? Once dependencies are installed, run:\nnpm run hackathon:offline",
+              "style": "muted"
+            },
+            {
+              "text": "Offline mode is a scripted walkthrough, not a live agent.",
+              "style": "muted",
+              "margin": [0, 4, 0, 0]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "text": "All activity data and bookings are fictional. This starter is a local, single-user teaching app, not a production deployment template.",
+      "fontSize": 8,
+      "color": "#6B615C",
+      "margin": [0, 8, 0, 0]
+    }
+  ]
+}

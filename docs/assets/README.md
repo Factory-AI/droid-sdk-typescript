@@ -1,0 +1,72 @@
+# Reusable Factory print assets
+
+This folder contains the editable source, logo, pinned renderer, and regression
+tests for [`../droid-sdk-one-pager.pdf`](../droid-sdk-one-pager.pdf).
+It is a separate Node package so PDF tooling does not change SDK example
+dependencies.
+
+## Rebuild the handout
+
+From the repository root, with Node 20+:
+
+```bash
+npm ci --prefix docs/assets
+npm run build --prefix docs/assets
+npm test --prefix docs/assets
+```
+
+The default build writes `docs/droid-sdk-one-pager.pdf`. It needs no Factory
+API key, model calls, network access after installation, or internal checkout.
+The source and final PDF should be committed together.
+
+## Make another asset
+
+Copy `droid-sdk-one-pager.pdf.json`, edit its content/layout, and pass the copy
+and destination to the same renderer:
+
+```bash
+node docs/assets/render-pdf.mjs \
+  --source docs/assets/your-handout.pdf.json \
+  --output docs/your-handout.pdf \
+  --pages 1
+```
+
+Custom command-line paths are relative to your current working directory.
+Defaults resolve relative to the renderer, so it works from any directory.
+Use `--pages 2` for a deliberately two-page document. The renderer refuses
+unexpected pagination before replacing the previous output.
+
+The document definition supports text, columns, panels, tables, lists, images,
+QR codes, and links. Use `factoryLockup` as an image reference to include the
+bundled Factory logo. Keep arbitrary assets embedded as data URIs. Do not add
+remote images, personal data, or keys.
+
+## Branding and provenance
+
+- `brand/palette.json` is a small snapshot of Factory's official light palette:
+  Tungsten warm neutrals, `#FF5A00` accents, dark headlines, and a monochrome logo.
+  The renderer rejects hex colors outside this palette.
+- `brand/factory-lockup-black.png` is the official black lockup mirrored from
+  `Factory-AI/factory-brand-guide`. Update it from that source, never redraw it.
+- Fonts are bundled Roboto. This preserves the original rendering and keeps
+  builds self-contained; it is not a claim of full Geist typography compliance.
+- Fixed PDF metadata timestamps make repeat builds byte-identical. Tests cover
+  pagination, selectable content, sponsor-track copy, CLI inputs, overflow
+  protection, and deterministic output.
+
+The Cal Hacks 13.0 track copy comes from the linked
+[Hacker Guide, Sponsor Tracks](https://docs.google.com/document/d/1RQrueC9wm5u8uxtWSC2gadIchp05hVayhGUrIjxT9dE/edit?tab=t.0#heading=h.5mjfxw9sx02s),
+read on October 22, 2026:
+
+- Best Use of the Factory Droid SDK.
+- Meaningful TypeScript or Python SDK use in the running product, not only
+  code-writing assistance; explain where/how in the project README.
+- $2,000 cash, Factory credits, and swag. Prizes are subject to change.
+
+Refresh event-specific copy before reusing the template for another event.
+The QR still links to public SDK docs, not the unpublished demo starter.
+The handout's `npm run hackathon` commands assume the separately supplied
+starter kit; that example code is not part of this asset-only commit.
+
+Before printing, review the rendered PDF visually. Automated checks are not
+a substitute for checking the logo, clipping, QR legibility, and readability.

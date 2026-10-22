@@ -1,0 +1,17 @@
+{
+  "name": "factory-sdk-print-assets",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=20.0.0"
+  },
+  "scripts": {
+    "build": "node render-pdf.mjs",
+    "test": "node --test render-pdf.test.mjs"
+  },
+  "dependencies": {
+    "pdfmake": "0.2.20",
+    "pdfjs-dist": "4.10.38"
+  }
+}

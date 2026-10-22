@@ -1,0 +1,14 @@
+{
+  "name": "Factory light print palette",
+  "source": "Factory-AI/factory-brand-guide, brand.json v1.1.0 (2026-08)",
+  "colors": {
+    "text": "#151311",
+    "body": "#564E4A",
+    "meta": "#6B615C",
+    "panel": "#F4F1EF",
+    "surface": "#FFFFFF",
+    "border": "#D2CCC7",
+    "accent": "#FF5A00",
+    "black": "#000000"
+  }
+}
