@@ -63,10 +63,33 @@ read on October 22, 2026:
   code-writing assistance; explain where/how in the project README.
 - $2,000 cash, Factory credits, and swag. Prizes are subject to change.
 
-Refresh event-specific copy before reusing the template for another event.
-The QR still links to public SDK docs, not the unpublished demo starter.
-The handout's `npm run hackathon` commands assume the separately supplied
-starter kit; that example code is not part of this asset-only commit.
+## Student-facing message and feedback decisions
+
+The handout leads with building a product that uses an agent, rather than
+using an agent only to write code. One concrete trip-planner flow explains
+the idea. The next action is scan, run an example, and make it your own.
+The competition is the incentive, not the headline.
+
+Feedback on the earlier layout was handled as follows:
+
+- Show TypeScript and Python in the main description and getting-started
+  copy. Keep TypeScript as the default guide rather than suggesting equal
+  maturity or claiming it is the only supported language.
+- Replace feature-oriented numbered examples with a concrete product flow.
+  Its four numbers describe sequential actions, not an API-feature checklist.
+- Remove terminal setup commands and the long sample-data disclaimer from
+  the flyer. The trip planner is illustrative, not a new shipped demo.
+- Do not mechanically swap sections from the obsolete layout. Keep the
+  intentional reading order: idea, example, start action, competition.
+- The credits/voucher signup QR discussed by the event team is pending.
+  The current QR deliberately links to the TypeScript SDK guide, and its
+  label does not promise credit signup. Before printing, obtain the final
+  approved signup destination, ensure it also leads students to both SDKs
+  and examples, and update the QR, printed URL, and CTA together. Do not
+  invent a voucher URL or claim credit redemption works.
+
+Refresh event-specific copy and prize details before reusing the template
+for another event. Demo code remains separate from this asset-only change.
 
 Before printing, review the rendered PDF visually. Automated checks are not
 a substitute for checking the logo, clipping, QR legibility, and readability.

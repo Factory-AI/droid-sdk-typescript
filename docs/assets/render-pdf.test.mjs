@@ -66,7 +66,14 @@ test('handout builds reproducibly and includes branding and verified sponsor tra
   assert.match(result.text, /Best Use of the Factory Droid SDK/);
   assert.match(result.text, /\$2,000/);
   assert.match(result.text, /README/);
-  assert.match(result.text, /simulated booking/);
+  assert.match(result.text, /Build a project that uses an agent/);
+  assert.match(result.text, /Use TypeScript or Python/);
+  assert.match(result.text, /Scan\. Run\. Make it yours\./);
+  assert.match(result.text, /User asks/);
+  assert.match(result.text, /Droid checks/);
+  assert.match(result.text, /App shows/);
+  assert.match(result.text, /User approves/);
+  assert.doesNotMatch(result.text, /npm ci|USE EXEC|All activity data/);
   assert.deepEqual(await readFile(first), await readFile(second));
   assert.deepEqual(
     await readFile(first),

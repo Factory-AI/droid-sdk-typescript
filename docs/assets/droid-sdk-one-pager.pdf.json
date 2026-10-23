@@ -1,34 +1,34 @@
 {
   "pageSize": "LETTER",
-  "pageMargins": [38, 24, 38, 24],
+  "pageMargins": [40, 32, 40, 30],
   "defaultStyle": {
     "font": "Roboto",
-    "fontSize": 10,
+    "fontSize": 11,
     "color": "#151311",
-    "lineHeight": 1.18
+    "lineHeight": 1.2
   },
   "info": {
-    "title": "Droid SDK | Cal Hacks 13.0 starter",
+    "title": "Build a project that uses an agent | Factory Droid SDK",
     "author": "Factory",
-    "subject": "Three ways to put a working agent inside your application"
+    "subject": "Build with the Droid SDK at Cal Hacks 13.0"
   },
   "styles": {
     "eyebrow": {
-      "fontSize": 9,
+      "fontSize": 8.5,
       "bold": true,
       "color": "#6B615C",
-      "characterSpacing": 1.3
+      "characterSpacing": 1.1
     },
-    "title": {
-      "fontSize": 30,
-      "bold": true,
-      "lineHeight": 1.02,
-      "margin": [0, 10, 0, 8]
+    "body": {
+      "fontSize": 11,
+      "color": "#564E4A",
+      "lineHeight": 1.3
     },
-    "h2": { "fontSize": 14, "bold": true, "margin": [0, 0, 0, 3] },
-    "body": { "fontSize": 10, "lineHeight": 1.2 },
-    "muted": { "fontSize": 9, "color": "#564E4A", "lineHeight": 1.2 },
-    "code": { "fontSize": 9, "color": "#151311", "lineHeight": 1.15 }
+    "small": {
+      "fontSize": 9,
+      "color": "#6B615C",
+      "lineHeight": 1.25
+    }
   },
   "content": [
     {
@@ -36,183 +36,146 @@
         { "image": "factoryLockup", "width": 100 },
         {
           "text": "Droid SDK",
-          "fontSize": 16,
-          "bold": true,
+          "fontSize": 14,
           "width": "*",
-          "margin": [14, 0, 0, 0]
+          "margin": [16, 0, 0, 0]
         },
         {
           "text": "CAL HACKS 13.0",
           "style": "eyebrow",
-          "alignment": "right",
           "width": "auto",
           "margin": [0, 4, 0, 0]
         }
-      ]
+      ],
+      "margin": [0, 0, 0, 30]
     },
-    { "text": "Put an agent\ninside your app.", "style": "title" },
     {
-      "text": "Use Droid’s agent harness from TypeScript. Bring the conversation, tools, and approval flow into the product you’re building.",
-      "fontSize": 11,
+      "text": "Don’t just use AI to build your project.",
+      "fontSize": 15,
       "color": "#564E4A",
       "margin": [0, 0, 0, 10]
     },
     {
-      "table": {
-        "widths": ["*", "*"],
-        "body": [
-          [
-            {
-              "stack": [
-                {
-                  "text": "USE EXEC",
-                  "style": "eyebrow",
-                  "margin": [0, 0, 0, 4]
-                },
-                { "text": "Delegate a task from a script.", "bold": true },
-                {
-                  "text": "A natural fit for shell scripts and CI.",
-                  "style": "muted",
-                  "margin": [0, 4, 0, 0]
-                }
-              ],
-              "fillColor": "#F4F1EF",
-              "margin": [10, 8, 10, 8]
-            },
-            {
-              "stack": [
-                {
-                  "text": "USE THE SDK",
-                  "style": "eyebrow",
-                  "margin": [0, 0, 0, 4]
-                },
-                {
-                  "text": "Make Droid part of your application.",
-                  "bold": true
-                },
-                {
-                  "text": "Integrate sessions, functions, and your UI.",
-                  "style": "muted",
-                  "margin": [0, 4, 0, 0]
-                }
-              ],
-              "fillColor": "#F4F1EF",
-              "margin": [10, 8, 10, 8]
-            }
-          ]
-        ]
-      },
-      "layout": "noBorders",
-      "margin": [0, 0, 0, 10]
+      "text": "Build a project\nthat uses an agent.",
+      "fontSize": 37,
+      "bold": true,
+      "lineHeight": 1.03,
+      "margin": [0, 0, 0, 16]
     },
     {
-      "columns": [
-        {
-          "text": "01",
-          "style": "eyebrow",
-          "color": "#FF5A00",
-          "width": 28,
-          "margin": [0, 3, 0, 0]
-        },
-        {
-          "width": "*",
-          "stack": [
-            { "text": "An agent inside your app", "style": "h2" },
-            {
-              "text": "Stream a study-buddy response, ask a follow-up, or stop the run.",
-              "style": "body"
-            },
-            {
-              "text": "BUILD WITH: sessions + streaming + cancellation",
-              "style": "muted",
-              "margin": [0, 4, 0, 0]
-            }
-          ]
-        }
-      ],
-      "margin": [0, 0, 0, 7]
+      "text": "Droid does work inside your running app, not just in your code editor. Use TypeScript or Python. Give it your tools and data, with you in control.",
+      "fontSize": 12,
+      "color": "#564E4A",
+      "lineHeight": 1.35,
+      "margin": [0, 0, 0, 25]
     },
     {
-      "columns": [
-        {
-          "text": "02",
-          "style": "eyebrow",
-          "color": "#FF5A00",
-          "width": 28,
-          "margin": [0, 3, 0, 0]
-        },
-        {
-          "width": "*",
-          "stack": [
-            { "text": "An agent that uses your tools", "style": "h2" },
-            {
-              "text": "Plan an afternoon using a local activity dataset. Swap in your own data.",
-              "style": "body"
-            },
-            {
-              "text": "BUILD WITH: TypeScript functions exposed as MCP tools",
-              "style": "muted",
-              "margin": [0, 4, 0, 0]
-            }
-          ]
-        }
-      ],
-      "margin": [0, 0, 0, 7]
-    },
-    {
-      "columns": [
-        {
-          "text": "03",
-          "style": "eyebrow",
-          "color": "#FF5A00",
-          "width": 28,
-          "margin": [0, 3, 0, 0]
-        },
-        {
-          "width": "*",
-          "stack": [
-            { "text": "An agent that asks before acting", "style": "h2" },
-            {
-              "text": "Answer a team-size question, then approve or deny a simulated booking.",
-              "style": "body"
-            },
-            {
-              "text": "BUILD WITH: AskUser + permission handlers",
-              "style": "muted",
-              "margin": [0, 4, 0, 0]
-            }
-          ]
-        }
-      ],
-      "margin": [0, 0, 0, 10]
+      "text": "WHAT COULD YOU BUILD? A TRIP PLANNER THAT TAKES ACTION.",
+      "style": "eyebrow",
+      "margin": [0, 0, 0, 12]
     },
     {
       "table": {
-        "widths": ["*"],
+        "widths": ["*", "*", "*", "*"],
         "body": [
           [
             {
               "fillColor": "#F4F1EF",
-              "margin": [12, 6, 12, 6],
+              "margin": [8, 10, 8, 10],
               "stack": [
                 {
-                  "text": "RUN THE STARTER",
-                  "style": "eyebrow",
+                  "text": "01",
+                  "color": "#FF5A00",
+                  "bold": true,
+                  "fontSize": 9,
+                  "margin": [0, 0, 0, 10]
+                },
+                {
+                  "text": "User asks",
+                  "fontSize": 12,
+                  "bold": true,
                   "margin": [0, 0, 0, 6]
                 },
                 {
-                  "text": "Open the supplied starter folder in your terminal:",
-                  "style": "body",
-                  "margin": [0, 0, 0, 5]
+                  "text": "“Plan my day\nfor under $30.”",
+                  "fontSize": 10,
+                  "color": "#564E4A",
+                  "lineHeight": 1.25
+                }
+              ]
+            },
+            {
+              "fillColor": "#F4F1EF",
+              "margin": [8, 10, 8, 10],
+              "stack": [
+                {
+                  "text": "02",
+                  "color": "#FF5A00",
+                  "bold": true,
+                  "fontSize": 9,
+                  "margin": [0, 0, 0, 10]
                 },
                 {
-                  "text": "npm ci\nexport FACTORY_API_KEY=\"your-own-key\"\nnpm run hackathon",
-                  "style": "code"
+                  "text": "Droid checks",
+                  "fontSize": 12,
+                  "bold": true,
+                  "margin": [0, 0, 0, 6]
                 },
                 {
-                  "text": "Open http://127.0.0.1:8421 · Node 20+ and Droid CLI required.\nLive runs use Factory credits. Keep your API key on the server.",
-                  "style": "muted",
-                  "margin": [0, 7, 0, 0]
+                  "text": "Calls your tools\nto find options.",
+                  "fontSize": 10,
+                  "color": "#564E4A",
+                  "lineHeight": 1.25
+                }
+              ]
+            },
+            {
+              "fillColor": "#F4F1EF",
+              "margin": [8, 10, 8, 10],
+              "stack": [
+                {
+                  "text": "03",
+                  "color": "#FF5A00",
+                  "bold": true,
+                  "fontSize": 9,
+                  "margin": [0, 0, 0, 10]
+                },
+                {
+                  "text": "App shows",
+                  "fontSize": 12,
+                  "bold": true,
+                  "margin": [0, 0, 0, 6]
+                },
+                {
+                  "text": "A proposed plan,\nwith the costs.",
+                  "fontSize": 10,
+                  "color": "#564E4A",
+                  "lineHeight": 1.25
+                }
+              ]
+            },
+            {
+              "fillColor": "#F4F1EF",
+              "margin": [8, 10, 8, 10],
+              "stack": [
+                {
+                  "text": "04",
+                  "color": "#FF5A00",
+                  "bold": true,
+                  "fontSize": 9,
+                  "margin": [0, 0, 0, 10]
+                },
+                {
+                  "text": "User approves",
+                  "fontSize": 12,
+                  "bold": true,
+                  "margin": [0, 0, 0, 6]
+                },
+                {
+                  "text": "Your app decides\nwhat happens next.",
+                  "fontSize": 10,
+                  "color": "#564E4A",
+                  "lineHeight": 1.25
                 }
               ]
             }
@@ -220,74 +183,79 @@
         ]
       },
       "layout": "noBorders",
-      "margin": [0, 0, 0, 10]
-    },
-    {
-      "stack": [
-        {
-          "text": "COMPETE AT CAL HACKS 13.0",
-          "style": "eyebrow",
-          "margin": [0, 0, 0, 4]
-        },
-        {
-          "text": "Best Use of the Factory Droid SDK",
-          "fontSize": 12,
-          "bold": true,
-          "margin": [0, 0, 0, 4]
-        },
-        {
-          "text": "Build meaningful TypeScript or Python SDK use into your running product, not just your coding workflow. Explain where and how in your README.",
-          "style": "body"
-        },
-        {
-          "text": "$2,000 cash + Factory credits + swag. Prizes subject to change.",
-          "style": "muted",
-          "margin": [0, 4, 0, 0]
-        }
-      ],
-      "margin": [0, 0, 0, 10]
+      "margin": [0, 0, 0, 26]
     },
     {
       "columns": [
         {
+          "width": 106,
           "qr": "https://docs.factory.com/sdk/typescript",
-          "fit": 60,
-          "width": 74
+          "fit": 96
         },
         {
           "width": "*",
           "stack": [
             {
-              "text": "Scan for the SDK guide",
+              "text": "Scan. Run. Make it yours.",
+              "fontSize": 21,
               "bold": true,
-              "fontSize": 12,
-              "margin": [0, 0, 0, 4]
+              "margin": [0, 0, 0, 10]
+            },
+            {
+              "text": "Start with the TypeScript guide, or choose Python.\nRun an example. Replace its tool with your idea.",
+              "style": "body",
+              "margin": [0, 0, 0, 10]
             },
             {
               "text": "docs.factory.com/sdk/typescript",
               "link": "https://docs.factory.com/sdk/typescript",
-              "color": "#151311",
               "fontSize": 10,
-              "margin": [0, 0, 0, 6]
-            },
-            {
-              "text": "No Wi-Fi? Once dependencies are installed, run:\nnpm run hackathon:offline",
-              "style": "muted"
-            },
-            {
-              "text": "Offline mode is a scripted walkthrough, not a live agent.",
-              "style": "muted",
-              "margin": [0, 4, 0, 0]
+              "color": "#151311"
             }
           ]
         }
-      ]
+      ],
+      "columnGap": 20,
+      "margin": [0, 0, 0, 28]
     },
     {
-      "text": "All activity data and bookings are fictional. This starter is a local, single-user teaching app, not a production deployment template.",
-      "fontSize": 8,
-      "color": "#6B615C",
-      "margin": [0, 8, 0, 0]
+      "canvas": [
+        {
+          "type": "line",
+          "x1": 0,
+          "y1": 0,
+          "x2": 532,
+          "y2": 0,
+          "lineWidth": 0.7,
+          "lineColor": "#D2CCC7"
+        }
+      ],
+      "margin": [0, 0, 0, 18]
+    },
+    {
+      "text": "BUILD SOMETHING REAL. ENTER THE FACTORY TRACK.",
+      "style": "eyebrow",
+      "margin": [0, 0, 0, 9]
+    },
+    {
+      "text": "Best Use of the Factory Droid SDK",
+      "fontSize": 16,
+      "bold": true,
+      "margin": [0, 0, 0, 8]
+    },
+    {
+      "text": "$2,000 cash + Factory credits + swag",
+      "fontSize": 15,
+      "margin": [0, 0, 0, 10]
+    },
+    {
+      "text": "Use the TypeScript or Python SDK meaningfully in your working product. Show what Droid does, and explain the integration in your README.",
+      "style": "body",
+      "margin": [0, 0, 0, 14]
+    },
+    {
+      "text": "Prizes subject to change.",
+      "style": "small"
     }
   ]
 }
