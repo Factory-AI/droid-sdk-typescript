@@ -8,7 +8,7 @@
  * that attaches that agent with handlers (`droid.sessions.resume(agentId, ...)`).
  *
  * Set DROID_DAEMON_URL and FACTORY_API_KEY for an existing daemon whose account
- * has access to workstreams. Set WORKSTREAM_COMPUTER_ID to let agents also run
+ * has access to workstreams. Set DROID_WORKSTREAM_COMPUTER_ID to let agents also run
  * on that computer instead of only on this daemon's machine.
  * Usage: npx tsx examples/node/start-workstream.ts "<goal>" [cwd]
  */
@@ -23,7 +23,7 @@ import {
 
 const url = process.env.DROID_DAEMON_URL;
 const apiKey = process.env.FACTORY_API_KEY;
-const computerId = process.env.WORKSTREAM_COMPUTER_ID;
+const computerId = process.env.DROID_WORKSTREAM_COMPUTER_ID;
 if (!url || !apiKey) {
   throw new Error('Set DROID_DAEMON_URL and FACTORY_API_KEY.');
 }

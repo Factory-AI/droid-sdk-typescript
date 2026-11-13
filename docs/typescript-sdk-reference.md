@@ -936,7 +936,7 @@ The namespaced daemon facade normalizes common collection results:
 - `sessions.getMessages()` returns the message array directly.
 - Collection methods such as `customModels.list()`, `terminals.list()`,
   `mcp.listRegistry()`, `mcp.listTools()`, `commands.list()`, and the plugin,
-  marketplace, automation, and Software Factory list methods return arrays.
+  marketplace, and automation list methods return arrays.
 - Methods whose protocol result includes additional metadata retain the result
   object. This includes `sessions.search()`, `mcp.listServers()`, and
   `skills.list()`.
@@ -1102,10 +1102,12 @@ different Factory API host.
 
 The `@factory/droid-sdk/api` entry point exports a client generated from the
 public Factory API spec, with one function per operation. Each operation takes
-`{ client }` from `createFactoryClient()` and resolves `{ data, error }`
-instead of throwing. Several names, such as `listComputers`, exist on both
-entry points with different contracts, so a file that imports both should
-alias the shared names.
+`{ client }` from `createFactoryClient()` and resolves `{ data, error }`,
+where `error` holds the body of an HTTP error response. A network failure, an
+abort, or a response that cannot be parsed rejects the call instead, and
+`throwOnError: true` makes HTTP errors reject too. Several names, such as
+`listComputers`, exist on both entry points with different contracts, so a
+file that imports both should alias the shared names.
 
 ```ts
 import { createFactoryClient, listComputers } from '@factory/droid-sdk/api';
@@ -1128,6 +1130,9 @@ APIs under `droid.unstable` may change between SDK releases.
 | `semanticDiff`  | `getCache`, `saveCache`, `generate`               |
 | `fileTransfers` | `push`, `pull`                                    |
 | `proxy`         | `getToken`                                        |
+
+See [`examples/node/start-workstream.ts`](../examples/node/start-workstream.ts)
+for `workstreams.start()`.
 
 Keep unstable API use behind an application-owned adapter.
 
@@ -1334,7 +1339,6 @@ switch (result.subtype) {
 - Daemon replacement locking does not coordinate separate clients.
 - Browser daemon authentication currently requires an API key.
 - New-session spec handoff IDs require raw notification inspection.
-- REST remote-session support currently provides listing only.
 
 ## Runnable examples
 
@@ -1342,7 +1346,8 @@ The package includes runnable examples for one-shot runs, streaming, partial
 events, sessions, resume, model selection, permissions, AskUser, image and
 document attachments, structured output, SDK and external MCP tools, skills,
 hooks, observability, spec mode, replacement lifecycle, daemon sessions,
-concurrent browser sessions, daemon lifecycle operations, and missions.
+concurrent browser sessions, daemon lifecycle operations, missions,
+workstreams, and the Factory REST API.
 
 All examples are under:
 
@@ -1369,6 +1374,8 @@ Some examples need additional input:
 - `document-input.ts`: optionally pass a text or PDF path.
 - `external-mcp.ts`: set `MCP_SERVER_URL` and, if necessary, `MCP_SERVER_TOKEN`.
 - `daemon-session.ts`: start a daemon first. Set `DROID_DAEMON_URL` for a non-default address.
+- `start-workstream.ts`: pass the workstream goal, and set `DROID_DAEMON_URL` for a running daemon whose account has access to workstreams.
+- `rest-api.ts`: optionally pass the API base URL.
 
 Use compatible SDK and CLI versions. SDK 0.9.1 and earlier can reject newer
 protocol messages, including model providers and Script permission requests.
@@ -1376,19 +1383,20 @@ Use SDK 0.10.0 or later with current CLI releases.
 A successful result without assistant text does not prove that streaming works.
 Do not remove permission checks to bypass a protocol mismatch.
 
-| Topic                      | Node examples                                                                                                                    |
-| -------------------------- | -------------------------------------------------------------------------------------------------------------------------------- |
-| Runs and results           | `run.ts`, `result-metadata.ts`                                                                                                   |
-| Sessions                   | `multi-turn-session.ts`, `resume-session.ts`, `list-sessions.ts`, `rename-session.ts`, `init-metadata.ts`, `session-settings.ts` |
-| Streaming and cancellation | `session-stream.ts`, `partial-stream.ts`, `abort-session-stream.ts`, `interrupt-session.ts`                                      |
-| Models                     | `model-discovery.ts`, `model-selection.ts`                                                                                       |
-| Inputs and outputs         | `image-attachment.ts`, `document-input.ts`, `structured-output.ts`                                                               |
-| Permissions and user input | `permission-handler.ts`, `ask-user-elicitation.ts`, `tool-controls.ts`                                                           |
-| Extensions                 | `sdk-mcp-tool.ts`, `external-mcp.ts`, `skills.ts`, `hook-execution.ts`                                                           |
-| Session lifecycle          | `fork-session.ts`, `compact-session.ts`, `rewind-session.ts`                                                                     |
-| Spec mode                  | `enter-spec-mode.ts`, `spec-mode-same-session.ts`, `spec-mode-new-session.ts`                                                    |
-| Daemon and missions        | `daemon-session.ts`, `mission.ts`                                                                                                |
-| Observability              | `observability.ts`                                                                                                               |
+| Topic                             | Node examples                                                                                                                    |
+| --------------------------------- | -------------------------------------------------------------------------------------------------------------------------------- |
+| Runs and results                  | `run.ts`, `result-metadata.ts`                                                                                                   |
+| Sessions                          | `multi-turn-session.ts`, `resume-session.ts`, `list-sessions.ts`, `rename-session.ts`, `init-metadata.ts`, `session-settings.ts` |
+| Streaming and cancellation        | `session-stream.ts`, `partial-stream.ts`, `abort-session-stream.ts`, `interrupt-session.ts`                                      |
+| Models                            | `model-discovery.ts`, `model-selection.ts`                                                                                       |
+| Inputs and outputs                | `image-attachment.ts`, `document-input.ts`, `structured-output.ts`                                                               |
+| Permissions and user input        | `permission-handler.ts`, `ask-user-elicitation.ts`, `tool-controls.ts`                                                           |
+| Extensions                        | `sdk-mcp-tool.ts`, `external-mcp.ts`, `skills.ts`, `hook-execution.ts`                                                           |
+| Session lifecycle                 | `fork-session.ts`, `compact-session.ts`, `rewind-session.ts`                                                                     |
+| Spec mode                         | `enter-spec-mode.ts`, `spec-mode-same-session.ts`, `spec-mode-new-session.ts`                                                    |
+| Daemon, missions, and workstreams | `daemon-session.ts`, `mission.ts`, `start-workstream.ts`                                                                         |
+| Factory REST API                  | `rest-api.ts`                                                                                                                    |
+| Observability                     | `observability.ts`                                                                                                               |
 
 Start a mission in a test project and print orchestrator and worker progress.
 `interactionMode: DroidInteractionMode.Mission` alone does not give the session

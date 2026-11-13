@@ -2,7 +2,8 @@
  * Factory REST API example.
  *
  * Lists the Computers and remote sessions an API key can see, using the
- * client generated from the public Factory API spec.
+ * client generated from the public Factory API spec. Listing sessions works
+ * only for organizations that have that feature enabled.
  *
  * These operations take `{ client }` from `createFactoryClient({ apiKey, baseUrl })`
  * and resolve `{ data, error }`. The root `@factory/droid-sdk` REST helpers
