@@ -22,7 +22,7 @@
  *   --concurrency <n>  Chains to run at the same time (default 4)
  *   --only <a,b>       Run only these examples (and the chain steps they need)
  *   --skip <a,b>       Do not run these examples; reject dependency conflicts
- *   --include <a,b>    Add opt-in examples (mission)
+ *   --include <a,b>    Add opt-in examples (mission, start-workstream)
  *   --out <dir>        Directory for logs and the report
  *   --droid <path>     Droid executable for the daemon (default: droid on PATH)
  *   --retries <n>      Run a failed chain again up to n times, each time in a
@@ -334,6 +334,13 @@ export const EXAMPLES = {
       stdoutMatches(/turns:    [1-9]/),
     ],
   },
+  'rest-api': {
+    checks: [
+      exitZero(),
+      stdoutMatches(/^Computers \(\d+\):$/m, 'listed Computers'),
+      stdoutMatches(/^Recent sessions \(\d+\):$/m, 'listed sessions'),
+    ],
+  },
   'resume-session': {
     args: (state) => [state.savedId ?? 'missing-session-id'],
     checks: [
@@ -453,6 +460,20 @@ export const EXAMPLES = {
       custom('CONTRIBUTING.md exists', (ctx) => ({
         ok: existsSync(join(ctx.project, 'CONTRIBUTING.md')),
       })),
+    ],
+  },
+  'start-workstream': {
+    optIn: true,
+    daemon: true,
+    timeoutSec: 600,
+    args: () => ['Reply with one short sentence. Start no agents.'],
+    checks: [
+      exitZero(),
+      stdoutMatches(
+        new RegExp(`^Workstream ${UUID} started\\.$`, 'm'),
+        'the workstream started'
+      ),
+      stdoutMatches(/keeps running in the daemon\.$/m),
     ],
   },
 };
