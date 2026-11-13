@@ -1,5 +1,54 @@
 # Migration Guide
 
+## Migrating from 0.10.0 to 0.11.0
+
+### 1. Upgrade the package
+
+```bash
+npm install @factory/droid-sdk@^0.11.0
+```
+
+Applications that use `run()`, `createSession()`, `resumeSession()`, or
+`connectToDaemon()` sessions need no changes. Two unstable daemon resources
+lost methods.
+
+### 2. Remove Software Factory calls
+
+`droid.unstable.softwareFactory` is gone, with its `workstreams`, `signals`,
+`changes`, `activities`, and `events` resources and their types
+(`SoftwareFactoryResource`, `SoftwareFactoryWorkstreamsResource`,
+`SoftwareFactorySignalsResource`, `SoftwareFactoryChangesResource`,
+`SoftwareFactoryActivitiesResource`, `SoftwareFactoryEventsResource`, and
+`SoftwareFactoryWorkstreamEntry`). Daemons no longer serve them.
+
+### 3. Remove held cron sessions
+
+`droid.unstable.crons.holdSession()` and `resumeSession()` are gone, with the
+`CronOperationsResource` type. A loop tick now reaches its session as a steering
+message, so there is no held state to set or clear. `list`, `create`, `update`,
+and `delete` are unchanged.
+
+### 4. New in 0.11.0
+
+- `droid.unstable.workstreams` starts, lists, and updates workstreams on a
+  daemon. See
+  [`examples/node/start-workstream.ts`](./examples/node/start-workstream.ts).
+- `@factory/droid-sdk/api` exports a client generated from the public Factory
+  API spec. See [`examples/node/rest-api.ts`](./examples/node/rest-api.ts).
+- The root entry point adds `listEnvironments`, `listRemoteSessionElicitations`,
+  and `answerRemoteSessionElicitation`.
+- `@factory/droid-sdk/node` adds `DroidConnectionEndedError`,
+  `RequestCancelledError`, and `isDroidConnectionEnded`.
+
+### 5. Verify the migration
+
+```bash
+npm run typecheck
+npm run lint
+npm run format:check
+npx tsx examples/node/list-sessions.ts
+```
+
 ## Migrating from 0.9.x to 0.10.0
 
 ### 1. Upgrade the package

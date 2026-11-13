@@ -1095,22 +1095,39 @@ different Factory API host.
 | Resource            | Functions                                                                                                                                       |
 | ------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------- |
 | Machine templates   | `listMachineTemplates`, `getMachineTemplate`                                                                                                    |
+| Environments        | `listEnvironments`                                                                                                                              |
 | Computers           | `listComputers`, `getComputer`, `getComputerByName`, `createComputer`, `updateComputer`, `deleteComputer`, `restartComputer`, `refreshComputer` |
 | Computer operations | `getComputerMetrics`, `retryInstallDeps`                                                                                                        |
-| Remote sessions     | `listRemoteSessions`                                                                                                                            |
+| Remote sessions     | `listRemoteSessions`, `listRemoteSessionElicitations`, `answerRemoteSessionElicitation`                                                         |
+
+The `@factory/droid-sdk/api` entry point exports a client generated from the
+public Factory API spec, with one function per operation. Each operation takes
+`{ client }` from `createFactoryClient()` and resolves `{ data, error }`
+instead of throwing. Several names, such as `listComputers`, exist on both
+entry points with different contracts, so a file that imports both should
+alias the shared names.
+
+```ts
+import { createFactoryClient, listComputers } from '@factory/droid-sdk/api';
+
+const client = createFactoryClient({ apiKey: process.env.FACTORY_API_KEY! });
+const { data, error } = await listComputers({ client });
+```
+
+See [`examples/node/rest-api.ts`](../examples/node/rest-api.ts).
 
 ### Unstable daemon resources
 
 APIs under `droid.unstable` may change between SDK releases.
 
-| Namespace         | Main methods or resources                                                 |
-| ----------------- | ------------------------------------------------------------------------- |
-| `crons`           | `list`, `create`, `update`, `delete`, `holdSession`, `resumeSession`      |
-| `missions`        | `inspectReadiness`, `acknowledgeReadinessWarning`                         |
-| `semanticDiff`    | `getCache`, `saveCache`, `generate`                                       |
-| `fileTransfers`   | `push`, `pull`                                                            |
-| `proxy`           | `getToken`                                                                |
-| `softwareFactory` | `workstreams`, `signals`, `changes`, `activities`, and `events` resources |
+| Namespace       | Main methods or resources                         |
+| --------------- | ------------------------------------------------- |
+| `crons`         | `list`, `create`, `update`, `delete`              |
+| `missions`      | `inspectReadiness`, `acknowledgeReadinessWarning` |
+| `workstreams`   | `start`, `list`, `updateSettings`                 |
+| `semanticDiff`  | `getCache`, `saveCache`, `generate`               |
+| `fileTransfers` | `push`, `pull`                                    |
+| `proxy`         | `getToken`                                        |
 
 Keep unstable API use behind an application-owned adapter.
 

@@ -61,7 +61,9 @@ Run Node examples with `npx tsx examples/node/<file>.ts`. To connect a Node
 application to a running daemon with an API key, run
 `FACTORY_API_KEY=... npx tsx examples/node/daemon-session.ts`.
 To start a mission with orchestrator and worker progress, run
-`npx tsx examples/node/mission.ts`.
+`npx tsx examples/node/mission.ts`. To start a workstream on a running daemon
+and leave it running, run
+`DROID_DAEMON_URL=... FACTORY_API_KEY=... npx tsx examples/node/start-workstream.ts "<goal>"`.
 
 For browser examples, start a local daemon and run
 `npm run serve:browser-example`, then open `http://127.0.0.1:8420/`. The
