@@ -6,7 +6,8 @@
  * host app does when the user toggles spec mode on an open conversation.
  *
  * The permission handler prints the proposed plan (`ExitSpecMode`), approves
- * it and the write to the output file, and cancels any other tool call.
+ * it, the write to the output file, and read-only commands, and cancels any
+ * other tool call.
  *
  * Usage:
  *   npx tsx examples/node/enter-spec-mode.ts
@@ -71,13 +72,17 @@ const handlePermissionRequest: ClientPermissionHandler = ({
     }
   }
 
-  // Approve the plan and the write to outputPath. Cancel everything else.
+  // Approve the plan, the write to outputPath, and commands that Droid rates
+  // low impact (read-only), such as `od -c hello.txt` to check the bytes it
+  // wrote. Cancel everything else. A cancel ends the turn as interrupted.
   const expected =
     confirmations.length > 0 &&
     confirmations.every(
       (details) =>
         details.type === ToolConfirmationType.ExitSpecMode ||
-        writesOnlyOutputFile(details)
+        writesOnlyOutputFile(details) ||
+        (details.type === ToolConfirmationType.Execute &&
+          details.impactLevel === 'low')
     );
   const outcome = expected
     ? ToolConfirmationOutcome.ProceedOnce
