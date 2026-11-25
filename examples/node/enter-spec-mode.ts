@@ -99,8 +99,13 @@ try {
     await session.enterSpecMode();
 
     // The handler cancels shell commands, so the prompt asks for a file tool.
+    // File tools end the file with a newline. Without the second sentence,
+    // Droid may read the text as exact bytes, then ask the user or check the
+    // bytes with a shell command. Both get cancelled, which ends the turn.
     for await (const message of session.stream(
-      `Create ${outputPath} containing "hello". Write it with a file editing tool, not a shell command.`
+      `Create ${outputPath} with one line of text: hello. ` +
+        'A trailing newline is fine. ' +
+        'Write it with a file editing tool, not a shell command.'
     )) {
       if (message.type === DroidMessageType.Result && !message.success) {
         throw new Error(
