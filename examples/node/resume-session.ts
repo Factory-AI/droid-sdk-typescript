@@ -21,9 +21,13 @@ try {
   console.log(`cwd: ${String(session.cwd)}`);
   console.log(`model: ${session.settings.modelId}`);
 
+  // Ask about the saved conversation so the answer shows its context carried
+  // over. An open-ended "continue" leaves Droid nothing to do, so it may ask
+  // the user what to do next. Without an askUserHandler the SDK cancels that
+  // question, which ends the turn as interrupted.
   let assistantText = '';
   for await (const message of session.stream(
-    'Continue from the last conversation.'
+    'In one sentence, what did I ask you to do earlier in this conversation?'
   )) {
     if (message.type === DroidMessageType.Assistant) {
       assistantText += message.text;
